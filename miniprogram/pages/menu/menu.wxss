@@ -1,77 +1,390 @@
+/* 菜单 Tab Phase fixture — 延续首页温暖家庭风 */
 .page {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
+  padding: 0 0 24rpx;
+  min-height: 100vh;
+  box-sizing: border-box;
   background: #FFF9F0;
 }
 
-/* 顶部搜索 */
-.top-bar {
+/* ===== 顶部双段切换 ===== */
+.tab-switch {
+  display: flex;
+  background: #FFFFFF;
+  padding: 16rpx 24rpx;
+  gap: 16rpx;
+  border-bottom: 1rpx solid #F0EBE3;
+}
+
+.tab-item {
+  flex: 1;
   display: flex;
   align-items: center;
-  padding: 20rpx 24rpx;
+  justify-content: center;
+  padding: 14rpx 0;
+  border-radius: 16rpx;
+  background: #F5F0E8;
+  font-size: 26rpx;
+  color: #8D6E63;
+  font-weight: 500;
+}
+
+.tab-active {
+  background: #7CB342;
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
+/* ===== 本周安排视图 ===== */
+.weekly-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 24rpx 12rpx;
+}
+
+.weekly-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12rpx;
+}
+
+.weekly-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #3E2723;
+}
+
+.weekly-range {
+  font-size: 22rpx;
+  color: #A1887F;
+}
+
+.weekly-rearrange-text {
+  font-size: 22rpx;
+  color: #7CB342;
+  font-weight: 500;
+}
+
+/* 日期条（复用首页视觉）*/
+.week-tabs {
+  white-space: nowrap;
+  padding: 0 24rpx;
+  margin-bottom: 16rpx;
+}
+
+.week-tab {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 84rpx;
+  height: 88rpx;
+  border-radius: 20rpx;
+  margin-right: 10rpx;
+  background: #FAF7F2;
+}
+
+.week-tab-label {
+  font-size: 24rpx;
+  color: #8D6E63;
+  font-weight: 500;
+}
+
+.week-tab-date {
+  font-size: 18rpx;
+  color: #BCAAA4;
+  margin-top: 4rpx;
+}
+
+.week-tab-today .week-tab-label {
+  color: #7CB342;
+  font-weight: 700;
+}
+
+.week-tab-active {
+  background: #7CB342;
+}
+
+.week-tab-active .week-tab-label,
+.week-tab-active .week-tab-date {
+  color: #FFFFFF;
+}
+
+/* 三餐容器 */
+.meals-container {
+  padding: 0 24rpx;
+}
+
+.meal-section {
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 18rpx 20rpx;
+  margin-bottom: 14rpx;
+  box-shadow: 0 2rpx 12rpx rgba(92, 74, 58, 0.05);
+}
+
+.meal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14rpx;
+}
+
+.meal-header-left {
+  display: flex;
+  align-items: center;
+}
+
+.meal-icon {
+  font-size: 28rpx;
+  margin-right: 8rpx;
+}
+
+.meal-name {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #3E2723;
+  margin-right: 10rpx;
+}
+
+.meal-count {
+  font-size: 18rpx;
+  color: #A1887F;
+  background: #EFEBE9;
+  border-radius: 10rpx;
+  padding: 2rpx 10rpx;
+}
+
+.meal-rearrange {
+  font-size: 20rpx;
+  color: #7CB342;
+  font-weight: 500;
+}
+
+/* 菜品横向排列 */
+.meal-dishes {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 12rpx;
+  overflow-x: auto;
+}
+
+.plan-dish-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 110rpx;
+  flex-shrink: 0;
+}
+
+.plan-dish-thumb {
+  width: 90rpx;
+  height: 90rpx;
+  border-radius: 18rpx;
+  overflow: hidden;
+  margin-bottom: 6rpx;
+  position: relative;
+}
+
+.plan-dish-img {
+  width: 90rpx;
+  height: 90rpx;
+  display: block;
+}
+
+.plan-dish-ph {
+  width: 90rpx;
+  height: 90rpx;
+  border-radius: 18rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plan-dish-ph-text {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #5D4037;
+}
+
+.plan-dish-lock {
+  position: absolute;
+  top: 2rpx;
+  right: 2rpx;
+  font-size: 16rpx;
+  background: rgba(255,255,255,0.85);
+  border-radius: 50%;
+  width: 28rpx;
+  height: 28rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plan-dish-name {
+  font-size: 18rpx;
+  color: #3E2723;
+  font-weight: 500;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+  margin-bottom: 4rpx;
+}
+
+.plan-dish-actions {
+  display: flex;
+  gap: 6rpx;
+}
+
+.dish-action {
+  font-size: 14rpx;
+  color: #A1887F;
+  background: #F5F0E8;
+  border-radius: 6rpx;
+  padding: 2rpx 6rpx;
+}
+
+.dish-action-del {
+  color: #E57373;
+}
+
+/* + 添加菜品 */
+.plan-dish-add {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 90rpx;
+  height: 90rpx;
+  border: 2rpx dashed #C8E6C9;
+  border-radius: 18rpx;
+  background: #F1F8E9;
+  flex-shrink: 0;
+}
+
+.plan-dish-add-icon {
+  font-size: 32rpx;
+  color: #7CB342;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.plan-dish-add-text {
+  font-size: 16rpx;
+  color: #7CB342;
+  margin-top: 4rpx;
+  font-weight: 500;
+}
+
+/* 重新安排今天 */
+.rearrange-day-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 20rpx 24rpx 0;
+  padding: 18rpx 0;
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  font-size: 24rpx;
+  color: #7CB342;
+  font-weight: 500;
+  box-shadow: 0 2rpx 12rpx rgba(92, 74, 58, 0.05);
+}
+
+/* ===== 全部菜品视图 ===== */
+
+/* 目标餐次上下文 */
+.target-bar {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 24rpx 10rpx;
   background: #FFF9F0;
+}
+
+.target-label {
+  font-size: 22rpx;
+  color: #8D6E63;
+}
+
+.target-meal {
+  font-size: 24rpx;
+  color: #7CB342;
+  font-weight: 600;
+  margin: 0 6rpx;
+}
+
+.target-hint {
+  font-size: 22rpx;
+  color: #8D6E63;
+}
+
+/* 搜索框 */
+.search-bar {
+  display: flex;
+  align-items: center;
+  padding: 0 24rpx 14rpx;
+  gap: 12rpx;
 }
 
 .search-box {
   flex: 1;
   display: flex;
   align-items: center;
-  height: 72rpx;
-  background: #F5F5F5;
-  border-radius: 36rpx;
-  padding: 0 28rpx;
-  margin-right: 20rpx;
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 14rpx 20rpx;
+  box-shadow: 0 2rpx 10rpx rgba(92, 74, 58, 0.05);
 }
 
 .search-icon {
-  font-size: 28rpx;
-  margin-right: 12rpx;
+  font-size: 24rpx;
+  margin-right: 10rpx;
 }
 
 .search-input {
   flex: 1;
-  font-size: 26rpx;
+  font-size: 24rpx;
   color: #3E2723;
 }
 
 .search-placeholder {
-  color: #BDBDBD;
+  color: #BCAAA4;
 }
 
-.add-btn {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 50%;
-  background: #7CB342;
-  color: #FFFFFF;
-  font-size: 40rpx;
+.filter-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 14rpx 20rpx;
+  font-size: 22rpx;
+  color: #7CB342;
+  font-weight: 500;
+  box-shadow: 0 2rpx 10rpx rgba(92, 74, 58, 0.05);
 }
 
-/* 内容区 */
-.content {
-  flex: 1;
+/* 分类 + 列表 */
+.recipes-content {
   display: flex;
-  overflow: hidden;
+  height: calc(100vh - 340rpx);
+  padding: 0 24rpx;
 }
 
-/* 左侧分类栏 */
-.sidebar {
-  width: 160rpx;
-  background: #FAFAFA;
-  height: 100%;
+.cat-sidebar {
+  width: 140rpx;
+  flex-shrink: 0;
+  background: #FAF7F2;
+  border-radius: 16rpx 0 0 16rpx;
+  padding: 10rpx 0;
 }
 
 .cat-item {
-  height: 96rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 26rpx;
+  padding: 20rpx 0;
+  text-align: center;
+  font-size: 22rpx;
   color: #8D6E63;
   position: relative;
 }
@@ -79,7 +392,7 @@
 .cat-item-active {
   background: #FFFFFF;
   color: #7CB342;
-  font-weight: bold;
+  font-weight: 600;
 }
 
 .cat-item-active::before {
@@ -89,115 +402,189 @@
   top: 50%;
   transform: translateY(-50%);
   width: 6rpx;
-  height: 40rpx;
+  height: 32rpx;
   background: #7CB342;
   border-radius: 0 4rpx 4rpx 0;
 }
 
 /* 右侧菜品列表 */
-.dish-list {
+.recipe-list {
   flex: 1;
-  height: 100%;
-  padding: 16rpx 20rpx;
-  box-sizing: border-box;
-}
-
-.dish-card {
-  display: flex;
   background: #FFFFFF;
-  border-radius: 24rpx;
-  padding: 20rpx;
-  margin-bottom: 16rpx;
-  box-shadow: 0 2rpx 12rpx rgba(92, 74, 58, 0.06);
+  border-radius: 0 16rpx 16rpx 0;
+  padding: 10rpx 16rpx;
 }
 
-.dish-img {
-  width: 160rpx;
-  height: 120rpx;
-  border-radius: 16rpx;
-  flex-shrink: 0;
-  margin-right: 20rpx;
-}
-
-.dish-info {
-  flex: 1;
+.recipe-row {
   display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  min-width: 0;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #F5F0E8;
 }
 
-.dish-name {
-  font-size: 28rpx;
-  font-weight: bold;
-  color: #3E2723;
+.recipe-row:last-child {
+  border-bottom: none;
+}
+
+.recipe-thumb {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 16rpx;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dish-tags {
-  display: flex;
-  flex-wrap: wrap;
-  margin: 8rpx 0;
-}
-
-.tag {
-  display: inline-flex;
-  align-items: center;
-  height: 32rpx;
-  padding: 0 12rpx;
-  border-radius: 16rpx;
-  font-size: 20rpx;
-  margin-right: 8rpx;
-  margin-bottom: 4rpx;
-}
-
-.tag-green {
-  background: #E8F5E9;
-  color: #7CB342;
-}
-
-.tag-orange {
-  background: #FFF3E0;
-  color: #FF9800;
-}
-
-.tag-gray {
-  background: #F5F5F5;
-  color: #9E9E9E;
-}
-
-.dish-meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.meta-item {
-  font-size: 22rpx;
-  color: #BDBDBD;
+  flex-shrink: 0;
   margin-right: 16rpx;
 }
 
-.loading, .empty {
+.recipe-img {
+  width: 100rpx;
+  height: 100rpx;
+  display: block;
+}
+
+.recipe-ph {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.recipe-ph-text {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #5D4037;
+}
+
+.recipe-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.recipe-name {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #3E2723;
+  display: block;
+  margin-bottom: 6rpx;
+}
+
+.recipe-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6rpx;
+  margin-bottom: 6rpx;
+}
+
+.tag {
+  font-size: 16rpx;
+  border-radius: 6rpx;
+  padding: 2rpx 8rpx;
+}
+
+.tag-pink {
+  background: #FCE4EC;
+  color: #E91E63;
+}
+
+.tag-gray {
+  background: #EFEBE9;
+  color: #8D6E63;
+}
+
+.recipe-meta {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.meta-item {
+  font-size: 18rpx;
+  color: #A1887F;
+}
+
+.meta-kiss {
+  color: #E91E63;
+}
+
+/* 加入按钮 */
+.recipe-add-btn {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  background: #7CB342;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: 12rpx;
+}
+
+.recipe-add-text {
+  font-size: 32rpx;
+  color: #FFFFFF;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.recipe-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 120rpx 0;
-  color: #BDBDBD;
-  font-size: 26rpx;
+  padding: 80rpx 0;
 }
 
-.empty-icon {
-  font-size: 80rpx;
+.recipe-empty-icon {
+  font-size: 64rpx;
   margin-bottom: 16rpx;
 }
 
-.list-bottom {
+.recipe-empty-text {
+  font-size: 24rpx;
+  color: #BCAAA4;
+}
+
+.recipe-list-bottom {
   text-align: center;
-  padding: 32rpx 0;
+  font-size: 20rpx;
+  color: #BCAAA4;
+  padding: 20rpx 0;
+}
+
+/* ===== mini cart（sticky）===== */
+.mini-cart {
+  position: fixed;
+  left: 24rpx;
+  right: 24rpx;
+  bottom: calc(100rpx + env(safe-area-inset-bottom));
+  background: #3E2723;
+  border-radius: 40rpx;
+  padding: 20rpx 28rpx;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 4rpx 20rpx rgba(62, 39, 35, 0.3);
+  z-index: 100;
+}
+
+.mini-cart-icon {
+  font-size: 32rpx;
+  margin-right: 12rpx;
+}
+
+.mini-cart-text {
+  flex: 1;
+  font-size: 24rpx;
+  color: #FFFFFF;
+  font-weight: 500;
+}
+
+.mini-cart-action {
   font-size: 22rpx;
-  color: #BDBDBD;
+  color: #AED581;
+  font-weight: 600;
+}
+
+/* 底部安全区 */
+.bottom-space {
+  height: calc(120rpx + env(safe-area-inset-bottom));
 }

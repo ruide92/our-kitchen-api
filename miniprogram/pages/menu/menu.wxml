@@ -1,48 +1,174 @@
 <view class="page">
-  <!-- 顶部搜索 -->
-  <view class="top-bar">
-    <view class="search-box">
-      <text class="search-icon">🔍</text>
-      <input class="search-input" placeholder="搜索菜谱、食材、菜系" placeholder-class="search-placeholder" value="{{searchText}}" bindinput="onSearchInput" />
+
+  <!-- ===== 顶部双段切换 ===== -->
+  <view class="tab-switch">
+    <view class="tab-item {{activeTab === 'weekly' ? 'tab-active' : ''}}" data-tab="weekly" bindtap="switchTab">
+      <text>本周安排</text>
     </view>
-    <view class="add-btn" bindtap="goAdd">+</view>
+    <view class="tab-item {{activeTab === 'recipes' ? 'tab-active' : ''}}" data-tab="recipes" bindtap="switchTab">
+      <text>全部菜品</text>
+    </view>
   </view>
 
-  <view class="content">
-    <!-- 左侧分类栏 -->
-    <scroll-view class="sidebar" scroll-y>
-      <view wx:for="{{categories}}" wx:key="*this" class="cat-item {{currentCategory === item ? 'cat-item-active' : ''}}" data-category="{{item}}" bindtap="selectCategory">
-        {{item}}
+  <!-- ==================== 本周安排视图 ==================== -->
+  <block wx:if="{{activeTab === 'weekly'}}">
+
+    <!-- 头部：标题 + 日期范围 + 重新安排本周 -->
+    <view class="weekly-header">
+      <view class="weekly-title-row">
+        <text class="weekly-title">本周安排</text>
+        <text class="weekly-range">{{weekRangeText}}</text>
+      </view>
+      <view class="weekly-rearrange" bindtap="rearrangeWeek">
+        <text class="weekly-rearrange-text">重新安排本周</text>
+      </view>
+    </view>
+
+    <!-- 周一至周日 -->
+    <scroll-view class="week-tabs" scroll-x="true" enhanced="true" show-scrollbar="false">
+      <view
+        wx:for="{{weekDays}}"
+        wx:key="index"
+        class="week-tab {{selectedDayIndex === item.index ? 'week-tab-active' : ''}} {{item.isToday ? 'week-tab-today' : ''}}"
+        data-index="{{item.index}}"
+        bindtap="selectDay"
+      >
+        <text class="week-tab-label">{{item.label}}</text>
+        <text class="week-tab-date">{{item.date}}</text>
       </view>
     </scroll-view>
 
-    <!-- 右侧菜品列表 -->
-    <scroll-view class="dish-list" scroll-y>
-      <view wx:if="{{loading}}" class="loading">加载中...</view>
-      <view wx:elif="{{dishes.length === 0}}" class="empty">
-        <text class="empty-icon">🍽️</text>
-        <text class="empty-text">暂无菜品</text>
-      </view>
-      <view wx:else>
-        <view wx:for="{{dishes}}" wx:key="id" class="dish-card" data-id="{{item.id}}" bindtap="goDetail">
-          <image class="dish-img" src="{{item.image}}" mode="aspectFill"></image>
-          <view class="dish-info">
-            <text class="dish-name">{{item.name}}</text>
-            <view class="dish-tags">
-              <text wx:if="{{item.category}}" class="tag tag-green">{{item.category}}</text>
-              <text wx:if="{{item.is_lazy}}" class="tag tag-orange">懒人菜</text>
-              <text wx:if="{{item.equipment}}" class="tag tag-gray">{{item.equipment}}</text>
+    <!-- 当天三餐 -->
+    <view class="meals-container">
+      <view wx:for="{{selectedMeals}}" wx:key="key" class="meal-section">
+        <!-- 餐次标题行 -->
+        <view class="meal-header">
+          <view class="meal-header-left">
+            <text class="meal-icon">{{item.icon}}</text>
+            <text class="meal-name">{{item.label}}</text>
+            <text class="meal-count">{{item.count}}项</text>
+          </view>
+          <view class="meal-header-right">
+            <text class="meal-rearrange" data-meal-key="{{item.key}}" catchtap="rearrangeMeal">重新安排</text>
+          </view>
+        </view>
+
+        <!-- 菜品横向排列 -->
+        <view class="meal-dishes">
+          <view wx:for="{{item.dishes}}" wx:for-item="dish" wx:key="id" class="plan-dish-card">
+            <view class="plan-dish-thumb">
+              <image wx:if="{{dish.coverImageUrl}}" src="{{dish.coverImageUrl}}" mode="aspectFill" class="plan-dish-img"></image>
+              <view wx:else class="plan-dish-ph" style="background:{{dish.color}};">
+                <text class="plan-dish-ph-text">{{dish.initial}}</text>
+              </view>
+              <view wx:if="{{dish.locked}}" class="plan-dish-lock">🔒</view>
             </view>
-            <view class="dish-meta">
-              <text wx:if="{{item.spicy_level > 0}}" class="meta-item">{{item.spicyIcons}}</text>
-              <text wx:if="{{item.is_sweet}}" class="meta-item">🍬甜</text>
-              <text class="meta-item">⏱{{item.cook_time || 20}}分钟</text>
-              <text class="meta-item">📊{{item.difficultyText}}</text>
+            <text class="plan-dish-name">{{dish.name}}</text>
+            <!-- 轻量操作：锁定/换一道/删除 -->
+            <view class="plan-dish-actions">
+              <text class="dish-action" data-item-id="{{dish.id}}" catchtap="toggleLock">{{dish.locked ? '解锁' : '锁定'}}</text>
+              <text class="dish-action" data-item-id="{{dish.id}}" catchtap="swapDish">换一道</text>
+              <text class="dish-action dish-action-del" data-item-id="{{dish.id}}" catchtap="removePlanItem">删除</text>
             </view>
+          </view>
+
+          <!-- + 添加菜品 -->
+          <view class="plan-dish-add" data-meal-key="{{item.key}}" bindtap="addToMeal">
+            <text class="plan-dish-add-icon">+</text>
+            <text class="plan-dish-add-text">添加</text>
           </view>
         </view>
       </view>
-      <view class="list-bottom">共 {{dishes.length}} 道菜</view>
-    </scroll-view>
-  </view>
+    </view>
+
+    <!-- 重新安排今天 -->
+    <view class="rearrange-day-btn" bindtap="rearrangeDay">
+      <text>重新安排今天</text>
+    </view>
+
+  </block>
+
+  <!-- ==================== 全部菜品视图 ==================== -->
+  <block wx:if="{{activeTab === 'recipes'}}">
+
+    <!-- 目标餐次上下文 -->
+    <view class="target-bar">
+      <text class="target-label">正在为：</text>
+      <text class="target-meal">{{targetMealText}}</text>
+      <text class="target-hint">选菜</text>
+    </view>
+
+    <!-- 搜索框 -->
+    <view class="search-bar">
+      <view class="search-box">
+        <text class="search-icon">🔍</text>
+        <input class="search-input" placeholder="搜索菜名、食材、菜系" placeholder-class="search-placeholder" value="{{searchText}}" bindinput="onSearchInput" />
+      </view>
+      <view class="filter-btn">
+        <text>筛选</text>
+      </view>
+    </view>
+
+    <!-- 左侧分类 + 右侧菜品列表 -->
+    <view class="recipes-content">
+      <!-- 左侧分类 -->
+      <scroll-view class="cat-sidebar" scroll-y>
+        <view
+          wx:for="{{categories}}"
+          wx:key="code"
+          class="cat-item {{currentCategory === item.code ? 'cat-item-active' : ''}}"
+          data-code="{{item.code}}"
+          bindtap="selectCategory"
+        >
+          {{item.label}}
+        </view>
+      </scroll-view>
+
+      <!-- 右侧菜品列表 -->
+      <scroll-view class="recipe-list" scroll-y>
+        <view wx:if="{{filteredRecipes.length === 0}}" class="recipe-empty">
+          <text class="recipe-empty-icon">🍽️</text>
+          <text class="recipe-empty-text">没有找到相关菜品</text>
+        </view>
+
+        <view wx:for="{{filteredRecipes}}" wx:key="id" class="recipe-row" data-id="{{item.id}}" bindtap="goDetail">
+          <view class="recipe-thumb">
+            <image wx:if="{{item.cover_image_url}}" src="{{item.cover_image_url}}" mode="aspectFill" class="recipe-img"></image>
+            <view wx:else class="recipe-ph" style="background:{{item._phColor || '#FFE0B2'}};">
+              <text class="recipe-ph-text">{{item.name.charAt(0)}}</text>
+            </view>
+          </view>
+          <view class="recipe-info">
+            <text class="recipe-name">{{item.name}}</text>
+            <view class="recipe-tags">
+              <text wx:if="{{item.familyVariantText}}" class="tag tag-pink">{{item.familyVariantText}}</text>
+              <text wx:for="{{item.tags}}" wx:for-item="tag" wx:key="*this" class="tag tag-gray">{{tag}}</text>
+            </view>
+            <view class="recipe-meta">
+              <text class="meta-item">⏱{{item.timeText}}</text>
+              <text wx:if="{{item.spicyText}}" class="meta-item">{{item.spicyText}}</text>
+              <text wx:if="{{item.kissText}}" class="meta-item meta-kiss">{{item.kissText}}</text>
+            </view>
+          </view>
+          <!-- 加入按钮 -->
+          <view class="recipe-add-btn" data-recipe-id="{{item.id}}" catchtap="addRecipeToMeal">
+            <text class="recipe-add-text">＋</text>
+          </view>
+        </view>
+
+        <view class="recipe-list-bottom">共 {{filteredRecipes.length}} 道菜</view>
+      </scroll-view>
+    </view>
+
+    <!-- mini cart（sticky，TabBar 上方）-->
+    <view wx:if="{{miniCartVisible}}" class="mini-cart" bindtap="goTodayMenu">
+      <text class="mini-cart-icon">🍽</text>
+      <text class="mini-cart-text">{{targetMealText}} · {{miniCartCount}}道</text>
+      <text class="mini-cart-action">查看菜单 ›</text>
+    </view>
+
+  </block>
+
+  <!-- 底部安全区 -->
+  <view class="bottom-space"></view>
 </view>
