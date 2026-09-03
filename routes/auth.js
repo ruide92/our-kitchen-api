@@ -45,7 +45,24 @@ router.post('/login', async (req, res) => {
     const token = generateToken(user.id);
     
     // 获取用户家庭
-    const family = getUserFamily(user.id);
+    let family = getUserFamily(user.id);
+    
+    // 如果没有家庭，自动创建一个默认家庭
+    if (!family) {
+      const familyId = generateId();
+      const inviteCode = crypto.randomBytes(3).toString('hex').toUpperCase();
+      db.prepare(`
+        INSERT INTO families (id, name, invite_code, created_by) 
+        VALUES (?, ?, ?, ?)
+      `).run(familyId, '我们家的大食堂', inviteCode, user.id);
+      
+      db.prepare(`
+        INSERT INTO family_members (id, family_id, user_id, role, joined_at) 
+        VALUES (?, ?, ?, ?, ?)
+      `).run(generateId(), familyId, user.id, 'OWNER', new Date().toISOString());
+      
+      family = getUserFamily(user.id);
+    }
     
     res.json({
       token,
