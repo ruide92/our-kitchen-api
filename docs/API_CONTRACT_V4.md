@@ -110,11 +110,11 @@ BASE 菜谱虽然是公共数据，但在家庭上下文中读取，是为了返
 
 ### GET `/api/v1/families/:family_id`
 
-返回 family、当前成员 role、settings 概要。
+返回 family（含 `version`）、当前成员 role、settings 概要。
 
 ### PATCH `/api/v1/families/:family_id`
 
-OWNER/ADMIN。允许：`name, photo_url, header_mode, version`。
+OWNER/ADMIN。允许：`name, photo_url, header_mode, version`；`version` 必填用于乐观并发。
 
 ### GET `/api/v1/families/:family_id/members`
 
@@ -132,14 +132,15 @@ OWNER；修改 role 或执行 remove。不能删除最后一个 OWNER。
 
 ### GET `/api/v1/families/:family_id/settings`
 
-返回 `family_settings`、cookware、成员偏好摘要、pantry staples 摘要。
+返回 `family_settings`（含 `version`）、cookware、成员偏好摘要、pantry staples 摘要。
 
 ### PATCH `/api/v1/families/:family_id/settings`
 
-OWNER/ADMIN。字段见 DATA_MODEL；数组关系采用显式字段：
+OWNER/ADMIN。`version` 必填。字段见 DATA_MODEL；数组关系采用显式字段：
 
 ```json
 {
+  "version":1,
   "default_diners":2,
   "breakfast_target_count":2,
   "lunch_target_count":2,
@@ -228,7 +229,7 @@ OWNER/ADMIN。字段见 DATA_MODEL；数组关系采用显式字段：
 }
 ```
 
-`ingredients` 传输结构永远是平面数组 + `type`，前端分组只作为 view model。
+`ingredients` 传输结构永远是平面数组 + `type`，前端分组只作为 view model。`unit_code` 无法可靠确定时允许 null，同时保留 `quantity_text/note`，该项不得进入未经确认的跨单位自动合并。
 
 ## 8. Family recipe writes
 
@@ -270,7 +271,7 @@ OWNER/ADMIN/MEMBER 可新建家庭菜谱；请求使用与 detail 相同的 reci
 
 ### PUT/DELETE `/api/v1/families/:family_id/recipes/:recipe_id/wish`
 
-近期“我想吃”。
+近期“我想吃”。DELETE 语义为将 ACTIVE wish 结束/取消，不影响 favorite/rating。
 
 ## 10. Weekly plans
 
@@ -383,7 +384,7 @@ PLANNING → CONFIRMED，并冻结用于该餐的菜谱版本/snapshot。
 {"data":{"recipes":[],"score_summary":{},"reasons":[]}}
 ```
 
-用户点“就吃这些”后调用 meal item API 批量加入（可增加 batch endpoint，若增加必须回写本文档）。
+用户点“就吃这些”后调用 meal item API 加入当前 meal；客户端可逐项调用，后续若增加 batch endpoint 必须先回写本文档。
 
 ## 13. Fridge
 
@@ -407,9 +408,7 @@ PLANNING → CONFIRMED，并冻结用于该餐的菜谱版本/snapshot。
 
 删除/清零需记录 inventory movement（实现可统一走 adjustment service）。
 
-### POST `/api/v1/families/:family_id/fridge/recalculate-availability`
-
-不要求公开 API；详情页库存摘要可由 recipe detail 或专用 quote endpoint 计算。不得把库存判断只做在前端。
+库存判断不得只做在前端；详情页可由 recipe detail 的 `inventory_summary` 获得。
 
 ## 14. Pantry staples
 
@@ -451,13 +450,15 @@ PLANNING → CONFIRMED，并冻结用于该餐的菜谱版本/snapshot。
 }
 ```
 
+无法可靠单位换算的项保留独立人工确认项，不把未知单位硬算进数值合并。
+
 ### POST `/api/v1/families/:family_id/shopping-lists/:list_id/items`
 
 手工添加，`source=MANUAL`。
 
 ### PATCH `/api/v1/families/:family_id/shopping-lists/:list_id/items/:item_id`
 
-允许 `required_quantity, purchased_quantity, is_purchased, note`。
+允许 `required_quantity, required_quantity_text, unit_code, purchased_quantity, is_purchased, note`。
 
 ### DELETE `/api/v1/families/:family_id/shopping-lists/:list_id/items/:item_id`
 
@@ -517,7 +518,7 @@ PLANNING → CONFIRMED，并冻结用于该餐的菜谱版本/snapshot。
 
 ### POST `/api/v1/families/:family_id/recipe-imports/parse`
 
-请求：`{"krp_text":"<KITCHEN_RECIPE_PACK>...</...>"}` 或标准 JSON payload。
+请求：`{"krp_text":"<KITCHEN_RECIPE_PACK>...</KITCHEN_RECIPE_PACK>"}` 或标准 JSON payload。
 
 返回 import id、normalized preview、errors、warnings、inferred_fields、uncertain_fields；状态 PARSED/NEEDS_REVIEW/VALIDATED。
 
@@ -549,7 +550,7 @@ Phase 3–8 未明确安排前不得先实现完整社交系统。
 
 ```json
 {
-  "family":{"id":"fixture-family","name":"我们的小厨房","photo_url":null,"header_mode":"DUAL_AVATAR"},
+  "family":{"id":"fixture-family","name":"我们的小厨房","photo_url":null,"header_mode":"DUAL_AVATAR","version":1},
   "members":[{"id":"m1","user":{"id":"u1","nickname":"锐","avatar_url":"..."}},{"id":"m2","user":{"id":"u2","nickname":"糖糖","avatar_url":"..."}}],
   "today":{"date":"2026-09-03","weekday":3,"diners_count":2},
   "weekly_plan":{"id":"fixture-plan","week_start_date":"2026-08-31","status":"ACTIVE","items":[]},
