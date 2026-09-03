@@ -210,133 +210,136 @@
   color: #FFFFFF;
 }
 
-/* 三餐列 */
-.meals-container {
+/* 三餐纵向三行 */
+.meals-vertical {
   display: flex;
+  flex-direction: column;
 }
 
-.meal-column {
-  flex: 1;
+.meal-row {
   background: #FAF7F2;
   border-radius: 24rpx;
-  padding: 16rpx 12rpx;
-  min-height: 200rpx;
-  margin: 0 6rpx;
+  padding: 20rpx 20rpx 16rpx;
+  margin-bottom: 16rpx;
 }
 
-.meal-column:first-child { margin-left: 0; }
-.meal-column:last-child { margin-right: 0; }
+.meal-row:last-child {
+  margin-bottom: 0;
+}
 
-.meal-column-header {
+.meal-row-header {
   display: flex;
   align-items: center;
   margin-bottom: 14rpx;
-  padding-bottom: 10rpx;
-  border-bottom: 2rpx solid #F0EBE5;
 }
 
 .meal-icon {
-  font-size: 26rpx;
-  margin-right: 6rpx;
+  font-size: 28rpx;
+  margin-right: 8rpx;
 }
 
 .meal-name {
-  font-size: 24rpx;
+  font-size: 26rpx;
   font-weight: 700;
   color: #3E2723;
   flex: 1;
 }
 
 .meal-count {
-  font-size: 18rpx;
+  font-size: 20rpx;
   color: #A1887F;
   background: #EFEBE9;
   border-radius: 12rpx;
-  padding: 2rpx 10rpx;
+  padding: 2rpx 12rpx;
 }
 
 .meal-empty {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24rpx 0;
+  padding: 20rpx 0;
 }
 
 .meal-empty-text {
-  font-size: 20rpx;
+  font-size: 22rpx;
   color: #BCAAA4;
 }
 
-/* 菜品行 */
-.dish-row {
+/* 本餐菜品横向排列 */
+.meal-dishes-row {
   display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin-bottom: 14rpx;
+}
+
+.meal-dish-card {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  padding: 10rpx 0;
+  width: 120rpx;
+}
+
+.meal-dish-thumb {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 20rpx;
+  overflow: hidden;
+  margin-bottom: 8rpx;
   position: relative;
 }
 
-.dish-thumb {
-  width: 56rpx;
-  height: 56rpx;
-  border-radius: 16rpx;
-  overflow: hidden;
-  flex-shrink: 0;
-  margin-right: 10rpx;
-}
-
-.dish-thumb-img {
-  width: 56rpx;
-  height: 56rpx;
+.meal-dish-img {
+  width: 100rpx;
+  height: 100rpx;
   display: block;
 }
 
-.dish-thumb-ph {
-  width: 56rpx;
-  height: 56rpx;
-  border-radius: 16rpx;
+.meal-dish-ph {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 20rpx;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.dish-thumb-text {
-  font-size: 24rpx;
+.meal-dish-ph-text {
+  font-size: 32rpx;
   font-weight: 700;
   color: #5D4037;
 }
 
-.dish-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.dish-name {
-  font-size: 22rpx;
+.meal-dish-name {
+  font-size: 20rpx;
   color: #3E2723;
   font-weight: 500;
+  text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  width: 100%;
 }
 
-.dish-lock {
-  font-size: 16rpx;
-  color: #FF9800;
-  margin-top: 2rpx;
+.meal-dish-lock {
+  position: absolute;
+  top: 4rpx;
+  right: 4rpx;
+  font-size: 18rpx;
 }
 
-.dish-add-btn {
-  flex-shrink: 0;
+/* 一键加入本餐菜单（餐次级） */
+.meal-add-all {
   background: #7CB342;
   border-radius: 16rpx;
-  padding: 6rpx 14rpx;
-  margin-left: 8rpx;
+  padding: 12rpx 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.dish-add-text {
-  font-size: 20rpx;
+.meal-add-all-text {
+  font-size: 22rpx;
   color: #FFFFFF;
   font-weight: 600;
 }
@@ -390,63 +393,90 @@
   color: #BCAAA4;
 }
 
-.ordered-item {
-  display: flex;
+/* 已点菜单横向卡片 */
+.ordered-scroll {
+  white-space: nowrap;
+}
+
+.ordered-card {
+  display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  padding: 14rpx 0;
-  border-bottom: 2rpx solid #F5F0EB;
+  width: 140rpx;
+  margin-right: 16rpx;
+  vertical-align: top;
 }
 
-.ordered-item:last-child {
-  border-bottom: none;
-}
-
-.ordered-thumb {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 20rpx;
+.ordered-card-thumb {
+  width: 110rpx;
+  height: 110rpx;
+  border-radius: 22rpx;
   overflow: hidden;
-  flex-shrink: 0;
-  margin-right: 20rpx;
+  margin-bottom: 10rpx;
 }
 
-.ordered-thumb-img {
-  width: 72rpx;
-  height: 72rpx;
+.ordered-card-img {
+  width: 110rpx;
+  height: 110rpx;
   display: block;
 }
 
-.ordered-thumb-ph {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 20rpx;
+.ordered-card-ph {
+  width: 110rpx;
+  height: 110rpx;
+  border-radius: 22rpx;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.ordered-thumb-text {
-  font-size: 30rpx;
+.ordered-card-ph-text {
+  font-size: 36rpx;
   font-weight: 700;
   color: #5D4037;
 }
 
-.ordered-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.ordered-name {
-  font-size: 28rpx;
+.ordered-card-name {
+  font-size: 22rpx;
   color: #3E2723;
   font-weight: 600;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
 }
 
-.ordered-by {
-  font-size: 22rpx;
+.ordered-card-by {
+  font-size: 18rpx;
   color: #E91E63;
   margin-top: 4rpx;
+  font-weight: 500;
+}
+
+/* "+ 继续添加" 轻量卡片 */
+.ordered-card-add {
+  border: 2rpx dashed #C8E6C9;
+  border-radius: 22rpx;
+  height: 110rpx;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #F1F8E9;
+}
+
+.ordered-card-add-icon {
+  font-size: 36rpx;
+  color: #7CB342;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.ordered-card-add-text {
+  font-size: 18rpx;
+  color: #7CB342;
+  margin-top: 6rpx;
   font-weight: 500;
 }
 

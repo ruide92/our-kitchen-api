@@ -66,38 +66,36 @@
       </view>
     </scroll-view>
 
-    <!-- 当天三餐 -->
-    <view class="meals-container">
-      <view wx:for="{{selectedMeals}}" wx:key="key" class="meal-column">
-        <view class="meal-column-header">
+    <!-- 当天三餐（纵向三行） -->
+    <view class="meals-vertical">
+      <view wx:for="{{selectedMeals}}" wx:key="key" class="meal-row">
+        <!-- 餐次标题 -->
+        <view class="meal-row-header">
           <text class="meal-icon">{{item.icon}}</text>
           <text class="meal-name">{{item.label}}</text>
           <text class="meal-count">{{item.dishes.length}}道</text>
         </view>
 
+        <!-- 本餐菜品横向排列 -->
         <view wx:if="{{item.dishes.length === 0}}" class="meal-empty">
           <text class="meal-empty-text">暂未安排</text>
         </view>
-
-        <view wx:for="{{item.dishes}}" wx:for-item="dish" wx:key="id" class="dish-row">
-          <view class="dish-thumb">
-            <image wx:if="{{dish.coverImageUrl}}" src="{{dish.coverImageUrl}}" mode="aspectFill" class="dish-thumb-img"></image>
-            <view wx:else class="dish-thumb-ph" style="background:{{dish.color}};">
-              <text class="dish-thumb-text">{{dish.initial}}</text>
+        <view wx:else class="meal-dishes-row">
+          <view wx:for="{{item.dishes}}" wx:for-item="dish" wx:key="id" class="meal-dish-card">
+            <view class="meal-dish-thumb">
+              <image wx:if="{{dish.coverImageUrl}}" src="{{dish.coverImageUrl}}" mode="aspectFill" class="meal-dish-img"></image>
+              <view wx:else class="meal-dish-ph" style="background:{{dish.color}};">
+                <text class="meal-dish-ph-text">{{dish.initial}}</text>
+              </view>
             </view>
+            <text class="meal-dish-name">{{dish.name}}</text>
+            <text wx:if="{{dish.locked}}" class="meal-dish-lock">🔒</text>
           </view>
-          <view class="dish-info">
-            <text class="dish-name">{{dish.name}}</text>
-            <text wx:if="{{dish.locked}}" class="dish-lock">🔒已锁定</text>
-          </view>
-          <view
-            class="dish-add-btn"
-            data-name="{{dish.name}}"
-            data-recipe-id="{{dish.recipeId}}"
-            catchtap="addToMeal"
-          >
-            <text class="dish-add-text">加入</text>
-          </view>
+        </view>
+
+        <!-- 一键加入本餐菜单（餐次级，幂等） -->
+        <view class="meal-add-all" data-meal-key="{{item.key}}" catchtap="addMealToCurrent">
+          <text class="meal-add-all-text">一键加入本餐菜单</text>
         </view>
       </view>
     </view>
@@ -117,18 +115,22 @@
       <text class="meal-empty-hint">还没有点菜，从本周菜谱加入吧</text>
     </view>
 
-    <view wx:for="{{currentMeal.items}}" wx:key="id" class="ordered-item">
-      <view class="ordered-thumb">
-        <image wx:if="{{item.coverImageUrl}}" src="{{item.coverImageUrl}}" mode="aspectFill" class="ordered-thumb-img"></image>
-        <view wx:else class="ordered-thumb-ph" style="background:{{item.color}};">
-          <text class="ordered-thumb-text">{{item.initial}}</text>
+    <scroll-view wx:else class="ordered-scroll" scroll-x="true" enhanced="true" show-scrollbar="false">
+      <view wx:for="{{currentMeal.items}}" wx:key="id" class="ordered-card">
+        <view class="ordered-card-thumb">
+          <image wx:if="{{item.coverImageUrl}}" src="{{item.coverImageUrl}}" mode="aspectFill" class="ordered-card-img"></image>
+          <view wx:else class="ordered-card-ph" style="background:{{item.color}};">
+            <text class="ordered-card-ph-text">{{item.initial}}</text>
+          </view>
         </view>
+        <text class="ordered-card-name">{{item.name}}</text>
+        <text class="ordered-card-by">{{item.selected_by_nickname}}点的</text>
       </view>
-      <view class="ordered-info">
-        <text class="ordered-name">{{item.name}}</text>
-        <text class="ordered-by">{{item.selected_by_nickname}}点的</text>
+      <view class="ordered-card ordered-card-add" bindtap="goTodayMenu">
+        <text class="ordered-card-add-icon">+</text>
+        <text class="ordered-card-add-text">继续添加</text>
       </view>
-    </view>
+    </scroll-view>
   </view>
 
   <view class="bottom-space"></view>

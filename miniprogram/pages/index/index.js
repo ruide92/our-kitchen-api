@@ -189,35 +189,44 @@ Page({
   },
 
   /**
-   * 一键加入本餐菜单（fixture 本地演示）。
-   * 真实后端接入后应调用 POST /api/v1/families/:family_id/meals/:meal_id/items。
+   * 一键加入本餐菜单（餐次级，fixture 本地演示）。
+   * 将当前选中天的指定餐次全部菜品加入 current_meal。
+   * 幂等：已存在的菜不重复加入。
+   * 真实后端接入后应调用 POST /api/v1/families/:family_id/meals/:meal_id/items（批量）。
    */
-  addToMeal(e) {
-    const dishName = e.currentTarget.dataset.name
-    const recipeId = e.currentTarget.dataset.recipeId
-    const currentItems = this.data.currentMeal.items || []
-
-    // 幂等：已在本餐中则提示
-    const exists = currentItems.some((it) => it.recipeId === recipeId)
-    if (exists) {
-      wx.showToast({ title: '已在本餐菜单', icon: 'none' })
+  addMealToCurrent(e) {
+    const mealKey = e.currentTarget.dataset.mealKey
+    const meal = this.data.selectedMeals.find((m) => m.key === mealKey)
+    if (!meal || meal.dishes.length === 0) {
+      wx.showToast({ title: '该餐暂未安排', icon: 'none' })
       return
     }
 
-    const newItem = {
-      id: `mi-local-${Date.now()}`,
-      recipeId,
-      name: dishName,
-      color: dishColor(dishName),
-      initial: dishInitial(dishName),
-      selected_by_nickname: '锐'
+    const currentItems = this.data.currentMeal.items || []
+    const existingIds = new Set(currentItems.map((it) => it.recipeId))
+    const toAdd = meal.dishes.filter((d) => !existingIds.has(d.recipeId))
+
+    if (toAdd.length === 0) {
+      wx.showToast({ title: '已全部在本餐菜单', icon: 'none' })
+      return
     }
 
+    const newItems = toAdd.map((d) => ({
+      id: `mi-local-${Date.now()}-${d.recipeId}`,
+      recipeId: d.recipeId,
+      name: d.name,
+      coverImageUrl: d.coverImageUrl || '',
+      color: dishColor(d.name),
+      initial: dishInitial(d.name),
+      selected_by_nickname: '锐'
+    }))
+
+    const allItems = currentItems.concat(newItems)
     this.setData({
-      'currentMeal.items': currentItems.concat(newItem),
-      currentMealLabel: `${this.data.mealTypeLabel}菜单 · ${currentItems.length + 1}道`
+      'currentMeal.items': allItems,
+      currentMealLabel: `${this.data.mealTypeLabel}菜单 · ${allItems.length}道`
     })
-    wx.showToast({ title: '已加入本餐', icon: 'success' })
+    wx.showToast({ title: `已加入${toAdd.length}道菜`, icon: 'success' })
   },
 
   // ===== 快捷入口 =====
@@ -238,9 +247,14 @@ Page({
     wx.navigateTo({ url: '/pages/random/random?mode=one' })
   },
 
-  // 查看完整周计划（菜单 Tab 的本周安排）
+  // 查看完整周计划 — Phase 2.5 placeholder
+  // 旧 menu 页尚未接入"本周安排"，暂不跳转，避免错误交互。
+  // 下一阶段菜单页完成后改为 wx.switchTab({ url: '/pages/menu/menu' })。
   goWeeklyPlan() {
-    wx.switchTab({ url: '/pages/menu/menu' })
+    wx.showToast({
+      title: '完整周计划将在菜单页接入',
+      icon: 'none'
+    })
   },
 
   // ===== 已点菜单 =====
