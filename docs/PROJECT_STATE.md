@@ -5,7 +5,7 @@ Last updated: 2026-09-03 (Asia/Shanghai)
 ## Current stage
 
 - Phase 0: complete
-- Phase 1: in progress
+- Phase 1: complete
 - Phase 2: not started
 - Phase 2.5: not started
 
@@ -14,6 +14,7 @@ Last updated: 2026-09-03 (Asia/Shanghai)
 - Working branch: `codex/kitchen-v4`
 - Isolated worktree: `C:\Users\zhang\.config\superpowers\worktrees\our-kitchen-api\kitchen-v4`
 - Base commit: `8e74014e8f5182cf8c4b97b2513b77eabadf5ec2`
+- Phase 0 checkpoint: `c36c4f8573fa2519e5ba3678b4ae11622e9c6855`
 - Base branch: `main`
 - Remote: `https://github.com/ruide92/our-kitchen-api.git`
 - The original `main` checkout has a pre-existing modification to `database.json`. It has not been overwritten or included in this worktree.
@@ -31,13 +32,13 @@ Last updated: 2026-09-03 (Asia/Shanghai)
 - Created the isolated `codex/kitchen-v4` worktree.
 - Installed locked dependencies with `npm ci`.
 - Recorded the approved V4 phase order and two-pass homepage acceptance model.
-- Started independent Luna read-only audits for frontend, backend, and quality/configuration.
+- Completed independent Luna read-only audits for frontend, backend, and quality/configuration; all three reported without editing the worktree.
+- Completed an isolated JsonDatabase semantics probe using a temporary copy.
+- Published the evidence-backed current-state audit.
 
 ## In progress
 
-- Full evidence-based Phase 1 audit.
-- Page-to-client-to-route-to-database API contract matrix.
-- Classification of features as working, partial, UI-only, missing, bugged, architectural risk, or security risk.
+- Preparing the Phase 2 specification freeze.
 
 ## Not started
 
@@ -58,7 +59,8 @@ Last updated: 2026-09-03 (Asia/Shanghai)
 - `npm ci`: pass (99 packages installed).
 - JavaScript syntax baseline: 34 project files checked, 0 failures.
 - `package.json` contains no `test` script; the legacy API script is not accepted as a trustworthy baseline.
-- Full Phase 1 static and behavioral audit is in progress.
+- Isolated JsonDatabase probe confirmed broken pagination/search/count/JOIN/COALESCE/update-expression behavior.
+- Phase 1 findings are recorded in `docs/AUDIT_CURRENT_STATE.md`.
 
 ## Deployment status
 
@@ -68,4 +70,4 @@ Last updated: 2026-09-03 (Asia/Shanghai)
 
 ## Next first action
 
-Finish `docs/AUDIT_CURRENT_STATE.md`, verify every claim against the worktree, commit Phase 0/1 documentation, and push `codex/kitchen-v4`.
+Write and cross-review the seven Phase 2 normative specifications, then freeze field names, family boundaries, API contracts, KRP v2, recommendation rules, acceptance tests, and the implementation roadmap.
