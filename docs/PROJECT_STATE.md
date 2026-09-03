@@ -15,6 +15,7 @@ Last updated: 2026-09-03 (Asia/Shanghai)
 - Isolated worktree: `C:\Users\zhang\.config\superpowers\worktrees\our-kitchen-api\kitchen-v4`
 - Base commit: `8e74014e8f5182cf8c4b97b2513b77eabadf5ec2`
 - Phase 0 checkpoint: `c36c4f8573fa2519e5ba3678b4ae11622e9c6855`
+- Phase 1 audit checkpoint: `78dc16c071d2fcd9221651b9b207cf1d6d9de600`
 - Base branch: `main`
 - Remote: `https://github.com/ruide92/our-kitchen-api.git`
 - The original `main` checkout has a pre-existing modification to `database.json`. It has not been overwritten or included in this worktree.
