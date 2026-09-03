@@ -1,3 +1,5 @@
 {
-  "navigationBarTitleText": "我们的小厨房"
+  "navigationBarTitleText": "我们的小厨房",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark"
 }

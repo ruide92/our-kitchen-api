@@ -1,86 +1,232 @@
-const api = require('../../utils/api.js')
-const util = require('../../utils/util.js')
-const app = getApp()
+/**
+ * 首页 — Phase 2.5 Fixture UI
+ *
+ * 数据来源：本目录 homepage-fixture.js（显式 mock / fixture）。
+ * 当前阶段不接真实后端，不调用 utils/api.js 中的 legacy /api/* 接口。
+ * 「加入本餐菜单」仅在本地 fixture 状态上演示，不产生服务端写入。
+ */
+
+const fixture = require('./homepage-fixture.js')
+
+const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+const MEAL_TYPES = [
+  { key: 'BREAKFAST', label: '早餐', icon: '🌅' },
+  { key: 'LUNCH', label: '午餐', icon: '☀️' },
+  { key: 'DINNER', label: '晚餐', icon: '🌙' }
+]
+
+// 菜品占位色板（cover_image_url 为 null 时使用，纯展示用，不写入 fixture）
+const DISH_COLORS = [
+  '#FFE0B2', '#C8E6C9', '#F8BBD0', '#B3E5FC',
+  '#FFF9C4', '#D1C4E9', '#FFCCBC', '#DCEDC8'
+]
+
+function dishColor(name) {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) >>> 0
+  }
+  return DISH_COLORS[hash % DISH_COLORS.length]
+}
+
+function dishInitial(name) {
+  return name ? name.charAt(0) : '菜'
+}
 
 Page({
   data: {
-    userInfo: null,
-    kitchenInfo: null,
-    greeting: '',
-    searchText: '',
-    weeklyMenu: null,
-    currentDay: 0,
-    weekdays: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
-    loading: true
+    // ---- 顶部家庭区 ----
+    family: null,
+    members: [],
+    todayLabel: '',
+    dinersLabel: '',
+
+    // ---- 本周菜谱 ----
+    weekdays: WEEKDAYS,
+    selectedDayIndex: 0,
+    weekDays: [],          // [{date, label, index}]
+    selectedMeals: [],     // [{key,label,icon,dishes:[{id,name,color,initial,locked}]}]
+
+    // ---- 已点菜单 ----
+    currentMeal: null,     // {meal_type, items:[...]}
+    mealTypeLabel: '',
+    currentMealLabel: ''
   },
 
   onLoad() {
-    this.setData({
-      greeting: util.getGreeting(),
-      currentDay: util.getDayOfWeek(),
-      userInfo: app.globalData.userInfo,
-      kitchenInfo: app.globalData.kitchenInfo
-    })
-    this.loadWeeklyMenu()
+    this._buildFromFixture()
   },
 
   onShow() {
+    // fixture 模式下 onShow 不重新拉取；保持本地状态
+  },
+
+  /**
+   * 将 fixture 原始数据转为首页 view model。
+   * 不修改 fixture 原对象。
+   */
+  _buildFromFixture() {
+    const { family, members, today, weekly_plan, current_meal } = fixture
+
+    // today.weekday: 1=周一 … 7=周日 → 数组下标 0..6
+    const todayIndex = Math.max(0, Math.min(6, (today.weekday || 1) - 1))
+
+    // 构造周一到周日的日期标签
+    const weekStart = new Date(weekly_plan.week_start_date)
+    const weekDays = WEEKDAYS.map((label, i) => {
+      const d = new Date(weekStart.getTime() + i * 86400000)
+      const mm = String(d.getMonth() + 1).padStart(2, '0')
+      const dd = String(d.getDate()).padStart(2, '0')
+      return { index: i, label, date: `${mm}-${dd}`, isToday: i === todayIndex }
+    })
+
+    // 按天 + 餐次分组
+    const items = weekly_plan.items || []
+    const byDayMeal = {}
+    items.forEach((item) => {
+      const dayKey = item.plan_date
+      if (!byDayMeal[dayKey]) byDayMeal[dayKey] = {}
+      const mt = item.meal_type
+      if (!byDayMeal[dayKey][mt]) byDayMeal[dayKey][mt] = []
+      byDayMeal[dayKey][mt].push(item)
+    })
+
+    // 选中天（默认今天）的三餐
+    const selectedDate = weekDays[todayIndex].date
+    const selectedFullDate = this._fullDate(weekStart, todayIndex)
+    const selectedMeals = MEAL_TYPES.map((mt) => {
+      const dayItems = (byDayMeal[selectedFullDate] && byDayMeal[selectedFullDate][mt.key]) || []
+      const dishes = dayItems
+        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+        .map((item) => ({
+          id: item.id,
+          recipeId: item.recipe.id,
+          name: item.recipe.name,
+          coverImageUrl: item.recipe.cover_image_url || '',
+          color: dishColor(item.recipe.name),
+          initial: dishInitial(item.recipe.name),
+          locked: !!item.locked
+        }))
+      return { key: mt.key, label: mt.label, icon: mt.icon, dishes }
+    })
+
+    // 已点菜单
+    const mealItems = (current_meal.items || []).map((mi) => ({
+      id: mi.id,
+      recipeId: mi.recipe.id,
+      name: mi.recipe.name,
+      coverImageUrl: mi.recipe.cover_image_url || '',
+      color: dishColor(mi.recipe.name),
+      initial: dishInitial(mi.recipe.name),
+      selected_by_nickname: mi.selected_by_nickname
+    }))
+
+    const mealTypeLabel = MEAL_TYPES.find((m) => m.key === current_meal.meal_type)
+      ? MEAL_TYPES.find((m) => m.key === current_meal.meal_type).label
+      : '本餐'
+
     this.setData({
-      userInfo: app.globalData.userInfo,
-      kitchenInfo: app.globalData.kitchenInfo,
-      greeting: util.getGreeting()
+      family,
+      members,
+      todayLabel: WEEKDAYS[todayIndex],
+      dinersLabel: `${today.diners_count}人`,
+      weekDays,
+      selectedDayIndex: todayIndex,
+      selectedMeals,
+      currentMeal: {
+        meal_type: current_meal.meal_type,
+        items: mealItems
+      },
+      mealTypeLabel,
+      currentMealLabel: `${mealTypeLabel}菜单 · ${mealItems.length}道`
     })
   },
 
-  // 加载每周食谱
-  async loadWeeklyMenu() {
-    try {
-      const data = await api.getWeeklyMenu()
-      this.setData({ weeklyMenu: data, loading: false })
-    } catch (err) {
-      console.log('加载每周食谱失败', err)
-      this.setData({ loading: false })
-    }
+  _fullDate(weekStart, dayIndex) {
+    const d = new Date(weekStart.getTime() + dayIndex * 86400000)
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
   },
 
-  // 重新生成每周食谱
-  async regenerateWeeklyMenu() {
-    try {
-      wx.showLoading({ title: '生成中...' })
-      const data = await api.regenerateWeeklyMenu()
-      this.setData({ weeklyMenu: data })
-      wx.hideLoading()
-      util.showSuccess('已重新生成')
-    } catch (err) {
-      wx.hideLoading()
-    }
-  },
+  // ===== 交互 =====
 
-  // 选择某天
   selectDay(e) {
-    const day = e.currentTarget.dataset.day
-    this.setData({ currentDay: day })
+    const idx = Number(e.currentTarget.dataset.index)
+    if (idx === this.data.selectedDayIndex) return
+
+    const { weekly_plan } = fixture
+    const weekStart = new Date(weekly_plan.week_start_date)
+    const selectedFullDate = this._fullDate(weekStart, idx)
+
+    const items = weekly_plan.items || []
+    const byDayMeal = {}
+    items.forEach((item) => {
+      if (!byDayMeal[item.plan_date]) byDayMeal[item.plan_date] = {}
+      const mt = item.meal_type
+      if (!byDayMeal[item.plan_date][mt]) byDayMeal[item.plan_date][mt] = []
+      byDayMeal[item.plan_date][mt].push(item)
+    })
+
+    const selectedMeals = MEAL_TYPES.map((mt) => {
+      const dayItems = (byDayMeal[selectedFullDate] && byDayMeal[selectedFullDate][mt.key]) || []
+      const dishes = dayItems
+        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+        .map((item) => ({
+          id: item.id,
+          recipeId: item.recipe.id,
+          name: item.recipe.name,
+          coverImageUrl: item.recipe.cover_image_url || '',
+          color: dishColor(item.recipe.name),
+          initial: dishInitial(item.recipe.name),
+          locked: !!item.locked
+        }))
+      return { key: mt.key, label: mt.label, icon: mt.icon, dishes }
+    })
+
+    this.setData({ selectedDayIndex: idx, selectedMeals })
   },
 
-  // 搜索
-  onSearchInput(e) {
-    this.setData({ searchText: e.detail.value })
-  },
+  /**
+   * 一键加入本餐菜单（fixture 本地演示）。
+   * 真实后端接入后应调用 POST /api/v1/families/:family_id/meals/:meal_id/items。
+   */
+  addToMeal(e) {
+    const dishName = e.currentTarget.dataset.name
+    const recipeId = e.currentTarget.dataset.recipeId
+    const currentItems = this.data.currentMeal.items || []
 
-  onSearch() {
-    if (this.data.searchText) {
-      // 用全局变量传递搜索词
-      app.globalData.searchKeyword = this.data.searchText
-      wx.switchTab({ url: '/pages/menu/menu' })
+    // 幂等：已在本餐中则提示
+    const exists = currentItems.some((it) => it.recipeId === recipeId)
+    if (exists) {
+      wx.showToast({ title: '已在本餐菜单', icon: 'none' })
+      return
     }
+
+    const newItem = {
+      id: `mi-local-${Date.now()}`,
+      recipeId,
+      name: dishName,
+      color: dishColor(dishName),
+      initial: dishInitial(dishName),
+      selected_by_nickname: '锐'
+    }
+
+    this.setData({
+      'currentMeal.items': currentItems.concat(newItem),
+      currentMealLabel: `${this.data.mealTypeLabel}菜单 · ${currentItems.length + 1}道`
+    })
+    wx.showToast({ title: '已加入本餐', icon: 'success' })
   },
 
-  // 快捷功能
+  // ===== 快捷入口 =====
+
   goRandom() {
     wx.navigateTo({ url: '/pages/random/random' })
   },
 
-  goFridge() {
+  goFridgeCook() {
     wx.switchTab({ url: '/pages/fridge/fridge' })
   },
 
@@ -92,28 +238,25 @@ Page({
     wx.navigateTo({ url: '/pages/random/random?mode=one' })
   },
 
-  // 菜品详情
+  // 查看完整周计划（菜单 Tab 的本周安排）
+  goWeeklyPlan() {
+    wx.switchTab({ url: '/pages/menu/menu' })
+  },
+
+  // ===== 已点菜单 =====
+
+  goTodayMenu() {
+    wx.navigateTo({ url: '/pages/today-menu/today-menu' })
+  },
+
   goDetail(e) {
-    const id = e.currentTarget.dataset.id
+    const id = e.currentTarget.dataset.recipeId
     wx.navigateTo({ url: `/pages/detail/detail?id=${id}` })
   },
 
-  // 加入今日菜单
-  async addToToday(e) {
-    e.stopPropagation()
-    const dishId = e.currentTarget.dataset.id
-    try {
-      await api.addToTodayMenu({ dishId })
-      util.showSuccess('已加入今日菜单')
-    } catch (err) {
-      console.log('加入失败', err)
-    }
-  },
-
-  // 下拉刷新
+  // 下拉刷新（fixture 模式：重建 view model 并停止刷新）
   onPullDownRefresh() {
-    this.loadWeeklyMenu().then(() => {
-      wx.stopPullDownRefresh()
-    })
+    this._buildFromFixture()
+    wx.stopPullDownRefresh()
   }
 })
