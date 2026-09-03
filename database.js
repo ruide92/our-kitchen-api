@@ -57,40 +57,57 @@ class Statement {
     this.sql = sql.trim();
   }
 
-  // 解析WHERE条件
+  // 解析WHERE条件（修复版：提前取出参数，避免filter内部多次调用消耗params）
   parseWhere(whereStr, params) {
     // 简单处理：AND连接的条件
     const conditions = whereStr.split(/\s+AND\s+/i);
+    // 先解析所有条件，提前取出参数值
+    const parsedConditions = conditions.map(cond => {
+      cond = cond.trim();
+      // 处理 = ?
+      const eqMatch = cond.match(/^(\w+)\s*=\s*\?$/);
+      if (eqMatch) {
+        const field = eqMatch[1];
+        const value = params.shift();
+        return { type: 'eq', field, value };
+      }
+      // 处理 LIKE ?
+      const likeMatch = cond.match(/^(\w+)\s+LIKE\s+\?$/i);
+      if (likeMatch) {
+        const field = likeMatch[1];
+        const value = params.shift();
+        const pattern = value.replace(/%/g, '.*');
+        return { type: 'like', field, pattern };
+      }
+      // 处理 >= ?
+      const gteMatch = cond.match(/^(\w+)\s*>=\s*\?$/);
+      if (gteMatch) {
+        const field = gteMatch[1];
+        const value = params.shift();
+        return { type: 'gte', field, value };
+      }
+      // 处理 IS NOT NULL
+      const notNullMatch = cond.match(/^(\w+)\s+IS\s+NOT\s+NULL$/i);
+      if (notNullMatch) {
+        const field = notNullMatch[1];
+        return { type: 'notNull', field };
+      }
+      return null;
+    }).filter(Boolean);
+    
     return (item) => {
-      return conditions.every(cond => {
-        cond = cond.trim();
-        // 处理 = ?
-        const eqMatch = cond.match(/^(\w+)\s*=\s*\?$/);
-        if (eqMatch) {
-          const field = eqMatch[1];
-          const value = params.shift();
-          return String(item[field]) === String(value);
+      return parsedConditions.every(cond => {
+        if (cond.type === 'eq') {
+          return String(item[cond.field]) === String(cond.value);
         }
-        // 处理 LIKE ?
-        const likeMatch = cond.match(/^(\w+)\s+LIKE\s+\?$/i);
-        if (likeMatch) {
-          const field = likeMatch[1];
-          const value = params.shift();
-          const pattern = value.replace(/%/g, '.*');
-          return new RegExp(pattern, 'i').test(item[field] || '');
+        if (cond.type === 'like') {
+          return new RegExp(cond.pattern, 'i').test(item[cond.field] || '');
         }
-        // 处理 >= ?
-        const gteMatch = cond.match(/^(\w+)\s*>=\s*\?$/);
-        if (gteMatch) {
-          const field = gteMatch[1];
-          const value = params.shift();
-          return Number(item[field]) >= Number(value);
+        if (cond.type === 'gte') {
+          return Number(item[cond.field]) >= Number(cond.value);
         }
-        // 处理 IS NOT NULL
-        const notNullMatch = cond.match(/^(\w+)\s+IS\s+NOT\s+NULL$/i);
-        if (notNullMatch) {
-          const field = notNullMatch[1];
-          return item[field] !== null && item[field] !== undefined && item[field] !== '';
+        if (cond.type === 'notNull') {
+          return item[cond.field] !== null && item[cond.field] !== undefined && item[cond.field] !== '';
         }
         return true;
       });
