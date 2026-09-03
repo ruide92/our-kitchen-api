@@ -48,7 +48,14 @@ Page({
     selectedMeals: [],     // [{key,label,icon,dishes:[{id,name,color,initial,locked}]}]
 
     // ---- 已点菜单 ----
-    currentMeal: null,     // {meal_type, items:[...]}
+    // 按餐次分开存储，避免串餐（V4 PRODUCT_SPEC 5.3）。
+    // currentMeal 仅用于底部"已点菜单"展示，默认展示 fixture.current_meal（DINNER）。
+    mealsByType: {
+      BREAKFAST: { items: [] },
+      LUNCH: { items: [] },
+      DINNER: { items: [] }
+    },
+    currentMeal: null,     // {meal_type, items:[...]} — 底部展示的当前餐次
     mealTypeLabel: '',
     currentMealLabel: ''
   },
@@ -110,7 +117,7 @@ Page({
       return { key: mt.key, label: mt.label, icon: mt.icon, dishes }
     })
 
-    // 已点菜单
+    // 已点菜单 — 按餐次分开存储，fixture.current_meal 初始化为 DINNER
     const mealItems = (current_meal.items || []).map((mi) => ({
       id: mi.id,
       recipeId: mi.recipe.id,
@@ -125,6 +132,13 @@ Page({
       ? MEAL_TYPES.find((m) => m.key === current_meal.meal_type).label
       : '本餐'
 
+    // mealsByType：三餐独立存储，底部 currentMeal 展示 DINNER（fixture 当前餐次）
+    const mealsByType = {
+      BREAKFAST: { items: [] },
+      LUNCH: { items: [] },
+      DINNER: { items: mealItems }
+    }
+
     this.setData({
       family,
       members,
@@ -133,6 +147,7 @@ Page({
       weekDays,
       selectedDayIndex: todayIndex,
       selectedMeals,
+      mealsByType,
       currentMeal: {
         meal_type: current_meal.meal_type,
         items: mealItems
@@ -190,8 +205,10 @@ Page({
 
   /**
    * 一键加入本餐菜单（餐次级，fixture 本地演示）。
-   * 将当前选中天的指定餐次全部菜品加入 current_meal。
+   * 将当前选中天的指定餐次全部菜品加入该餐次对应的已点菜单。
+   * 按 BREAKFAST / LUNCH / DINNER 分开存储，不串餐（V4 PRODUCT_SPEC 5.3）。
    * 幂等：已存在的菜不重复加入。
+   * 底部"已点菜单"仅展示 currentMeal.meal_type（fixture 默认 DINNER）。
    * 真实后端接入后应调用 POST /api/v1/families/:family_id/meals/:meal_id/items（批量）。
    */
   addMealToCurrent(e) {
@@ -202,8 +219,9 @@ Page({
       return
     }
 
-    const currentItems = this.data.currentMeal.items || []
-    const existingIds = new Set(currentItems.map((it) => it.recipeId))
+    // 写入对应餐次的独立存储
+    const targetItems = (this.data.mealsByType[mealKey] && this.data.mealsByType[mealKey].items) || []
+    const existingIds = new Set(targetItems.map((it) => it.recipeId))
     const toAdd = meal.dishes.filter((d) => !existingIds.has(d.recipeId))
 
     if (toAdd.length === 0) {
@@ -221,12 +239,22 @@ Page({
       selected_by_nickname: '锐'
     }))
 
-    const allItems = currentItems.concat(newItems)
-    this.setData({
-      'currentMeal.items': allItems,
-      currentMealLabel: `${this.data.mealTypeLabel}菜单 · ${allItems.length}道`
-    })
-    wx.showToast({ title: `已加入${toAdd.length}道菜`, icon: 'success' })
+    const allItems = targetItems.concat(newItems)
+    const patch = {
+      [`mealsByType.${mealKey}.items`]: allItems
+    }
+
+    // 仅当加入的餐次等于底部展示餐次时，刷新 currentMeal 展示
+    if (mealKey === this.data.currentMeal.meal_type) {
+      patch['currentMeal.items'] = allItems
+      patch.currentMealLabel = `${this.data.mealTypeLabel}菜单 · ${allItems.length}道`
+    }
+
+    this.setData(patch)
+    const mealLabel = MEAL_TYPES.find((m) => m.key === mealKey)
+      ? MEAL_TYPES.find((m) => m.key === mealKey).label
+      : mealKey
+    wx.showToast({ title: `${mealLabel}已加入${toAdd.length}道`, icon: 'success' })
   },
 
   // ===== 快捷入口 =====
