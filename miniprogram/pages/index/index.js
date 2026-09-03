@@ -48,14 +48,14 @@ Page({
     selectedMeals: [],     // [{key,label,icon,dishes:[{id,name,color,initial,locked}]}]
 
     // ---- 已点菜单 ----
-    // 按餐次分开存储，避免串餐（V4 PRODUCT_SPEC 5.3）。
-    // currentMeal 仅用于底部"已点菜单"展示，默认展示 fixture.current_meal（DINNER）。
-    mealsByType: {
-      BREAKFAST: { items: [] },
-      LUNCH: { items: [] },
-      DINNER: { items: [] }
-    },
-    currentMeal: null,     // {meal_type, items:[...]} — 底部展示的当前餐次
+    // V4 DATA_MODEL: meal 唯一维度 = family_id + meal_date + meal_type。
+    // 本地 fixture 状态按「日期 + 餐次」二维隔离，避免跨天串餐。
+    // mealsByDateAndType = { 'YYYY-MM-DD': { BREAKFAST:{items:[]}, LUNCH:{items:[]}, DINNER:{items:[]} } }
+    // currentMeal 仅用于底部"已点菜单"展示，固定展示 fixture.current_meal 的 date+type。
+    mealsByDateAndType: {},
+    selectedFullDate: '',   // 当前选中天的完整日期 YYYY-MM-DD
+    currentMealDate: '',    // 底部展示餐次对应的日期
+    currentMeal: null,      // {meal_date, meal_type, items:[...]} — 底部展示
     mealTypeLabel: '',
     currentMealLabel: ''
   },
@@ -117,7 +117,7 @@ Page({
       return { key: mt.key, label: mt.label, icon: mt.icon, dishes }
     })
 
-    // 已点菜单 — 按餐次分开存储，fixture.current_meal 初始化为 DINNER
+    // 已点菜单 — 按「日期 + 餐次」二维隔离（V4 DATA_MODEL meal 唯一维度）
     const mealItems = (current_meal.items || []).map((mi) => ({
       id: mi.id,
       recipeId: mi.recipe.id,
@@ -132,11 +132,21 @@ Page({
       ? MEAL_TYPES.find((m) => m.key === current_meal.meal_type).label
       : '本餐'
 
-    // mealsByType：三餐独立存储，底部 currentMeal 展示 DINNER（fixture 当前餐次）
-    const mealsByType = {
-      BREAKFAST: { items: [] },
-      LUNCH: { items: [] },
-      DINNER: { items: mealItems }
+    // 为一周七天初始化空的餐次存储
+    const mealsByDateAndType = {}
+    for (let i = 0; i < 7; i++) {
+      const d = this._fullDate(weekStart, i)
+      mealsByDateAndType[d] = {
+        BREAKFAST: { items: [] },
+        LUNCH: { items: [] },
+        DINNER: { items: [] }
+      }
+    }
+    // fixture.current_meal 放入对应日期 + 餐次
+    const cmDate = current_meal.meal_date
+    const cmType = current_meal.meal_type
+    if (mealsByDateAndType[cmDate] && mealsByDateAndType[cmDate][cmType]) {
+      mealsByDateAndType[cmDate][cmType].items = mealItems
     }
 
     this.setData({
@@ -146,10 +156,13 @@ Page({
       dinersLabel: `${today.diners_count}人`,
       weekDays,
       selectedDayIndex: todayIndex,
+      selectedFullDate,
       selectedMeals,
-      mealsByType,
+      mealsByDateAndType,
+      currentMealDate: cmDate,
       currentMeal: {
-        meal_type: current_meal.meal_type,
+        meal_date: cmDate,
+        meal_type: cmType,
         items: mealItems
       },
       mealTypeLabel,
@@ -200,15 +213,16 @@ Page({
       return { key: mt.key, label: mt.label, icon: mt.icon, dishes }
     })
 
-    this.setData({ selectedDayIndex: idx, selectedMeals })
+    this.setData({ selectedDayIndex: idx, selectedFullDate, selectedMeals })
   },
 
   /**
    * 一键加入本餐菜单（餐次级，fixture 本地演示）。
-   * 将当前选中天的指定餐次全部菜品加入该餐次对应的已点菜单。
-   * 按 BREAKFAST / LUNCH / DINNER 分开存储，不串餐（V4 PRODUCT_SPEC 5.3）。
-   * 幂等：已存在的菜不重复加入。
-   * 底部"已点菜单"仅展示 currentMeal.meal_type（fixture 默认 DINNER）。
+   * 将当前选中天的指定餐次全部菜品加入「该日期 + 该餐次」对应的已点菜单。
+   * V4 DATA_MODEL: meal 唯一维度 = family_id + meal_date + meal_type。
+   * 幂等以 date + meal_type 为边界，已存在的菜不重复加入。
+   * 底部"已点菜单"仅展示 fixture.current_meal 的 date+type；
+   * 仅当选中日期和餐次同时匹配时才刷新底部展示。
    * 真实后端接入后应调用 POST /api/v1/families/:family_id/meals/:meal_id/items（批量）。
    */
   addMealToCurrent(e) {
@@ -219,8 +233,12 @@ Page({
       return
     }
 
-    // 写入对应餐次的独立存储
-    const targetItems = (this.data.mealsByType[mealKey] && this.data.mealsByType[mealKey].items) || []
+    const selDate = this.data.selectedFullDate
+    // 定位到「选中日期 + 选中餐次」的独立存储
+    const dayBucket = this.data.mealsByDateAndType[selDate] || {}
+    const mealBucket = dayBucket[mealKey] || { items: [] }
+    const targetItems = mealBucket.items || []
+
     const existingIds = new Set(targetItems.map((it) => it.recipeId))
     const toAdd = meal.dishes.filter((d) => !existingIds.has(d.recipeId))
 
@@ -241,11 +259,11 @@ Page({
 
     const allItems = targetItems.concat(newItems)
     const patch = {
-      [`mealsByType.${mealKey}.items`]: allItems
+      [`mealsByDateAndType.${selDate}.${mealKey}.items`]: allItems
     }
 
-    // 仅当加入的餐次等于底部展示餐次时，刷新 currentMeal 展示
-    if (mealKey === this.data.currentMeal.meal_type) {
+    // 仅当选中日期 + 餐次同时等于底部展示餐次时，才刷新 currentMeal
+    if (selDate === this.data.currentMealDate && mealKey === this.data.currentMeal.meal_type) {
       patch['currentMeal.items'] = allItems
       patch.currentMealLabel = `${this.data.mealTypeLabel}菜单 · ${allItems.length}道`
     }
