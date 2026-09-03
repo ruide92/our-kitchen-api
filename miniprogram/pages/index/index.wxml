@@ -95,7 +95,7 @@
 
         <!-- 一键加入本餐菜单（餐次级，幂等） -->
         <view class="meal-add-all" data-meal-key="{{item.key}}" catchtap="addMealToCurrent">
-          <text class="meal-add-all-text">一键加入本餐菜单</text>
+          <text class="meal-add-all-text">加入本餐</text>
         </view>
       </view>
     </view>

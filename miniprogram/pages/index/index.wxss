@@ -210,108 +210,118 @@
   color: #FFFFFF;
 }
 
-/* 三餐纵向三行 */
+/* 三餐横向三列：左标题 / 中菜品 / 右按钮 */
 .meals-vertical {
   display: flex;
   flex-direction: column;
 }
 
 .meal-row {
-  background: #FAF7F2;
-  border-radius: 24rpx;
-  padding: 14rpx 16rpx 12rpx;
-  margin-bottom: 12rpx;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #F0EBE3;
 }
 
 .meal-row:last-child {
-  margin-bottom: 0;
+  border-bottom: none;
 }
 
 .meal-row-header {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  margin-bottom: 10rpx;
+  width: 84rpx;
+  flex-shrink: 0;
+  margin-bottom: 0;
 }
 
 .meal-icon {
-  font-size: 28rpx;
-  margin-right: 8rpx;
+  font-size: 32rpx;
+  margin-right: 0;
+  margin-bottom: 4rpx;
 }
 
 .meal-name {
-  font-size: 26rpx;
+  font-size: 22rpx;
   font-weight: 700;
   color: #3E2723;
-  flex: 1;
+  text-align: center;
+  flex: none;
 }
 
 .meal-count {
-  font-size: 20rpx;
+  font-size: 16rpx;
   color: #A1887F;
-  background: #EFEBE9;
-  border-radius: 12rpx;
-  padding: 2rpx 12rpx;
+  margin-top: 2rpx;
 }
 
 .meal-empty {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20rpx 0;
+  padding: 0;
 }
 
 .meal-empty-text {
-  font-size: 22rpx;
+  font-size: 20rpx;
   color: #BCAAA4;
 }
 
-/* 本餐菜品横向排列 */
+/* 本餐菜品横向排列（中间列） */
 .meal-dishes-row {
+  flex: 1;
   display: flex;
-  flex-wrap: wrap;
-  gap: 14rpx;
-  margin-bottom: 10rpx;
+  flex-wrap: nowrap;
+  gap: 10rpx;
+  margin-bottom: 0;
+  margin-left: 12rpx;
+  margin-right: 12rpx;
+  overflow: hidden;
 }
 
 .meal-dish-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 140rpx;
+  width: 100rpx;
+  flex-shrink: 0;
 }
 
 .meal-dish-thumb {
-  width: 120rpx;
-  height: 120rpx;
-  border-radius: 22rpx;
+  width: 90rpx;
+  height: 90rpx;
+  border-radius: 18rpx;
   overflow: hidden;
-  margin-bottom: 6rpx;
+  margin-bottom: 4rpx;
   position: relative;
 }
 
 .meal-dish-img {
-  width: 120rpx;
-  height: 120rpx;
+  width: 90rpx;
+  height: 90rpx;
   display: block;
 }
 
 .meal-dish-ph {
-  width: 120rpx;
-  height: 120rpx;
-  border-radius: 22rpx;
+  width: 90rpx;
+  height: 90rpx;
+  border-radius: 18rpx;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .meal-dish-ph-text {
-  font-size: 36rpx;
+  font-size: 28rpx;
   font-weight: 700;
   color: #5D4037;
 }
 
 .meal-dish-name {
-  font-size: 21rpx;
+  font-size: 18rpx;
   color: #3E2723;
   font-weight: 500;
   text-align: center;
@@ -323,25 +333,27 @@
 
 .meal-dish-lock {
   position: absolute;
-  top: 4rpx;
-  right: 4rpx;
-  font-size: 18rpx;
+  top: 2rpx;
+  right: 2rpx;
+  font-size: 14rpx;
 }
 
-/* 一键加入本餐菜单（餐次级） */
+/* 一键加入本餐菜单（右侧紧凑按钮） */
 .meal-add-all {
   background: #7CB342;
-  border-radius: 14rpx;
-  padding: 9rpx 0;
+  border-radius: 12rpx;
+  padding: 10rpx 14rpx;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .meal-add-all-text {
-  font-size: 18rpx;
+  font-size: 20rpx;
   color: #FFFFFF;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 /* ===== 4. 已点菜单 ===== */
