@@ -9,7 +9,7 @@
 - 主键：字符串 UUID，字段名统一 `id`。
 - 外键：`<entity>_id`。
 - 数量：统一 `quantity`，可精确数量使用 decimal；无法精确的“少许/适量”允许 `quantity = null` 并保留 `quantity_text`。
-- 单位：统一 `unit_code`，展示名由单位字典映射。
+- 单位：统一 `unit_code`，展示名由单位字典映射；无法可靠确定单位时允许 nullable，但不得瞎猜。
 - 日期：`YYYY-MM-DD`；时间戳：UTC ISO-8601。
 - 枚举：数据库/API 使用大写稳定 code，UI 自行翻译。
 - 软删除：需要恢复能力的实体用 `deleted_at`；不得把“回收站”实现成另一套复制表。
@@ -61,6 +61,7 @@
 - `created_by_user_id`
 - `photo_url`
 - `header_mode`：`PHOTO | DUAL_AVATAR`
+- `version` integer >=1
 - `created_at`
 - `updated_at`
 - `deleted_at`
@@ -92,6 +93,7 @@
 - `repeat_recover_days` 默认 28
 - `random_default_mode`：`BALANCED | USE_INVENTORY | TRY_DIFFERENT`
 - `prefer_expiring_inventory` boolean
+- `version` integer >=1
 - `created_at`
 - `updated_at`
 
@@ -206,7 +208,7 @@
 - `display_name_override` nullable
 - `quantity` decimal nullable
 - `quantity_text` nullable
-- `unit_code`
+- `unit_code` nullable
 - `type`：`MAIN | SIDE | SEASONING | GARNISH`
 - `required` boolean
 - `sort_order`
@@ -214,7 +216,7 @@
 
 替代食材：`recipe_ingredient_alternatives(id, recipe_ingredient_id, alternative_ingredient_id, note, sort_order)`。
 
-原则：购物计算只读取当前实际选中的 recipe 的 ingredient rows；基础菜谱被家庭版本替代后不得再混入基础配料。
+原则：购物计算只读取当前实际选中的 recipe 的 ingredient rows；基础菜谱被家庭版本替代后不得再混入基础配料。unit_code 不明时不得参与跨单位自动合并，必须保留为人工确认项。
 
 ## 13. recipe_steps
 
@@ -390,7 +392,7 @@
 - `display_name_override` nullable
 - `required_quantity` decimal nullable
 - `required_quantity_text` nullable
-- `unit_code`
+- `unit_code` nullable
 - `purchased_quantity` decimal nullable
 - `is_purchased` boolean
 - `source`：`GENERATED | MANUAL`
