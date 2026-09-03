@@ -1,13 +1,13 @@
 # Kitchen V4 Project State
 
-Last updated: 2026-09-03 (Asia/Shanghai)
+Last updated: 2026-09-04 (Asia/Shanghai)
 
 ## Current stage
 
 - Phase 0: complete
 - Phase 1: complete
 - Phase 2: complete
-- Phase 2.5: not started
+- Phase 2.5: complete
 - Phase 3+: not started
 
 ## Git state
@@ -18,6 +18,7 @@ Last updated: 2026-09-03 (Asia/Shanghai)
 - Phase 0 checkpoint: `c36c4f8573fa2519e5ba3678b4ae11622e9c6855`
 - Phase 1 audit checkpoint: `78dc16c071d2fcd9221651b9b207cf1d6d9de600`
 - Phase 2 specification checkpoint before state update: `9cf8eeb13a45987ea9970ba2343809676ece4ba2`
+- Phase 2.5 homepage UI acceptance checkpoint: `80e5c261599a34655b9c6340257b706006a39b33`
 - Base branch: `main`
 - Remote: `https://github.com/ruide92/our-kitchen-api.git`
 - The original `main` checkout has a pre-existing modification to `database.json`. It has not been overwritten or included in this worktree.
@@ -76,13 +77,25 @@ Canonical V4 decisions now frozen include:
 - Kiss is an append-only family ledger, not a price/score field.
 - UI reference images define visual acceptance; V4 specs define business behavior.
 
+### Phase 2.5
+
+Homepage fixture UI implemented and visually accepted.
+
+- Scope: `miniprogram/pages/index/*` only — homepage WXML/WXSS/JS + explicit fixture file (`homepage-fixture.js`). No backend, database, auth, API contract, or other-page changes.
+- Data source: explicit local fixture matching `API_CONTRACT_V4.md` homepage contract structure. Zero legacy `/api/*` calls.
+- Fixture is clearly marked as mock in file header and code comments; no visible fixture banner on the rendered homepage.
+- Homepage structure accepted: family header (dual avatars + kitchen name + day/diners), four quick entries, weekly plan core area (Mon–Sun tabs, today highlighted, breakfast/lunch/dinner as compact horizontal rows with per-meal "加入本餐" button), ordered meal menu (horizontal cards with dish image/name/who-ordered + "继续添加"), five-tab bottom bar.
+- Business logic accepted: date + meal_type two-dimensional isolation for local meal selections; per-meal idempotent batch add; "查看本周" uses toast placeholder (Phase 2.5 marker) until menu page is built.
+- WeChat DevTools (Stable 2.02.2608060) real compile on iPhone 15 Pro simulator: **0 error** (4 internal DevTools warnings unrelated to project code).
+- Homepage UI passed external Reviewer + user visual acceptance at commit `80e5c261599a34655b9c6340257b706006a39b33`.
+- **Important: this is fixture UI only. It does NOT represent real multi-user backend, real family sync, or production persistence. Those remain Phase 3+.**
+
 ## In progress
 
-None. Phase 2 is closed; next work is Phase 2.5.
+None. Phase 2.5 is closed; next work is Phase 3.
 
 ## Not started
 
-- Phase 2.5 homepage fixture implementation and WeChat DevTools screenshot acceptance.
 - Phase 3 PostgreSQL, real WeChat identity, family isolation, `/api/v1` foundation, production persistence.
 - Phase 4+ recipe assets, meal/shopping/cooking core, recommendation, KRP, family experience and future community work.
 
@@ -93,7 +106,7 @@ None. Phase 2 is closed; next work is Phase 2.5.
 - JsonDatabase still cannot implement route SQL semantics and must not be extended.
 - Existing production JSON persistence is not V4-compliant.
 - Existing frontend remains connected to legacy contract until phased migration.
-- Phase 2.5 fixture UI must not be described as real multi-user completion.
+- Phase 2.5 homepage is fixture UI only; must not be described as real multi-user completion until Phase 3 backend is live.
 
 ## Test status
 
@@ -106,6 +119,8 @@ Baseline evidence remains:
 
 Phase 2 consisted only of specification documents; no business code or production deployment was modified. Normative cross-check was performed across Product ↔ Data Model ↔ API ↔ Acceptance Tests plus KRP/Recommendation/Roadmap.
 
+Phase 2.5 added homepage fixture UI only. WeChat DevTools real compile: 0 error. No backend, database, or auth code was touched.
+
 ## Deployment status
 
 - No deployment changed.
@@ -114,6 +129,4 @@ Phase 2 consisted only of specification documents; no business code or productio
 
 ## Next first action
 
-Phase 2.5: implement the approved homepage using an explicit fixture matching `API_CONTRACT_V4.md`, without using legacy APIs as fake backing data. Compile in WeChat DevTools, capture an iPhone 14/15-proportioned real runtime screenshot, compare against the user's accepted homepage reference, and do not proceed to broad UI work until the screenshot is externally accepted.
-
-This Phase 2.5 UI slice may be implemented by an assist engineer (e.g. Doubao) only under the restricted task rules in `IMPLEMENTATION_ROADMAP.md`: homepage files/fixture only, no database/auth/API-contract/backend changes, no self-approval.
+Phase 3: begin backend foundation — PostgreSQL schema migration from V4 `DATA_MODEL_V4.md`, real WeChat identity (`wx.login` → server-validated openid), family membership isolation, and `/api/v1` route skeleton. The Phase 2.5 homepage fixture should be the first consumer of real `/api/v1/homepage` endpoints once they exist. Do not modify the accepted homepage UI (`80e5c26`) except to swap fixture for real API calls.
