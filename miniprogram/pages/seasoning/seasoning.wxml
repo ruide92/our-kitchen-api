@@ -1,0 +1,39 @@
+<view class="page">
+  <view class="header">
+    <text class="title">调味品</text>
+    <view class="add-btn" bindtap="showAddPanel">+ 添加</view>
+  </view>
+  <scroll-view class="cat-tabs" scroll-x>
+    <view class="cat-tab {{currentCategory === '全部' ? 'active' : ''}}" data-category="全部" bindtap="selectCategory">全部</view>
+    <view wx:for="{{categories}}" wx:key="*this" class="cat-tab {{currentCategory === item ? 'active' : ''}}" data-category="{{item}}" bindtap="selectCategory">{{item}}</view>
+  </scroll-view>
+  <view class="list">
+    <view wx:for="{{items}}" wx:key="id" class="item">
+      <view class="item-icon">🧂</view>
+      <view class="item-info">
+        <text class="item-name">{{item.name}}</text>
+        <text class="item-amount">{{item.amount}}{{item.unit}} · {{item.category}}</text>
+      </view>
+      <view class="item-status status-{{item.status}}" data-id="{{item.id}}" bindtap="toggleStatus">{{item.status}}</view>
+      <view class="item-delete" data-id="{{item.id}}" bindtap="deleteItem">×</view>
+    </view>
+    <view wx:if="{{items.length === 0}}" class="empty">
+      <text class="empty-icon">🧂</text>
+      <text class="empty-text">还没有调味品，点击右上角添加</text>
+    </view>
+  </view>
+  <view wx:if="{{showAdd}}" class="modal" bindtap="hideAddPanel">
+    <view class="modal-panel" catchtap="">
+      <text class="modal-title">添加调味品</text>
+      <view class="form-item"><text class="form-label">名称</text><input class="form-input" placeholder="如：生抽" data-field="name" bindinput="onInput" /></view>
+      <view class="form-row">
+        <view class="form-item form-item-half"><text class="form-label">数量</text><input class="form-input" placeholder="1" type="digit" data-field="amount" bindinput="onInput" /></view>
+        <view class="form-item form-item-half"><text class="form-label">单位</text><input class="form-input" placeholder="瓶" data-field="unit" bindinput="onInput" /></view>
+      </view>
+      <view class="form-actions">
+        <view class="form-btn cancel" bindtap="hideAddPanel">取消</view>
+        <view class="form-btn confirm" bindtap="addItem">添加</view>
+      </view>
+    </view>
+  </view>
+</view>

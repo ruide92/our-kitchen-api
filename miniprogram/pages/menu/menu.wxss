@@ -1,0 +1,203 @@
+.page {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #FFF9F0;
+}
+
+/* 顶部搜索 */
+.top-bar {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 24rpx;
+  background: #FFF9F0;
+}
+
+.search-box {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  height: 72rpx;
+  background: #F5F5F5;
+  border-radius: 36rpx;
+  padding: 0 28rpx;
+  margin-right: 20rpx;
+}
+
+.search-icon {
+  font-size: 28rpx;
+  margin-right: 12rpx;
+}
+
+.search-input {
+  flex: 1;
+  font-size: 26rpx;
+  color: #3E2723;
+}
+
+.search-placeholder {
+  color: #BDBDBD;
+}
+
+.add-btn {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background: #7CB342;
+  color: #FFFFFF;
+  font-size: 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* 内容区 */
+.content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* 左侧分类栏 */
+.sidebar {
+  width: 160rpx;
+  background: #FAFAFA;
+  height: 100%;
+}
+
+.cat-item {
+  height: 96rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26rpx;
+  color: #8D6E63;
+  position: relative;
+}
+
+.cat-item-active {
+  background: #FFFFFF;
+  color: #7CB342;
+  font-weight: bold;
+}
+
+.cat-item-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6rpx;
+  height: 40rpx;
+  background: #7CB342;
+  border-radius: 0 4rpx 4rpx 0;
+}
+
+/* 右侧菜品列表 */
+.dish-list {
+  flex: 1;
+  height: 100%;
+  padding: 16rpx 20rpx;
+  box-sizing: border-box;
+}
+
+.dish-card {
+  display: flex;
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 20rpx;
+  margin-bottom: 16rpx;
+  box-shadow: 0 2rpx 12rpx rgba(92, 74, 58, 0.06);
+}
+
+.dish-img {
+  width: 160rpx;
+  height: 120rpx;
+  border-radius: 16rpx;
+  flex-shrink: 0;
+  margin-right: 20rpx;
+}
+
+.dish-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.dish-name {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #3E2723;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dish-tags {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 8rpx 0;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  height: 32rpx;
+  padding: 0 12rpx;
+  border-radius: 16rpx;
+  font-size: 20rpx;
+  margin-right: 8rpx;
+  margin-bottom: 4rpx;
+}
+
+.tag-green {
+  background: #E8F5E9;
+  color: #7CB342;
+}
+
+.tag-orange {
+  background: #FFF3E0;
+  color: #FF9800;
+}
+
+.tag-gray {
+  background: #F5F5F5;
+  color: #9E9E9E;
+}
+
+.dish-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.meta-item {
+  font-size: 22rpx;
+  color: #BDBDBD;
+  margin-right: 16rpx;
+}
+
+.loading, .empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 120rpx 0;
+  color: #BDBDBD;
+  font-size: 26rpx;
+}
+
+.empty-icon {
+  font-size: 80rpx;
+  margin-bottom: 16rpx;
+}
+
+.list-bottom {
+  text-align: center;
+  padding: 32rpx 0;
+  font-size: 22rpx;
+  color: #BDBDBD;
+}

@@ -1,0 +1,22 @@
+<view class="page">
+  <view class="header"><text class="title">🤖 AI菜谱导入</text></view>
+  <view class="tip-card">
+    <text class="tip-title">使用方法</text>
+    <text class="tip-text">1. 点击下方按钮复制AI指令</text>
+    <text class="tip-text">2. 发给豆包/ChatGPT等AI，让它生成菜谱</text>
+    <text class="tip-text">3. 把AI输出的KRP菜谱包粘贴到下方</text>
+    <text class="tip-text">4. 点击导入，自动生成菜品</text>
+  </view>
+  <view class="action-btn" bindtap="copySkill">📋 复制AI指令</view>
+  <view class="action-btn outline" bindtap="toggleSkill">{{showSkill ? '收起' : '查看'}}指令模板</view>
+  <view wx:if="{{showSkill}}" class="skill-box">
+    <text class="skill-text">你是一个专业的菜谱整理员。请按照KITCHEN_RECIPE_PACK格式输出菜谱，包含菜名、分类、食材、步骤、辣度、健康度等信息。</text>
+  </view>
+  <view class="form-item">
+    <text class="form-label">粘贴KRP菜谱包</text>
+    <textarea class="form-textarea" placeholder="粘贴AI生成的KITCHEN_RECIPE_PACK内容..." bindinput="onInput" value="{{krpText}}" />
+  </view>
+  <view class="bottom-actions safe-bottom">
+    <view class="import-btn" bindtap="importRecipe">导入菜谱</view>
+  </view>
+</view>

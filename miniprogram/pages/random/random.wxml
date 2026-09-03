@@ -1,0 +1,27 @@
+<view class="page">
+  <view class="header"><text class="title">🎲 今天吃什么</text></view>
+  <view class="mode-tabs">
+    <view class="mode-tab {{mode === 'double' ? 'active' : ''}}" data-mode="double" bindtap="setMode">双人晚餐</view>
+    <view class="mode-tab {{mode === 'one' ? 'active' : ''}}" data-mode="one" bindtap="setMode">一人食</view>
+    <view class="mode-tab {{mode === 'lazy' ? 'active' : ''}}" data-mode="lazy" bindtap="setMode">懒人模式</view>
+    <view class="mode-tab {{mode === 'fridge' ? 'active' : ''}}" data-mode="fridge" bindtap="setMode">冰箱优先</view>
+  </view>
+  <view class="count-tabs">
+    <view wx:for="{{[1,2,3]}}" wx:key="*this" class="count-tab {{dishCount === item ? 'active' : ''}}" data-count="{{item}}" bindtap="setCount">{{item}}道菜</view>
+  </view>
+  <view class="dish-list">
+    <view wx:for="{{dishes}}" wx:key="id" class="dish-card" data-id="{{item.id}}" bindtap="goDetail">
+      <image class="dish-img" src="{{item.image}}" mode="aspectFill"></image>
+      <view class="dish-info">
+        <text class="dish-name">{{item.name}}</text>
+        <text class="dish-meta">{{item.category}} · {{item.cook_time}}分钟</text>
+      </view>
+      <view class="lock-btn {{locked.includes(item.id) ? 'locked' : ''}}" data-id="{{item.id}}" catchtap="toggleLock">{{locked.includes(item.id) ? '🔒' : '🔓'}}</view>
+    </view>
+    <view wx:if="{{loading}}" class="loading">摇一摇中...</view>
+  </view>
+  <view class="bottom-actions safe-bottom">
+    <view class="action-btn" bindtap="generate">🎲 换一批</view>
+    <view class="action-btn primary" bindtap="addAllToMenu">加入今日菜单</view>
+  </view>
+</view>

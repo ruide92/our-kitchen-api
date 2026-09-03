@@ -51,6 +51,7 @@ router.get('/', (req, res) => {
   // 解析JSON字段
   const result = dishes.map(d => ({
     ...d,
+    image: d.image_url || '',
     ingredients: d.ingredients ? JSON.parse(d.ingredients) : [],
     steps: d.steps ? JSON.parse(d.steps) : [],
     tips: d.tips ? JSON.parse(d.tips) : [],
@@ -80,6 +81,7 @@ router.get('/:id', (req, res) => {
   
   const result = {
     ...dish,
+    image: dish.image_url || '',
     ingredients: dish.ingredients ? JSON.parse(dish.ingredients) : [],
     steps: dish.steps ? JSON.parse(dish.steps) : [],
     tips: dish.tips ? JSON.parse(dish.tips) : [],
@@ -95,6 +97,7 @@ router.get('/hot/list', (req, res) => {
   const dishes = db.prepare('SELECT * FROM dishes WHERE is_hidden = 0 ORDER BY is_custom DESC, created_at DESC LIMIT 10').all();
   res.json(dishes.map(d => ({
     ...d,
+    image: d.image_url || '',
     ingredients: d.ingredients ? JSON.parse(d.ingredients) : [],
     steps: d.steps ? JSON.parse(d.steps) : [],
     tags: d.tags ? JSON.parse(d.tags) : []
@@ -161,7 +164,7 @@ router.get('/my-rated/list', authMiddleware, (req, res) => {
     return {
       ...r,
       name: dish ? dish.name : '',
-      image_url: dish ? dish.image_url : '',
+      image: dish ? dish.image_url : '',
       category: dish ? dish.category : ''
     };
   });

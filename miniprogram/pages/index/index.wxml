@@ -1,0 +1,123 @@
+<view class="page">
+  <!-- 顶部家庭身份区 -->
+  <view class="header">
+    <view class="header-left">
+      <view class="avatars">
+        <view class="avatar avatar-1">
+          <image wx:if="{{userInfo.avatar}}" src="{{userInfo.avatar}}" mode="aspectFill"></image>
+          <text wx:else class="avatar-emoji">👨</text>
+        </view>
+        <view class="avatar avatar-2">
+          <image wx:if="{{kitchenInfo.partnerAvatar}}" src="{{kitchenInfo.partnerAvatar}}" mode="aspectFill"></image>
+          <text wx:else class="avatar-emoji">👩</text>
+        </view>
+        <text class="heart">❤️</text>
+      </view>
+    </view>
+    <view class="header-right">
+      <text class="kitchen-name">{{kitchenInfo.name || '我们家的大食堂'}}</text>
+      <text class="greeting">{{greeting}}，今天想吃点什么呢？</text>
+    </view>
+  </view>
+
+  <!-- 搜索框 -->
+  <view class="search-box">
+    <text class="search-icon">🔍</text>
+    <input class="search-input" placeholder="搜索菜谱、食材、菜系" placeholder-class="search-placeholder" value="{{searchText}}" bindinput="onSearchInput" confirm-type="search" bindconfirm="onSearch" />
+  </view>
+
+  <!-- 快捷功能面板 -->
+  <view class="quick-panel">
+    <view class="quick-item" bindtap="goRandom">
+      <view class="quick-icon quick-icon-orange">🎲</view>
+      <text class="quick-text">今天吃什么</text>
+    </view>
+    <view class="quick-item" bindtap="goFridge">
+      <view class="quick-icon quick-icon-green">🧊</view>
+      <text class="quick-text">看冰箱做菜</text>
+    </view>
+    <view class="quick-item" bindtap="goFavorites">
+      <view class="quick-icon quick-icon-pink">❤️</view>
+      <text class="quick-text">喜欢吃的菜</text>
+    </view>
+    <view class="quick-item" bindtap="goOnePerson">
+      <view class="quick-icon quick-icon-blue">👤</view>
+      <text class="quick-text">一人菜</text>
+    </view>
+  </view>
+
+  <!-- 每周食谱 -->
+  <view class="weekly-section">
+    <view class="section-header">
+      <text class="section-title">每周食谱</text>
+      <text class="section-action" bindtap="regenerateWeeklyMenu">换一周</text>
+    </view>
+
+    <!-- 时间轴 -->
+    <view class="week-tabs">
+      <view wx:for="{{weekdays}}" wx:key="index" class="week-tab {{currentDay === index ? 'week-tab-active' : ''}}" data-day="{{index}}" bindtap="selectDay">
+        {{item}}
+      </view>
+    </view>
+
+    <!-- 当天三餐 -->
+    <view class="meals-row" wx:if="{{weeklyMenu && weeklyMenu.days}}">
+      <!-- 早餐 -->
+      <view class="meal-card">
+        <view class="meal-header">
+          <text class="meal-icon">🌅</text>
+          <text class="meal-name">早餐</text>
+        </view>
+        <view class="meal-dishes">
+          <view wx:for="{{weeklyMenu.days[currentDay].breakfast}}" wx:key="id" class="meal-dish" data-id="{{item.id}}" bindtap="goDetail">
+            <image class="meal-dish-img" src="{{item.image}}" mode="aspectFill"></image>
+            <text class="meal-dish-name">{{item.name}}</text>
+            <view class="meal-add-btn" data-id="{{item.id}}" catchtap="addToToday">+</view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 午餐 -->
+      <view class="meal-card">
+        <view class="meal-header">
+          <text class="meal-icon">☀️</text>
+          <text class="meal-name">午餐</text>
+        </view>
+        <view class="meal-dishes">
+          <view wx:for="{{weeklyMenu.days[currentDay].lunch}}" wx:key="id" class="meal-dish" data-id="{{item.id}}" bindtap="goDetail">
+            <image class="meal-dish-img" src="{{item.image}}" mode="aspectFill"></image>
+            <text class="meal-dish-name">{{item.name}}</text>
+            <view class="meal-add-btn" data-id="{{item.id}}" catchtap="addToToday">+</view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 晚餐 -->
+      <view class="meal-card">
+        <view class="meal-header">
+          <text class="meal-icon">🌙</text>
+          <text class="meal-name">晚餐</text>
+        </view>
+        <view class="meal-dishes">
+          <view wx:for="{{weeklyMenu.days[currentDay].dinner}}" wx:key="id" class="meal-dish" data-id="{{item.id}}" bindtap="goDetail">
+            <image class="meal-dish-img" src="{{item.image}}" mode="aspectFill"></image>
+            <text class="meal-dish-name">{{item.name}}</text>
+            <view class="meal-add-btn" data-id="{{item.id}}" catchtap="addToToday">+</view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 营养标签 -->
+    <view class="nutrition-tag" wx:if="{{weeklyMenu && weeklyMenu.days}}">
+      <text>今日营养：{{weeklyMenu.days[currentDay].nutrition || '优质蛋白+碳水+维生素C+膳食纤维'}}</text>
+    </view>
+
+    <!-- 本周统计 -->
+    <view class="week-stats" wx:if="{{weeklyMenu}}">
+      <text>本周已搭配：{{weeklyMenu.stats || '肉类3天/豆制品2天/鱼虾1天/蔬菜全覆盖'}}</text>
+    </view>
+  </view>
+
+  <view class="bottom-space"></view>
+</view>

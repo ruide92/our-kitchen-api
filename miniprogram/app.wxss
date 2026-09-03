@@ -1,0 +1,222 @@
+/* 全局样式 - 我们的小厨房 */
+page {
+  background-color: #FFF9F0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  color: #3E2723;
+  font-size: 28rpx;
+  line-height: 1.5;
+}
+
+/* 容器 */
+.container {
+  padding: 32rpx;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+/* 卡片 */
+.card {
+  background: #FFFFFF;
+  border-radius: 36rpx;
+  padding: 28rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 4rpx 24rpx rgba(92, 74, 58, 0.08);
+}
+
+/* 标题 */
+.title-lg {
+  font-size: 40rpx;
+  font-weight: bold;
+  color: #3E2723;
+}
+
+.title-md {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #3E2723;
+}
+
+.title-sm {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #3E2723;
+}
+
+/* 文字 */
+.text-primary {
+  color: #3E2723;
+}
+
+.text-secondary {
+  color: #8D6E63;
+}
+
+.text-muted {
+  color: #BDBDBD;
+}
+
+.text-green {
+  color: #7CB342;
+}
+
+.text-orange {
+  color: #FF9800;
+}
+
+.text-pink {
+  color: #E91E63;
+}
+
+/* 按钮 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 88rpx;
+  padding: 0 48rpx;
+  border-radius: 44rpx;
+  font-size: 30rpx;
+  font-weight: 500;
+  border: none;
+  line-height: 1;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #7CB342, #8BC34A);
+  color: #FFFFFF;
+}
+
+.btn-orange {
+  background: linear-gradient(135deg, #FF9800, #FFB74D);
+  color: #FFFFFF;
+}
+
+.btn-pink {
+  background: linear-gradient(135deg, #E91E63, #F06292);
+  color: #FFFFFF;
+}
+
+.btn-outline {
+  background: #FFFFFF;
+  color: #7CB342;
+  border: 2rpx solid #7CB342;
+}
+
+.btn-block {
+  display: flex;
+  width: 100%;
+}
+
+/* 标签 */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  height: 40rpx;
+  padding: 0 16rpx;
+  border-radius: 20rpx;
+  font-size: 22rpx;
+  margin-right: 12rpx;
+}
+
+.tag-green {
+  background: #E8F5E9;
+  color: #7CB342;
+}
+
+.tag-orange {
+  background: #FFF3E0;
+  color: #FF9800;
+}
+
+.tag-pink {
+  background: #FCE4EC;
+  color: #E91E63;
+}
+
+.tag-gray {
+  background: #F5F5F5;
+  color: #9E9E9E;
+}
+
+/* 分割线 */
+.divider {
+  height: 2rpx;
+  background: #F0EBE5;
+  margin: 24rpx 0;
+}
+
+/* flex布局 */
+.flex {
+  display: flex;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+/* 图片 */
+.img-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 120rpx 0;
+}
+
+.empty-icon {
+  font-size: 120rpx;
+  margin-bottom: 24rpx;
+}
+
+.empty-text {
+  font-size: 28rpx;
+  color: #BDBDBD;
+  margin-bottom: 32rpx;
+}
+
+/* 搜索框 */
+.search-box {
+  display: flex;
+  align-items: center;
+  height: 80rpx;
+  background: #F5F5F5;
+  border-radius: 40rpx;
+  padding: 0 32rpx;
+  margin-bottom: 24rpx;
+}
+
+.search-icon {
+  font-size: 32rpx;
+  color: #9E9E9E;
+  margin-right: 16rpx;
+}
+
+.search-input {
+  flex: 1;
+  font-size: 28rpx;
+  color: #3E2723;
+}
+
+/* 底部安全区 */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}

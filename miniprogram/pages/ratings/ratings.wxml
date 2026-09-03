@@ -1,0 +1,14 @@
+<view class="page">
+  <view class="header"><text class="title">点赞菜谱</text></view>
+  <view class="list">
+    <view wx:for="{{dishes}}" wx:key="id" class="dish-card" data-id="{{item.dish_id || item.id}}" bindtap="goDetail">
+      <image class="dish-img" src="{{item.image || item.dish_image}}" mode="aspectFill"></image>
+      <view class="dish-info">
+        <text class="dish-name">{{item.name || item.dish_name}}</text>
+        <view class="stars">{{item.stars}}</view>
+      </view>
+      <view class="remove-btn" data-id="{{item.id}}" catchtap="removeRating">取消</view>
+    </view>
+    <view wx:if="{{dishes.length === 0}}" class="empty"><text class="empty-icon">⭐</text><text class="empty-text">还没有评分的菜品</text></view>
+  </view>
+</view>

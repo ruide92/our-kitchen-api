@@ -1,0 +1,94 @@
+<view class="page">
+  <view class="header"><text class="title">👨‍👩‍👧 家庭管理</text></view>
+
+  <!-- 未登录 -->
+  <view wx:if="{{!isLoggedIn}}" class="empty-state">
+    <text class="empty-icon">🔐</text>
+    <text class="empty-text">请先登录</text>
+    <text class="empty-desc">在"我的"页面完成微信登录</text>
+  </view>
+
+  <!-- 已登录但无厨房 -->
+  <view wx:elif="{{!hasKitchen}}" class="kitchen-guide">
+    <view class="guide-icon">🏠</view>
+    <view class="guide-title">创建或加入家庭厨房</view>
+    <view class="guide-desc">创建自己的厨房，邀请家人加入共享菜单、冰箱和购物清单；或者输入家人分享的邀请码加入</view>
+
+    <view class="guide-actions">
+      <button class="guide-btn primary" bindtap="showCreateKitchen">🏠 创建我的厨房</button>
+      <button class="guide-btn secondary" bindtap="showJoinKitchen">📨 加入家人厨房</button>
+    </view>
+  </view>
+
+  <!-- 已有厨房 -->
+  <view wx:else>
+    <view class="kitchen-card" bindtap="editKitchenName">
+      <view class="kitchen-icon">🏠</view>
+      <view class="kitchen-info">
+        <text class="kitchen-name">{{kitchen.name || '我们的小厨房'}}</text>
+        <text class="kitchen-desc">点击修改厨房名称</text>
+      </view>
+      <text class="edit-icon">✏️</text>
+    </view>
+
+    <view class="section-title">家庭成员（{{members.length}}）</view>
+    <view class="member-list">
+      <view wx:for="{{members}}" wx:key="id" class="member-item">
+        <image wx:if="{{item.avatar}}" class="member-avatar" src="{{item.avatar}}" mode="aspectFill"></image>
+        <view wx:else class="member-avatar placeholder">👤</view>
+        <view class="member-info">
+          <text class="member-name">{{item.nickname || item.name || '家人'}}</text>
+          <text class="member-role">
+            {{item.role === 'OWNER' ? '👑 所有者' : item.role === 'ADMIN' ? '⚡ 管理员' : '👤 成员'}}
+          </text>
+        </view>
+      </view>
+      <view wx:if="{{members.length === 0}}" class="empty-members">
+        <text>还没有其他成员，邀请家人加入吧</text>
+      </view>
+    </view>
+
+    <view class="invite-section">
+      <view class="section-title">邀请家人加入</view>
+      <view class="invite-desc">生成邀请码，分享给家人，他们在"我的"页面输入邀请码即可加入你的厨房</view>
+      <button class="invite-btn" bindtap="generateInvite">📨 生成邀请码</button>
+
+      <view wx:if="{{inviteCode}}" class="invite-code-card">
+        <text class="invite-code-label">邀请码</text>
+        <text class="invite-code-text">{{inviteCode}}</text>
+        <view class="invite-code-actions">
+          <button class="code-btn" bindtap="copyInvite">复制</button>
+          <button class="code-btn share" open-type="share">分享</button>
+        </view>
+      </view>
+    </view>
+
+    <view class="danger-section">
+      <view class="danger-btn" bindtap="leaveKitchen">退出家庭</view>
+    </view>
+  </view>
+
+  <!-- 创建厨房弹窗 -->
+  <view wx:if="{{showCreateModal}}" class="modal" bindtap="closeModal">
+    <view class="modal-panel" catchtap="">
+      <text class="modal-title">创建家庭厨房</text>
+      <input class="modal-input" placeholder="请输入厨房名称，如：我们家的大食堂" value="{{kitchenName}}" bindinput="onKitchenNameInput" />
+      <view class="modal-actions">
+        <button class="modal-btn cancel" bindtap="closeModal">取消</button>
+        <button class="modal-btn confirm" bindtap="createKitchen">创建</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 加入厨房弹窗 -->
+  <view wx:if="{{showJoinModal}}" class="modal" bindtap="closeModal">
+    <view class="modal-panel" catchtap="">
+      <text class="modal-title">加入家庭厨房</text>
+      <input class="modal-input" placeholder="请输入家人分享的邀请码" value="{{joinCode}}" bindinput="onJoinCodeInput" />
+      <view class="modal-actions">
+        <button class="modal-btn cancel" bindtap="closeModal">取消</button>
+        <button class="modal-btn confirm" bindtap="joinKitchen">加入</button>
+      </view>
+    </view>
+  </view>
+</view>

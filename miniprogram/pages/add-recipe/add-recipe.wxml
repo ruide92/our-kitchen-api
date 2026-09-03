@@ -1,0 +1,26 @@
+<view class="page">
+  <view class="header"><text class="title">{{isEdit ? '编辑菜品' : '添加菜品'}}</text></view>
+  <view class="form">
+    <view class="form-item"><text class="form-label">菜名 *</text><input class="form-input" placeholder="如：辣椒炒肉" data-field="name" bindinput="onInput" value="{{form.name}}" /></view>
+    <view class="form-item"><text class="form-label">描述</text><input class="form-input" placeholder="简单描述这道菜" data-field="description" bindinput="onInput" value="{{form.description}}" /></view>
+    <view class="form-row">
+      <view class="form-item form-item-half"><text class="form-label">分类</text><input class="form-input" placeholder="家常菜" data-field="category" bindinput="onInput" value="{{form.category}}" /></view>
+      <view class="form-item form-item-half"><text class="form-label">厨具</text><input class="form-input" placeholder="炒锅" data-field="equipment" bindinput="onInput" value="{{form.equipment}}" /></view>
+    </view>
+    <view class="form-row">
+      <view class="form-item form-item-half"><text class="form-label">烹饪时间(分钟)</text><input class="form-input" type="number" placeholder="20" data-field="cook_time" bindinput="onInput" value="{{form.cook_time}}" /></view>
+      <view class="form-item form-item-half"><text class="form-label">人数</text><input class="form-input" type="number" placeholder="2" data-field="servings" bindinput="onInput" value="{{form.servings}}" /></view>
+    </view>
+    <view class="form-row">
+      <view class="form-item form-item-half"><text class="form-label">辣度(0-5)</text><input class="form-input" type="number" placeholder="2" data-field="spicy_level" bindinput="onInput" value="{{form.spicy_level}}" /></view>
+      <view class="form-item form-item-half"><text class="form-label">健康度(1-5)</text><input class="form-input" type="number" placeholder="3" data-field="health_score" bindinput="onInput" value="{{form.health_score}}" /></view>
+    </view>
+    <view class="form-item"><text class="form-label">么么哒(1-5)</text><input class="form-input" type="number" placeholder="3" data-field="kiss_reward" bindinput="onInput" value="{{form.kiss_reward}}" /></view>
+    <view class="form-item"><text class="form-label">食材（每行一个，格式：名称 数量 单位）</text><textarea class="form-textarea" placeholder="猪肉 200 g&#10;青椒 2 个&#10;蒜 3 瓣" data-field="ingredients" bindinput="onInput" value="{{form.ingredients}}" /></view>
+    <view class="form-item"><text class="form-label">做法步骤（每行一步）</text><textarea class="form-textarea" placeholder="1. 猪肉切片腌制&#10;2. 热锅下油炒肉&#10;3. 加入青椒翻炒" data-field="steps" bindinput="onInput" value="{{form.steps}}" /></view>
+    <view class="form-item"><text class="form-label">小贴士</text><textarea class="form-textarea" placeholder="烹饪小技巧" data-field="tips" bindinput="onInput" value="{{form.tips}}" /></view>
+  </view>
+  <view class="bottom-actions safe-bottom">
+    <view class="save-btn" bindtap="save">保存菜品</view>
+  </view>
+</view>

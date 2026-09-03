@@ -86,7 +86,7 @@ router.get('/', authMiddleware, (req, res) => {
   }
   
   let items = db.prepare(`
-    SELECT wm.*, d.name, d.image_url, d.category, d.spiciness, d.healthiness, d.cook_time
+    SELECT wm.*, d.name, d.image_url as image, d.category, d.spiciness, d.healthiness, d.cook_time
     FROM weekly_menu wm 
     JOIN dishes d ON wm.dish_id = d.id 
     WHERE wm.family_id = ? 
@@ -99,7 +99,7 @@ router.get('/', authMiddleware, (req, res) => {
     generateWeeklyMenu(family.family_id, req.user.id);
     // 重新查询
     items = db.prepare(`
-      SELECT wm.*, d.name, d.image_url, d.category, d.spiciness, d.healthiness, d.cook_time
+      SELECT wm.*, d.name, d.image_url as image, d.category, d.spiciness, d.healthiness, d.cook_time
       FROM weekly_menu wm 
       JOIN dishes d ON wm.dish_id = d.id 
       WHERE wm.family_id = ? 

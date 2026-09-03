@@ -1,0 +1,123 @@
+<view class="page">
+  <!-- 未登录状态：微信登录引导 -->
+  <view wx:if="{{!isLoggedIn}}" class="login-section">
+    <view class="login-title">欢迎来到我们家的大食堂</view>
+    <view class="login-desc">登录后可以和家人共享菜单、冰箱和购物清单</view>
+    
+    <view class="avatar-section">
+      <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+        <image wx:if="{{userInfo.avatar}}" class="avatar-img" src="{{userInfo.avatar}}" mode="aspectFill"></image>
+        <view wx:else class="avatar-placeholder">
+          <text class="avatar-icon">👤</text>
+          <text class="avatar-tip">点击设置头像</text>
+        </view>
+      </button>
+    </view>
+
+    <view class="nickname-section">
+      <input class="nickname-input" type="nickname" placeholder="请输入昵称" value="{{userInfo.nickname}}" bindinput="onNicknameInput" />
+    </view>
+
+    <button class="login-btn" bindtap="completeLogin">登录并开始使用</button>
+  </view>
+
+  <!-- 已登录但无厨房：创建/加入厨房引导 -->
+  <view wx:elif="{{!hasKitchen}}" class="kitchen-section">
+    <view class="user-card">
+      <view class="user-avatar" bindtap="editAvatar">
+        <image wx:if="{{userInfo.avatar}}" src="{{userInfo.avatar}}" mode="aspectFill"></image>
+        <text wx:else class="avatar-placeholder">👤</text>
+      </view>
+      <view class="user-info">
+        <text class="user-name">{{userInfo.nickname || '亲爱的厨师'}}</text>
+        <text class="user-desc">用爱做饭，用心生活 💖</text>
+      </view>
+    </view>
+
+    <view class="kitchen-guide">
+      <view class="guide-title">创建或加入家庭厨房</view>
+      <view class="guide-desc">创建自己的厨房，邀请家人加入；或者输入邀请码加入家人的厨房</view>
+      
+      <view class="kitchen-actions">
+        <button class="action-btn primary" bindtap="showCreateKitchen">🏠 创建我的厨房</button>
+        <button class="action-btn secondary" bindtap="showJoinKitchen">📨 加入家人厨房</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 已登录且有厨房：正常页面 -->
+  <view wx:else>
+    <!-- 顶部用户信息 -->
+    <view class="user-card">
+      <view class="user-avatar" bindtap="editAvatar">
+        <image wx:if="{{userInfo.avatar}}" src="{{userInfo.avatar}}" mode="aspectFill"></image>
+        <text wx:else class="avatar-placeholder">👤</text>
+      </view>
+      <view class="user-info">
+        <view class="kitchen-name-row" bindtap="editKitchen">
+          <text class="kitchen-name">{{kitchenInfo.name || '我们的小厨房'}}</text>
+          <text class="edit-icon">✏️</text>
+        </view>
+        <text class="user-name">{{userInfo.nickname || '亲爱的厨师'}}</text>
+        <text class="user-desc">用爱做饭，用心生活 💖</text>
+      </view>
+    </view>
+
+    <!-- 数据统计 -->
+    <view class="stats-card">
+      <view class="stat-item">
+        <text class="stat-num">{{stats.favorites}}</text>
+        <text class="stat-label">收藏</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-num">{{stats.ratings}}</text>
+        <text class="stat-label">评分</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-num">{{stats.cooked}}</text>
+        <text class="stat-label">做过</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-num stat-pink">{{stats.kisses}}</text>
+        <text class="stat-label">么么哒</text>
+      </view>
+    </view>
+
+    <!-- 功能菜单 -->
+    <view class="menu-grid">
+      <view wx:for="{{menuItems}}" wx:key="name" class="menu-item" data-path="{{item.path}}" bindtap="goPage">
+        <view class="menu-icon">{{item.icon}}</view>
+        <text class="menu-name">{{item.name}}</text>
+      </view>
+    </view>
+
+    <!-- 退出登录 -->
+    <view class="logout-btn" bindtap="logout">退出登录</view>
+  </view>
+
+  <view class="version">版本 1.3.1</view>
+
+  <!-- 创建厨房弹窗 -->
+  <view wx:if="{{showCreateModal}}" class="modal" bindtap="closeModal">
+    <view class="modal-panel" catchtap="">
+      <text class="modal-title">创建家庭厨房</text>
+      <input class="modal-input" placeholder="请输入厨房名称，如：我们家的大食堂" value="{{kitchenName}}" bindinput="onKitchenNameInput" />
+      <view class="modal-actions">
+        <button class="modal-btn cancel" bindtap="closeModal">取消</button>
+        <button class="modal-btn confirm" bindtap="createKitchen">创建</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 加入厨房弹窗 -->
+  <view wx:if="{{showJoinModal}}" class="modal" bindtap="closeModal">
+    <view class="modal-panel" catchtap="">
+      <text class="modal-title">加入家庭厨房</text>
+      <input class="modal-input" placeholder="请输入家人分享的邀请码" value="{{inviteCode}}" bindinput="onInviteCodeInput" />
+      <view class="modal-actions">
+        <button class="modal-btn cancel" bindtap="closeModal">取消</button>
+        <button class="modal-btn confirm" bindtap="joinKitchen">加入</button>
+      </view>
+    </view>
+  </view>
+</view>

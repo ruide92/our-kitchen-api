@@ -1,0 +1,79 @@
+<view class="page">
+  <!-- 顶部操作 -->
+  <view class="top-actions">
+    <view class="action-btn action-generate" bindtap="generateList">
+      <text>🔄 从菜单生成</text>
+    </view>
+    <view class="action-btn action-add" bindtap="showAddPanel">
+      <text>+ 添加商品</text>
+    </view>
+  </view>
+
+  <!-- 统计 -->
+  <view class="stats-bar" wx:if="{{items.length > 0}}">
+    <text>共 {{totalCount}} 样，已买 {{checkedCount}} 样</text>
+    <view class="check-all" bindtap="toggleAll">
+      <view class="checkbox {{allChecked ? 'checkbox-checked' : ''}}">{{allChecked ? '✓' : ''}}</view>
+      <text>全选</text>
+    </view>
+  </view>
+
+  <!-- 购物清单 -->
+  <view class="shopping-list" wx:if="{{items.length > 0}}">
+    <block wx:for="{{groupedItems}}" wx:for-item="group" wx:for-index="cat" wx:key="cat">
+      <view class="category-title">{{cat}}</view>
+      <view wx:for="{{group}}" wx:for-item="item" wx:key="id" class="shopping-item">
+        <view class="checkbox {{item.checked ? 'checkbox-checked' : ''}}" data-id="{{item.id}}" bindtap="toggleCheck">{{item.checked ? '✓' : ''}}</view>
+        <view class="item-info {{item.checked ? 'item-checked' : ''}}">
+          <text class="item-name">{{item.name}}</text>
+          <text class="item-amount">{{item.amount}}{{item.unit}}</text>
+        </view>
+        <view wx:if="{{item.from_fridge}}" class="item-tag">冰箱已有</view>
+        <view class="item-delete" data-id="{{item.id}}" bindtap="deleteItem">×</view>
+      </view>
+    </block>
+  </view>
+
+  <!-- 空状态 -->
+  <view wx:else class="empty">
+    <text class="empty-icon">🛒</text>
+    <text class="empty-text">购物清单是空的</text>
+    <text class="empty-hint">点击上方"从菜单生成"或"添加商品"</text>
+  </view>
+
+  <!-- 底部购买完成按钮 -->
+  <view class="bottom-bar safe-bottom" wx:if="{{items.length > 0}}">
+    <view class="bottom-info">
+      <text class="bottom-count">{{checkedCount}}/{{totalCount}}</text>
+      <text class="bottom-text">已购买</text>
+    </view>
+    <view class="bottom-btn {{checkedCount > 0 ? 'bottom-btn-active' : ''}}" bindtap="completeShopping">
+      购买完成
+    </view>
+  </view>
+
+  <!-- 添加弹窗 -->
+  <view wx:if="{{showAdd}}" class="modal" bindtap="hideAddPanel">
+    <view class="modal-panel" catchtap="">
+      <text class="modal-title">添加商品</text>
+      <view class="form-item">
+        <text class="form-label">名称</text>
+        <input class="form-input" placeholder="如：西红柿" data-field="name" bindinput="onInput" />
+      </view>
+      <view class="form-row">
+        <view class="form-item form-item-half">
+          <text class="form-label">数量</text>
+          <input class="form-input" placeholder="2" type="digit" data-field="amount" bindinput="onInput" />
+        </view>
+        <view class="form-item form-item-half">
+          <text class="form-label">单位</text>
+          <input class="form-input" placeholder="个" data-field="unit" bindinput="onInput" />
+        </view>
+      </view>
+      <view class="form-actions">
+        <view class="form-btn form-btn-cancel" bindtap="hideAddPanel">取消</view>
+        <view class="form-btn form-btn-confirm" bindtap="addItem">添加</view>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,7 @@
+{
+  "desc": "鍏充簬鏈枃浠剁殑鏇村淇℃伅锛岃鍙傝€冩枃妗?https://developers.weixin.qq.com/miniprogram/dev/framework/sitemap.html",
+  "rules": [{
+    "action": "allow",
+    "page": "*"
+  }]
+}

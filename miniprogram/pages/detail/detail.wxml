@@ -1,0 +1,165 @@
+<view class="page" wx:if="{{dish}}">
+  <!-- 顶部大图 -->
+  <view class="dish-hero">
+    <image class="hero-img" src="{{dish.image}}" mode="aspectFill"></image>
+    <view class="hero-overlay"></view>
+    <view class="hero-actions">
+      <view class="hero-btn" bindtap="toggleFavorite">
+        <text>{{isFavorite ? '❤️' : '🤍'}}</text>
+      </view>
+      <view class="hero-btn" bindtap="editDish">
+        <text>✏️</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 菜品信息 -->
+  <view class="dish-info-card">
+    <view class="dish-title-row">
+      <text class="dish-name">{{dish.name}}</text>
+      <view class="kiss-badge">
+        <text>{{dish.kissText}}</text>
+      </view>
+    </view>
+    <view class="dish-desc">{{dish.description || '一道美味的家常菜'}}</view>
+    <view class="dish-tags">
+      <text wx:if="{{dish.category}}" class="tag tag-green">{{dish.category}}</text>
+      <text wx:if="{{dish.is_lazy}}" class="tag tag-orange">懒人菜</text>
+      <text wx:if="{{dish.equipment}}" class="tag tag-gray">{{dish.equipment}}</text>
+      <text wx:if="{{dish.is_sweet}}" class="tag tag-pink">甜品</text>
+    </view>
+    <view class="dish-stats">
+      <view class="stat-item">
+        <text class="stat-icon">⏱</text>
+        <text class="stat-value">{{dish.cook_time || 20}}分钟</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-icon">📊</text>
+        <text class="stat-value">{{dish.difficultyText}}</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-icon">👥</text>
+        <text class="stat-value">{{dish.servings || 2}}人份</text>
+      </view>
+      <view class="stat-item" wx:if="{{dish.spicy_level > 0}}">
+        <text class="stat-icon">{{dish.spicyIcons}}</text>
+        <text class="stat-value">{{dish.spicyText}}</text>
+      </view>
+      <view class="stat-item" wx:if="{{dish.is_sweet}}">
+        <text class="stat-icon">🍬</text>
+        <text class="stat-value">甜度{{dish.sweet_level || 3}}</text>
+      </view>
+    </view>
+    <view class="health-row">
+      <text class="health-label">健康程度</text>
+      <text class="health-stars">{{dish.healthStars}}</text>
+      <text class="health-score">{{dish.health_score || 3}}/5</text>
+    </view>
+    <view class="rating-row" bindtap="showRatingPanel">
+      <text class="rating-label">我的评分</text>
+      <view class="rating-stars">
+        <text wx:for="{{[1,2,3,4,5]}}" wx:key="*this" class="rating-star {{item <= myRating ? 'star-active' : ''}}">★</text>
+      </view>
+      <text class="rating-hint">{{myRating > 0 ? '点击修改' : '点击评分'}}</text>
+    </view>
+  </view>
+
+  <!-- Tab切换 -->
+  <view class="tab-bar">
+    <view class="tab-item {{currentTab === 'ingredients' ? 'tab-active' : ''}}" data-tab="ingredients" bindtap="switchTab">食材</view>
+    <view class="tab-item {{currentTab === 'steps' ? 'tab-active' : ''}}" data-tab="steps" bindtap="switchTab">做法</view>
+    <view class="tab-item {{currentTab === 'tips' ? 'tab-active' : ''}}" data-tab="tips" bindtap="switchTab">小贴士</view>
+    <view class="tab-item {{currentTab === 'nutrition' ? 'tab-active' : ''}}" data-tab="nutrition" bindtap="switchTab">营养</view>
+  </view>
+
+  <!-- Tab内容 -->
+  <view class="tab-content">
+    <!-- 食材 -->
+    <view wx:if="{{currentTab === 'ingredients'}}" class="ingredients-section">
+      <view class="ingredient-group" wx:if="{{dish.ingredients && dish.ingredients.main}}">
+        <text class="group-title">主料</text>
+        <view wx:for="{{dish.ingredients.main}}" wx:key="name" class="ingredient-item">
+          <text class="ing-name">{{item.name}}</text>
+          <text class="ing-amount">{{item.amount}}{{item.unit}}</text>
+        </view>
+      </view>
+      <view class="ingredient-group" wx:if="{{dish.ingredients && dish.ingredients.side}}">
+        <text class="group-title">配菜</text>
+        <view wx:for="{{dish.ingredients.side}}" wx:key="name" class="ingredient-item">
+          <text class="ing-name">{{item.name}}</text>
+          <text class="ing-amount">{{item.amount}}{{item.unit}}</text>
+        </view>
+      </view>
+      <view class="ingredient-group" wx:if="{{dish.ingredients && dish.ingredients.seasoning}}">
+        <text class="group-title">调料</text>
+        <view wx:for="{{dish.ingredients.seasoning}}" wx:key="name" class="ingredient-item">
+          <text class="ing-name">{{item.name}}</text>
+          <text class="ing-amount">{{item.amount}}{{item.unit}}</text>
+        </view>
+      </view>
+      <view wx:if="{{!dish.ingredients || (!dish.ingredients.main && !dish.ingredients.side && !dish.ingredients.seasoning)}}" class="empty-tip">暂无食材信息</view>
+    </view>
+
+    <!-- 做法 -->
+    <view wx:if="{{currentTab === 'steps'}}" class="steps-section">
+      <view wx:for="{{dish.steps || []}}" wx:key="index" class="step-item">
+        <view class="step-num">{{index + 1}}</view>
+        <view class="step-content">
+          <text class="step-text">{{item.action || item.description || item}}</text>
+          <text wx:if="{{item.time}}" class="step-time">⏱ {{item.time}}</text>
+        </view>
+      </view>
+      <view wx:if="{{!dish.steps || dish.steps.length === 0}}" class="empty-tip">暂无做法步骤</view>
+    </view>
+
+    <!-- 小贴士 -->
+    <view wx:if="{{currentTab === 'tips'}}" class="tips-section">
+      <view wx:for="{{dish.tips || []}}" wx:key="index" class="tip-item">
+        <text class="tip-icon">💡</text>
+        <text class="tip-text">{{item}}</text>
+      </view>
+      <view wx:if="{{!dish.tips || dish.tips.length === 0}}" class="empty-tip">暂无小贴士</view>
+    </view>
+
+    <!-- 营养 -->
+    <view wx:if="{{currentTab === 'nutrition'}}" class="nutrition-section">
+      <view class="nutrition-item" wx:if="{{dish.nutrition}}">
+        <text class="nutrition-label">营养特点</text>
+        <text class="nutrition-value">{{dish.nutrition.summary || dish.nutrition}}</text>
+      </view>
+      <view class="nutrition-tags" wx:if="{{dish.nutrition && dish.nutrition.highlights}}">
+        <text wx:for="{{dish.nutrition.highlights}}" wx:key="*this" class="nut-tag">{{item}}</text>
+      </view>
+      <view wx:if="{{!dish.nutrition}}" class="empty-tip">暂无营养信息</view>
+    </view>
+  </view>
+
+  <!-- 底部操作栏 -->
+  <view class="bottom-actions safe-bottom">
+    <view class="action-btn action-secondary" bindtap="wantToEat">
+      <text class="action-icon">❤️</text>
+      <text class="action-text">我想吃</text>
+    </view>
+    <view class="action-btn action-secondary" bindtap="addToToday">
+      <text class="action-icon">📋</text>
+      <text class="action-text">加入菜单</text>
+    </view>
+    <view class="action-btn action-primary" bindtap="startCooking">
+      <text class="action-icon">👨‍🍳</text>
+      <text class="action-text">开始做饭</text>
+    </view>
+  </view>
+
+  <!-- 评分弹窗 -->
+  <view wx:if="{{showRating}}" class="rating-modal" bindtap="hideRatingPanel">
+    <view class="rating-panel" catchtap="">
+      <text class="rating-panel-title">给这道菜评分</text>
+      <view class="rating-panel-stars">
+        <text wx:for="{{[1,2,3,4,5]}}" wx:key="*this" class="panel-star {{item <= myRating ? 'star-active' : ''}}" data-score="{{item}}" bindtap="setRating">★</text>
+      </view>
+      <text class="rating-panel-hint">点击星星评分，再次点击相同分数可取消</text>
+    </view>
+  </view>
+</view>
+
+<view wx:else class="loading-page">加载中...</view>

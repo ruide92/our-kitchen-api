@@ -1,0 +1,25 @@
+<view class="page">
+  <view class="header">
+    <text class="title">今日菜单</text>
+    <view class="kiss-badge">💋 {{totalKiss}}</view>
+  </view>
+  <view class="dish-list">
+    <view wx:for="{{dishes}}" wx:key="id" class="dish-card" data-id="{{item.dish_id || item.id}}" bindtap="goDetail">
+      <image class="dish-img" src="{{item.image || item.dish_image}}" mode="aspectFill"></image>
+      <view class="dish-info">
+        <text class="dish-name">{{item.name || item.dish_name}}</text>
+        <text class="dish-meta">{{item.category}} · 💋{{item.kiss_reward || 3}}</text>
+      </view>
+      <view class="remove-btn" data-id="{{item.id}}" catchtap="removeDish">×</view>
+    </view>
+    <view wx:if="{{dishes.length === 0}}" class="empty">
+      <text class="empty-icon">📋</text>
+      <text class="empty-text">今日菜单还是空的</text>
+      <text class="empty-hint">去菜单页添加想吃的菜吧</text>
+    </view>
+  </view>
+  <view class="bottom-actions safe-bottom" wx:if="{{dishes.length > 0}}">
+    <view class="action-btn" bindtap="generateShopping">生成购物清单</view>
+    <view class="action-btn primary" bindtap="startCooking">开始做饭</view>
+  </view>
+</view>

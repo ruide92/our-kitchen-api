@@ -1,0 +1,18 @@
+.page { padding: 24rpx 32rpx; min-height: 100vh; padding-bottom: 160rpx; }
+.header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24rpx; }
+.title { font-size: 36rpx; font-weight: bold; color: #3E2723; }
+.kiss-badge { background: #FCE4EC; color: #E91E63; padding: 8rpx 20rpx; border-radius: 20rpx; font-size: 26rpx; }
+.dish-card { display: flex; align-items: center; background: #fff; border-radius: 20rpx; padding: 24rpx; margin-bottom: 16rpx; }
+.dish-img { width: 160rpx; height: 120rpx; border-radius: 16rpx; margin-right: 24rpx; }
+.dish-info { flex: 1; }
+.dish-name { font-size: 30rpx; font-weight: 500; color: #3E2723; display: block; }
+.dish-meta { font-size: 24rpx; color: #8D6E63; margin-top: 8rpx; display: block; }
+.remove-btn { width: 48rpx; height: 48rpx; display: flex; align-items: center; justify-content: center; font-size: 40rpx; color: #BDBDBD; }
+.empty { display: flex; flex-direction: column; align-items: center; padding: 160rpx 0; }
+.empty-icon { font-size: 120rpx; margin-bottom: 24rpx; }
+.empty-text { font-size: 30rpx; color: #8D6E63; margin-bottom: 12rpx; }
+.empty-hint { font-size: 24rpx; color: #BDBDBD; }
+.bottom-actions { position: fixed; bottom: 0; left: 0; right: 0; display: flex; gap: 24rpx; padding: 20rpx 32rpx; background: #fff; box-shadow: 0 -4rpx 16rpx rgba(0,0,0,0.06); }
+.action-btn { flex: 1; height: 88rpx; border-radius: 44rpx; display: flex; align-items: center; justify-content: center; font-size: 28rpx; background: #F5F5F5; color: #5D4037; }
+.action-btn.primary { background: linear-gradient(135deg, #7CB342, #8BC34A); color: #fff; }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }

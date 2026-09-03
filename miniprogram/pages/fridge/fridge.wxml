@@ -1,0 +1,76 @@
+<view class="page">
+  <!-- 顶部统计 -->
+  <view class="stats-card">
+    <view class="stat-item">
+      <text class="stat-num">{{stats.total}}</text>
+      <text class="stat-label">食材总数</text>
+    </view>
+    <view class="stat-item">
+      <text class="stat-num stat-warn">{{stats.expiring}}</text>
+      <text class="stat-label">快过期</text>
+    </view>
+    <view class="stat-item">
+      <text class="stat-num stat-green">{{stats.canCook}}</text>
+      <text class="stat-label">可做菜</text>
+    </view>
+  </view>
+
+  <!-- 分类标签 -->
+  <scroll-view class="cat-tabs" scroll-x>
+    <view wx:for="{{categories}}" wx:key="*this" class="cat-tab {{currentCategory === item ? 'cat-tab-active' : ''}}" data-category="{{item}}" bindtap="selectCategory">
+      {{item}}
+    </view>
+    <view class="cat-tab cat-tab-special" bindtap="goSeasoning">🧂 调味品</view>
+  </scroll-view>
+
+  <!-- 食材列表 -->
+  <view class="item-list">
+    <view wx:if="{{items.length === 0}}" class="empty">
+      <text class="empty-icon">🧊</text>
+      <text class="empty-text">冰箱还是空的，添加第一样食材吧</text>
+    </view>
+    <view wx:for="{{filteredItems}}" wx:key="id" class="item-card" data-id="{{item.id}}" bindtap="updateItem">
+      <view class="item-icon">{{item.category === '冷冻' ? '❄️' : item.category === '常温' ? '📦' : item.category === '调料' ? '🧂' : '🥬'}}</view>
+      <view class="item-info">
+        <text class="item-name">{{item.name}}</text>
+        <text class="item-amount">{{item.amount}}{{item.unit}}</text>
+      </view>
+      <view wx:if="{{item.expiring}}" class="item-badge">快过期</view>
+      <view wx:if="{{item.expiry_date}}" class="item-expiry">{{item.expiry_date}}</view>
+    </view>
+  </view>
+
+  <!-- 添加按钮 -->
+  <view class="add-btn" bindtap="showAddPanel">+</view>
+
+  <!-- 添加弹窗 -->
+  <view wx:if="{{showAdd}}" class="modal" bindtap="hideAddPanel">
+    <view class="modal-panel" catchtap="">
+      <text class="modal-title">添加食材</text>
+      <view class="form-item">
+        <text class="form-label">名称</text>
+        <input class="form-input" placeholder="如：西红柿" data-field="name" bindinput="onInput" />
+      </view>
+      <view class="form-row">
+        <view class="form-item form-item-half">
+          <text class="form-label">数量</text>
+          <input class="form-input" placeholder="500" type="digit" data-field="amount" bindinput="onInput" />
+        </view>
+        <view class="form-item form-item-half">
+          <text class="form-label">单位</text>
+          <input class="form-input" placeholder="g" data-field="unit" bindinput="onInput" />
+        </view>
+      </view>
+      <view class="form-item">
+        <text class="form-label">分类</text>
+        <picker class="form-picker" range="{{['冷藏','冷冻','常温','调料']}}" bindchange="onCategoryChange">
+          <view>{{newItem.category}}</view>
+        </picker>
+      </view>
+      <view class="form-actions">
+        <view class="form-btn form-btn-cancel" bindtap="hideAddPanel">取消</view>
+        <view class="form-btn form-btn-confirm" bindtap="addItem">添加</view>
+      </view>
+    </view>
+  </view>
+</view>

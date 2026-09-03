@@ -1,0 +1,19 @@
+<view class="page">
+  <view class="header"><text class="title">点菜历史</text></view>
+  <view class="filters">
+    <view wx:for="{{['全部','她点的','我点的','未完成','已完成','已取消']}}" wx:key="*this" class="filter {{filter === item ? 'active' : ''}}" data-filter="{{item}}" bindtap="setFilter">{{item}}</view>
+  </view>
+  <view class="list">
+    <view wx:for="{{orders}}" wx:key="id" class="order-item" data-id="{{item.dish_id}}" bindtap="goDetail">
+      <image class="dish-img" src="{{item.dish_image}}" mode="aspectFill"></image>
+      <view class="order-info">
+        <text class="dish-name">{{item.dish_name}}</text>
+        <text class="order-meta">{{item.user_name}} · {{item.created_at}}</text>
+        <view class="order-status status-{{item.status}}">{{item.status_text}}</view>
+      </view>
+      <view wx:if="{{item.status === 'WANTED'}}" class="action-btn" data-id="{{item.id}}" catchtap="cancelOrder">取消</view>
+      <view wx:if="{{item.status === 'CANCELLED'}}" class="action-btn restore" data-id="{{item.id}}" catchtap="restoreOrder">恢复</view>
+    </view>
+    <view wx:if="{{orders.length === 0}}" class="empty"><text class="empty-icon">📝</text><text class="empty-text">还没有点菜记录</text></view>
+  </view>
+</view>

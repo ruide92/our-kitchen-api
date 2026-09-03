@@ -1,0 +1,48 @@
+<view class="page">
+  <!-- 顶部搜索 -->
+  <view class="top-bar">
+    <view class="search-box">
+      <text class="search-icon">🔍</text>
+      <input class="search-input" placeholder="搜索菜谱、食材、菜系" placeholder-class="search-placeholder" value="{{searchText}}" bindinput="onSearchInput" />
+    </view>
+    <view class="add-btn" bindtap="goAdd">+</view>
+  </view>
+
+  <view class="content">
+    <!-- 左侧分类栏 -->
+    <scroll-view class="sidebar" scroll-y>
+      <view wx:for="{{categories}}" wx:key="*this" class="cat-item {{currentCategory === item ? 'cat-item-active' : ''}}" data-category="{{item}}" bindtap="selectCategory">
+        {{item}}
+      </view>
+    </scroll-view>
+
+    <!-- 右侧菜品列表 -->
+    <scroll-view class="dish-list" scroll-y>
+      <view wx:if="{{loading}}" class="loading">加载中...</view>
+      <view wx:elif="{{dishes.length === 0}}" class="empty">
+        <text class="empty-icon">🍽️</text>
+        <text class="empty-text">暂无菜品</text>
+      </view>
+      <view wx:else>
+        <view wx:for="{{dishes}}" wx:key="id" class="dish-card" data-id="{{item.id}}" bindtap="goDetail">
+          <image class="dish-img" src="{{item.image}}" mode="aspectFill"></image>
+          <view class="dish-info">
+            <text class="dish-name">{{item.name}}</text>
+            <view class="dish-tags">
+              <text wx:if="{{item.category}}" class="tag tag-green">{{item.category}}</text>
+              <text wx:if="{{item.is_lazy}}" class="tag tag-orange">懒人菜</text>
+              <text wx:if="{{item.equipment}}" class="tag tag-gray">{{item.equipment}}</text>
+            </view>
+            <view class="dish-meta">
+              <text wx:if="{{item.spicy_level > 0}}" class="meta-item">{{item.spicyIcons}}</text>
+              <text wx:if="{{item.is_sweet}}" class="meta-item">🍬甜</text>
+              <text class="meta-item">⏱{{item.cook_time || 20}}分钟</text>
+              <text class="meta-item">📊{{item.difficultyText}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+      <view class="list-bottom">共 {{dishes.length}} 道菜</view>
+    </scroll-view>
+  </view>
+</view>
