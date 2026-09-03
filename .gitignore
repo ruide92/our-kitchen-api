@@ -1,6 +1,4 @@
 node_modules/
-database.json
-database.db
 *.log
 .env
 .DS_Store
