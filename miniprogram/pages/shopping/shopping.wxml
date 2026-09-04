@@ -181,6 +181,10 @@
             </picker>
           </view>
         </view>
+        <view class="form-item" wx:if="{{editForm.unit === '自定义'}}">
+          <text class="form-label">自定义单位</text>
+          <input class="form-input" placeholder="如：箱、根、瓶" bindinput="onEditManualCustomUnitInput" value="{{editForm.customUnit}}" />
+        </view>
         <view class="form-item">
           <text class="form-label">分类</text>
           <picker class="form-picker" range="{{categoryOptions}}" bindchange="onEditManualCategoryChange">
@@ -220,6 +224,10 @@
             <view class="picker-text">{{addForm.unit}} ▾</view>
           </picker>
         </view>
+      </view>
+      <view class="form-item" wx:if="{{addForm.unit === '自定义'}}">
+        <text class="form-label">自定义单位</text>
+        <input class="form-input" placeholder="如：箱、根、瓶" bindinput="onAddCustomUnitInput" value="{{addForm.customUnit}}" />
       </view>
       <view class="form-item">
         <text class="form-label">分类</text>

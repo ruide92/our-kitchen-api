@@ -43,6 +43,7 @@ Page({
       name: '',
       quantity: '',
       unit: 'g',
+      customUnit: '',
       category: '蔬菜',
       note: '',
     },
@@ -54,6 +55,7 @@ Page({
       name: '',
       quantity: '',
       unit: 'g',
+      customUnit: '',
       category: '蔬菜',
       note: '',
     },
@@ -105,27 +107,24 @@ Page({
     }
 
     const order = FIXTURE.category_order
+    const orderSet = new Set(order)
     const groups = []
-    const seen = new Set()
 
     // 按预设顺序分组
     order.forEach(cat => {
       const catItems = filtered.filter(i => i.category === cat)
       if (catItems.length > 0) {
         groups.push({ category: cat, items: catItems })
-        seen.add(cat)
       }
     })
-    // 未在预设顺序中的分类
+    // 未在预设顺序中的分类：每个 item 必须恰好进入一个 group
     filtered.forEach(item => {
-      if (!seen.has(item.category)) {
-        const existing = groups.find(g => g.category === item.category)
-        if (existing) {
-          existing.items.push(item)
-        } else {
-          groups.push({ category: item.category, items: [item] })
-        }
-        seen.add(item.category)
+      if (orderSet.has(item.category)) return
+      const existing = groups.find(g => g.category === item.category)
+      if (existing) {
+        existing.items.push(item)
+      } else {
+        groups.push({ category: item.category, items: [item] })
       }
     })
 
@@ -174,6 +173,11 @@ Page({
     const id = e.currentTarget.dataset.id
     const item = this.data.items.find(i => i.id === id)
     if (!item || item.source !== 'MANUAL') return
+    // 判断是否为自定义单位：unit_code 为 null，或不在标准单位列表中
+    const standardUnits = FIXTURE.unit_options.filter(u => u !== '自定义')
+    const isCustom = !item.unit_code || !standardUnits.includes(item.unit_code)
+    const displayUnit = isCustom ? '自定义' : item.unit_code
+    const customUnitVal = isCustom ? (item.unit_text || item.unit_code || '') : ''
     this.setData({
       showManualDetailSheet: true,
       manualItem: item,
@@ -182,7 +186,8 @@ Page({
       editForm: {
         name: item.name,
         quantity: String(item.required_quantity || ''),
-        unit: item.unit_code || 'g',
+        unit: displayUnit,
+        customUnit: customUnitVal,
         category: item.category === '手动添加' ? '其他' : item.category,
         note: item.note || '',
       },
@@ -210,20 +215,29 @@ Page({
     this.setData({ 'editForm.category': this.data.categoryOptions[e.detail.value] })
   },
 
+  onEditManualCustomUnitInput(e) {
+    this.setData({ 'editForm.customUnit': e.detail.value })
+  },
+
   saveEditManual() {
     const { editingManualId, editForm, items } = this.data
     if (!editForm.name || !editForm.name.trim()) {
       wx.showToast({ title: '请输入商品名称', icon: 'none' })
       return
     }
+    // 自定义单位：unit_code=null，unit_text=自定义文字，不做任何换算
+    const isCustom = editForm.unit === '自定义'
+    const unitText = isCustom ? (editForm.customUnit || '') : editForm.unit
+    const qtyText = (editForm.quantity || '') + unitText
     const updated = items.map(i => {
       if (i.id !== editingManualId) return i
       return {
         ...i,
         name: editForm.name.trim(),
         required_quantity: Number(editForm.quantity) || 0,
-        required_quantity_text: (editForm.quantity || '') + (editForm.unit || ''),
-        unit_code: editForm.unit,
+        required_quantity_text: qtyText,
+        unit_code: isCustom ? null : editForm.unit,
+        unit_text: isCustom ? unitText : undefined,
         category: editForm.category,
         note: editForm.note,
       }
@@ -254,7 +268,7 @@ Page({
   openAddSheet() {
     this.setData({
       showAddSheet: true,
-      addForm: { name: '', quantity: '', unit: 'g', category: '蔬菜', note: '' },
+      addForm: { name: '', quantity: '', unit: 'g', customUnit: '', category: '蔬菜', note: '' },
     })
   },
 
@@ -275,12 +289,20 @@ Page({
     this.setData({ 'addForm.category': this.data.categoryOptions[e.detail.value] })
   },
 
+  onAddCustomUnitInput(e) {
+    this.setData({ 'addForm.customUnit': e.detail.value })
+  },
+
   saveAddItem() {
     const { addForm, items } = this.data
     if (!addForm.name || !addForm.name.trim()) {
       wx.showToast({ title: '请输入商品名称', icon: 'none' })
       return
     }
+    // 自定义单位：unit_code=null，unit_text=自定义文字，不做任何换算
+    const isCustom = addForm.unit === '自定义'
+    const unitText = isCustom ? (addForm.customUnit || '') : addForm.unit
+    const qtyText = (addForm.quantity || '') + unitText
     const newItem = {
       id: 'si-runtime-' + Date.now(),
       ingredient_id: null,
@@ -288,8 +310,9 @@ Page({
       category: addForm.category,
       source: 'MANUAL',
       required_quantity: Number(addForm.quantity) || 0,
-      required_quantity_text: (addForm.quantity || '') + (addForm.unit || ''),
-      unit_code: addForm.unit,
+      required_quantity_text: qtyText,
+      unit_code: isCustom ? null : addForm.unit,
+      unit_text: isCustom ? unitText : undefined,
       is_purchased: false,
       note: addForm.note || '',
     }

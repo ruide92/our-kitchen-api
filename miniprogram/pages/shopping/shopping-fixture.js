@@ -193,7 +193,8 @@ const SHOPPING_FIXTURE = {
       source: 'MANUAL',
       required_quantity: 1,
       required_quantity_text: '1箱',
-      unit_code: '箱',
+      unit_code: null,
+      unit_text: '箱',
       is_purchased: false,
       note: '',
     },
@@ -203,7 +204,7 @@ const SHOPPING_FIXTURE = {
   category_order: ['蔬菜', '肉蛋', '干货', '手动添加'],
 
   // 单位选项
-  unit_options: ['g', 'kg', 'ml', 'L', '个', '盒', '袋'],
+  unit_options: ['g', 'kg', 'ml', 'L', '个', '盒', '袋', '自定义'],
 
   // 分类选项
   category_options: ['蔬菜', '肉蛋', '水产', '乳品', '干货', '主食', '其他'],
