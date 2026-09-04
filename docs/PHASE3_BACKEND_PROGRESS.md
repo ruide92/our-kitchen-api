@@ -33,6 +33,7 @@
 - `npm run test:unit`：12通过、0失败、0跳过。
 - `npm run test:integration`：本地1失败，原因仅为未设置 TEST_DATABASE_URL；这不是 PostgreSQL 已验证的证据。
 - `.github/workflows/backend-v1.yml` 提供 PostgreSQL16 的独立 CI 数据库；push 后再核对实际运行结果。
+- 实际 CI：[33839190932](https://github.com/ruide92/our-kitchen-api/actions/runs/33839190932)，commit `508623ef995305fcb6021a94386a33e0e57e372c`，completed/success。PostgreSQL16、npm ci、npm test 均成功，12 unit + 1 core integration 无跳过。覆盖 core migration、重复执行、openid唯一/stable repository、两家庭membership隔离和回滚；不等于所有家庭业务完成。
 - review 修正：checksum跨平台一致、rollback失败销毁连接、测试清理finally/连接超时。
 
 事务必须使用同一 checkout client，不能混用 pool.query；参见 [node-postgres transactions](https://node-postgres.com/features/transactions)。

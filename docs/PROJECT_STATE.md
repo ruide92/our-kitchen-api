@@ -20,6 +20,7 @@ Last updated: 2026-09-04 (Asia/Shanghai)
 - Phase 2 specification checkpoint before state update: `9cf8eeb13a45987ea9970ba2343809676ece4ba2`
 - Phase 2.5 homepage UI acceptance checkpoint: `80e5c261599a34655b9c6340257b706006a39b33`
 - Phase 3 handoff gate: local and remote both verified at `27b3fcb51a13558d226b48c72d32c24ef8d94e99` after fetch/checkout/ff-only pull.
+- Phase 3 foundation implementation checkpoint: `508623ef995305fcb6021a94386a33e0e57e372c`.
 - Base branch: `main`
 - Remote: `https://github.com/ruide92/our-kitchen-api.git`
 - The original `main` checkout has a pre-existing modification to `database.json`. It has not been overwritten or included in this worktree.
@@ -99,6 +100,7 @@ Phase 3 backend foundation in `backend/v1/`:
 - Config fail-closed, WeChat code2Session adapter, short-lived JWT, `/api/v1/auth/wechat`, `/me`, `/me/families`, and membership gate.
 - Parameterized PostgreSQL identity/membership reads; four-table core migration with transactional runner/checksum lock.
 - Node tests and PostgreSQL CI service added. Local unit tests: 12 passed. Local integration: fails explicitly without TEST_DATABASE_URL (0 skipped); real PostgreSQL result must be recorded separately.
+- Real PostgreSQL 16 CI at implementation checkpoint: [run 33839190932](https://github.com/ruide92/our-kitchen-api/actions/runs/33839190932) completed successfully, including npm test (12 unit + 1 core integration). This validates only the four-table foundation, not full A01–A05/A46/A47 or production behavior.
 - This does not deliver family create/join/settings/roles write APIs, all-resource isolation, seed, production secrets rotation, or deployment. A01–A05/A45–A47 remain incomplete.
 - See `docs/PHASE3_BACKEND_PROGRESS.md` for scope, validation and remaining work.
 - Menu fixture commits through `27b3fcb` are preserved. No `miniprogram/**` modifications permitted in this slice; menu visual acceptance remains outstanding but not a backend blocker.
