@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "购物清单"
+  "navigationBarTitleText": "",
+  "navigationBarBackgroundColor": "#FFF9F0",
+  "navigationBarTextStyle": "black",
+  "backgroundColor": "#FFF9F0"
 }
