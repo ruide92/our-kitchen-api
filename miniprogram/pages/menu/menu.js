@@ -96,7 +96,7 @@ Page({
       spicyText: r.spiciness > 0 ? '🌶️'.repeat(Math.min(r.spiciness, 5)) : '',
       kissText: r.suggested_kiss > 0 ? '💋×' + r.suggested_kiss : '',
       timeText: r.cook_time_minutes + '分钟',
-      familyVariantText: r.has_family_variant ? '我家版本' : '',
+      familyVariantText: (r.has_family_variant || r.kind === 'FAMILY') ? '我家版本' : '',
     }))
 
     // mealsByDateAndType 深拷贝（避免直接改 fixture）
@@ -272,7 +272,7 @@ Page({
       } else if (currentCategory === 'RECENT') {
         list = list.slice(0, 6) // fixture：最近吃过取前6
       } else if (currentCategory === 'MY_RECIPES') {
-        list = list.filter(r => r.has_family_variant)
+        list = list.filter(r => r.kind === 'FAMILY')
       } else {
         list = list.filter(r => r.category_code === currentCategory)
       }
@@ -287,11 +287,21 @@ Page({
     this.setData({ filteredRecipes: list })
   },
 
-  // ===== 加入当前目标餐次（date + meal_type 隔离，幂等）=====
+  // ===== 加入当前目标餐次（date + meal_type 隔离，幂等，V4 家庭版本语义）=====
   addRecipeToMeal(e) {
-    const recipeId = e.currentTarget.dataset.recipeId
-    const recipe = this.data.recipes.find(r => r.id === recipeId)
-    if (!recipe) return
+    const clickedId = e.currentTarget.dataset.recipeId
+    const clickedRecipe = this.data.recipes.find(r => r.id === clickedId)
+    if (!clickedRecipe) return
+
+    // V4 语义：BASE 且已有家庭派生版时，业务动作优先使用 family_variant_id
+    let effectiveRecipe = clickedRecipe
+    if (clickedRecipe.kind === 'BASE' &&
+        clickedRecipe.has_family_variant === true &&
+        clickedRecipe.family_variant_id) {
+      const familyRecipe = this.data.recipes.find(r => r.id === clickedRecipe.family_variant_id)
+      if (familyRecipe) effectiveRecipe = familyRecipe
+    }
+    const effectiveId = effectiveRecipe.id
 
     const { targetMeal, mealsByDateAndType } = this.data
     const date = targetMeal.meal_date
@@ -307,18 +317,19 @@ Page({
 
     const bucket = mealsByDateAndType[date][mealType]
 
-    // 幂等：已存在则不重复加入
-    const exists = bucket.items.some(it => it.recipe_id === recipeId)
+    // 幂等：针对最终实际 recipe_id（BASE 与其 FAMILY 派生版视为同一道菜）
+    const exists = bucket.items.some(it => it.recipe_id === effectiveId)
     if (exists) {
       wx.showToast({ title: '已在' + this.data.targetMealText + '中', icon: 'none', duration: 1200 })
       return
     }
 
     bucket.items.push({
-      id: 'mi-' + date + '-' + mealType + '-' + recipeId + '-' + Date.now(),
-      recipe_id: recipe.id,
-      recipe_name: recipe.name,
-      cover_image_url: recipe.cover_image_url,
+      id: 'mi-' + date + '-' + mealType + '-' + effectiveId + '-' + Date.now(),
+      recipe_id: effectiveId,
+      source_recipe_id: clickedRecipe.id,
+      recipe_name: effectiveRecipe.name,
+      cover_image_url: effectiveRecipe.cover_image_url,
       servings: 2,
       source: 'MANUAL',
       selected_by_user_id: 'u1',
