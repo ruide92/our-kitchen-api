@@ -8,7 +8,7 @@ Last updated: 2026-09-04 (Asia/Shanghai)
 - Phase 1: complete
 - Phase 2: complete
 - Phase 2.5: complete
-- Phase 3+: not started
+- Phase 3: in progress — isolated backend foundation slice; NOT complete
 
 ## Git state
 
@@ -19,6 +19,7 @@ Last updated: 2026-09-04 (Asia/Shanghai)
 - Phase 1 audit checkpoint: `78dc16c071d2fcd9221651b9b207cf1d6d9de600`
 - Phase 2 specification checkpoint before state update: `9cf8eeb13a45987ea9970ba2343809676ece4ba2`
 - Phase 2.5 homepage UI acceptance checkpoint: `80e5c261599a34655b9c6340257b706006a39b33`
+- Phase 3 handoff gate: local and remote both verified at `27b3fcb51a13558d226b48c72d32c24ef8d94e99` after fetch/checkout/ff-only pull.
 - Base branch: `main`
 - Remote: `https://github.com/ruide92/our-kitchen-api.git`
 - The original `main` checkout has a pre-existing modification to `database.json`. It has not been overwritten or included in this worktree.
@@ -92,11 +93,19 @@ Homepage fixture UI implemented and visually accepted.
 
 ## In progress
 
-None. Phase 2.5 is closed; next work is Phase 3.
+Phase 3 backend foundation in `backend/v1/`:
+
+- Independent `start:v1`; legacy `npm start`, Render and all frontend files unchanged.
+- Config fail-closed, WeChat code2Session adapter, short-lived JWT, `/api/v1/auth/wechat`, `/me`, `/me/families`, and membership gate.
+- Parameterized PostgreSQL identity/membership reads; four-table core migration with transactional runner/checksum lock.
+- Node tests and PostgreSQL CI service added. Local unit tests: 12 passed. Local integration: fails explicitly without TEST_DATABASE_URL (0 skipped); real PostgreSQL result must be recorded separately.
+- This does not deliver family create/join/settings/roles write APIs, all-resource isolation, seed, production secrets rotation, or deployment. A01–A05/A45–A47 remain incomplete.
+- See `docs/PHASE3_BACKEND_PROGRESS.md` for scope, validation and remaining work.
+- Menu fixture commits through `27b3fcb` are preserved. No `miniprogram/**` modifications permitted in this slice; menu visual acceptance remains outstanding but not a backend blocker.
 
 ## Not started
 
-- Phase 3 PostgreSQL, real WeChat identity, family isolation, `/api/v1` foundation, production persistence.
+- Phase 3 remaining: real test DB validation, family write APIs/OWNER invariants, complete schema/seed, production secret rotation/persistence rollout.
 - Phase 4+ recipe assets, meal/shopping/cooking core, recommendation, KRP, family experience and future community work.
 
 ## Known critical risks
@@ -129,4 +138,4 @@ Phase 2.5 added homepage fixture UI only. WeChat DevTools real compile: 0 error.
 
 ## Next first action
 
-Phase 3: begin backend foundation — PostgreSQL schema migration from V4 `DATA_MODEL_V4.md`, real WeChat identity (`wx.login` → server-validated openid), family membership isolation, and `/api/v1` route skeleton. The Phase 2.5 homepage fixture should be the first consumer of real `/api/v1/homepage` endpoints once they exist. Do not modify the accepted homepage UI (`80e5c26`) except to swap fixture for real API calls.
+Verify core migration/repository against dedicated PostgreSQL (CI or TEST_DATABASE_URL), then implement family create/join/permissions/settings with A02–A05 tests. Resolve documented family write payload details before adding endpoints; do not invent a `/homepage` endpoint absent from API_CONTRACT. Keep homepage and menu fixtures untouched until separately authorized wiring work.
