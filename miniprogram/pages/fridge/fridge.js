@@ -60,9 +60,9 @@ Page({
     this.initFromFixture()
   },
 
-  onShow() {
-    this.initFromFixture()
-  },
+  // 注意：不在 onShow 重置 fixture。
+  // 用户运行态（添加/编辑/删除/常备食材修改）在切换 Tab 后必须保留。
+  // 只有页面真正重新加载（onLoad）时才恢复 fixture。
 
   initFromFixture() {
     const items = JSON.parse(JSON.stringify(FIXTURE.inventory_items))
@@ -89,6 +89,47 @@ Page({
       list = list.filter(i => i.name.toLowerCase().includes(kw))
     }
     this.setData({ filteredItems: list })
+  },
+
+  /**
+   * 基于 FIXTURE.reference_date 确定性计算保质状态。
+   * 不使用系统当前时间，避免 fixture 漂移。
+   */
+  _computeFreshness(expiryDate) {
+    if (!expiryDate) {
+      return { freshness_status: 'NORMAL', expiry_label: '长期' }
+    }
+    const ref = new Date(FIXTURE.reference_date + 'T00:00:00')
+    const exp = new Date(expiryDate + 'T00:00:00')
+    const diff = Math.round((exp - ref) / (1000 * 60 * 60 * 24))
+    if (diff < 0) {
+      return { freshness_status: 'EXPIRED', expiry_label: '已过期' }
+    }
+    if (diff === 0) {
+      return { freshness_status: 'EXPIRING', expiry_label: '今天到期' }
+    }
+    if (diff === 1) {
+      return { freshness_status: 'EXPIRING', expiry_label: '明天到期' }
+    }
+    if (diff <= 3) {
+      return { freshness_status: 'EXPIRING', expiry_label: diff + '天到期' }
+    }
+    return { freshness_status: 'FRESH', expiry_label: '还有' + diff + '天' }
+  },
+
+  /**
+   * 统一刷新统计：totalCount / expiringCount / expiringItems / filteredItems。
+   * 新增/编辑/删除后统一调用，避免多套漂移逻辑。
+   */
+  _refreshStats() {
+    const items = this.data.inventoryItems
+    const expiring = items.filter(i => i.freshness_status === 'EXPIRING')
+    this.setData({
+      totalCount: items.length,
+      expiringCount: expiring.length,
+      expiringItems: expiring.slice(0, 3),
+    })
+    this._refreshFiltered()
   },
 
   // ===== 双段切换 =====
@@ -151,6 +192,7 @@ Page({
       wx.showToast({ title: '请输入食材名称', icon: 'none' })
       return
     }
+    const fresh = this._computeFreshness(addForm.expiry_date || null)
     const newItem = {
       id: 'inv-runtime-' + Date.now(),
       ingredient_id: 'ing-runtime-' + Date.now(),
@@ -162,19 +204,15 @@ Page({
       category: '其他',
       purchase_date: FIXTURE.reference_date,
       expiry_date: addForm.expiry_date || null,
-      freshness_status: addForm.expiry_date ? 'FRESH' : 'NORMAL',
-      expiry_label: addForm.expiry_date ? '已添加' : '长期',
+      freshness_status: fresh.freshness_status,
+      expiry_label: fresh.expiry_label,
+      note: addForm.note || '',
     }
-    const items = [...inventoryItems, newItem]
-    const expiring = items.filter(i => i.freshness_status === 'EXPIRING')
     this.setData({
-      inventoryItems: items,
-      totalCount: items.length,
-      expiringCount: expiring.length,
-      expiringItems: expiring.slice(0, 3),
+      inventoryItems: [...inventoryItems, newItem],
       showAddSheet: false,
     })
-    this._refreshFiltered()
+    this._refreshStats()
     wx.showToast({ title: '已添加（fixture 运行态）', icon: 'none' })
   },
 
@@ -224,6 +262,7 @@ Page({
   saveEditItem() {
     const { editingItem, editForm, inventoryItems } = this.data
     if (!editingItem) return
+    const fresh = this._computeFreshness(editForm.expiry_date || null)
     const items = inventoryItems.map(i => {
       if (i.id !== editingItem.id) return i
       return {
@@ -234,10 +273,12 @@ Page({
         purchase_date: editForm.purchase_date,
         expiry_date: editForm.expiry_date || null,
         note: editForm.note,
+        freshness_status: fresh.freshness_status,
+        expiry_label: fresh.expiry_label,
       }
     })
     this.setData({ inventoryItems: items, showEditSheet: false, editingItem: null })
-    this._refreshFiltered()
+    this._refreshStats()
     wx.showToast({ title: '已保存（fixture 运行态）', icon: 'none' })
   },
 
@@ -252,16 +293,12 @@ Page({
       success: (res) => {
         if (res.confirm) {
           const items = inventoryItems.filter(i => i.id !== editingItem.id)
-          const expiring = items.filter(i => i.freshness_status === 'EXPIRING')
           this.setData({
             inventoryItems: items,
-            totalCount: items.length,
-            expiringCount: expiring.length,
-            expiringItems: expiring.slice(0, 3),
             showEditSheet: false,
             editingItem: null,
           })
-          this._refreshFiltered()
+          this._refreshStats()
           wx.showToast({ title: '已移出（fixture 运行态）', icon: 'none' })
         }
       },
