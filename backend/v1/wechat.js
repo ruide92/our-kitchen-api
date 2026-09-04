@@ -1,7 +1,7 @@
 const { ApiError } = require('./errors');
 
 function createWechatClient({ appid, secret, fetchImpl = globalThis.fetch }) {
-  if (!appid || !secret) throw new Error('WECHAT_APPID and WECHAT_SECRET are required');
+  if (!appid || !secret) throw new Error('WECHAT_APP_ID and WECHAT_APP_SECRET are required');
   return {
     async exchange(code) {
       if (typeof code !== 'string' || !code.trim() || code.length > 512) {

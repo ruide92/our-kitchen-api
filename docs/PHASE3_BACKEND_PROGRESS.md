@@ -40,6 +40,8 @@
 
 ## 运行方式
 
+Reviewer correction: external WeChat variables are exclusively `WECHAT_APP_ID` and `WECHAT_APP_SECRET`. Legacy names are not fallback aliases. start.js retains its internal config-to-client mapping; unit tests reject either missing canonical variable even when legacy variables are present.
+
 使用支持内置 fetch 的 Node 22+。将 `.env.example` 中变量设置到本地环境或受忽略的 `.env`，不要发送凭据到聊天或 Git。
 
 ```text

@@ -155,7 +155,7 @@ Primary Engineer 优先。
 
 - `.env.example`
 - JWT_SECRET 轮换
-- WECHAT_APPID/WECHAT_SECRET env
+- WECHAT_APP_ID/WECHAT_APP_SECRET env
 - DATABASE_URL env
 - 移除/停止跟踪 runtime DB（保留 migration source/备份，不误删用户本地文件）
 

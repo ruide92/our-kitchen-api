@@ -47,7 +47,7 @@ Phase 2.5 首页真实编译、运行、截图；后续关键页面逐步增加�
 
 期望：`user.id` 相同；系统不使用临时 code hash 作为 openid。
 
-生产配置缺 WECHAT_SECRET 时必须 fail closed，不允许 fake-login fallback。
+生产配置缺 WECHAT_APP_SECRET 时必须 fail closed，不允许 fake-login fallback。
 
 ## 4. A02 — 创建家庭
 
@@ -425,7 +425,7 @@ Phase 3+ 接真实 API 后重复首页测试：
 
 自动扫描仓库：
 
-- 不含真实 `WECHAT_SECRET/JWT_SECRET/DATABASE_URL`。
+- 不含真实 `WECHAT_APP_SECRET/JWT_SECRET/DATABASE_URL`。
 - `.env` 未跟踪。
 - 运行时用户/家庭 JSON 不再作为正式数据库提交。
 - `.env.example` 只有占位变量。

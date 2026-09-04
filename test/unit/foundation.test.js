@@ -6,10 +6,10 @@ const { createTokens } = require('../../backend/v1/tokens');
 const { withTransaction } = require('../../backend/v1/db');
 const jwt = require('jsonwebtoken');
 
-const env = () => ({ DATABASE_URL: 'postgres://localhost/kitchen_test', JWT_SECRET: 'test-only-'.repeat(8), WECHAT_APPID: 'wx-test', WECHAT_SECRET: 'test-only-wechat', PORT: '3101' });
+const env = () => ({ DATABASE_URL: 'postgres://localhost/kitchen_test', JWT_SECRET: 'test-only-'.repeat(8), WECHAT_APP_ID: 'wx-test', WECHAT_APP_SECRET: 'test-only-wechat', PORT: '3101' });
 
 test('configuration rejects each missing credential without exposing values', () => {
-  for (const key of ['DATABASE_URL', 'JWT_SECRET', 'WECHAT_APPID', 'WECHAT_SECRET']) {
+  for (const key of ['DATABASE_URL', 'JWT_SECRET', 'WECHAT_APP_ID', 'WECHAT_APP_SECRET']) {
     const input = env(); delete input[key];
     assert.throws(() => loadConfig(input), new RegExp(key));
   }
@@ -17,6 +17,14 @@ test('configuration rejects each missing credential without exposing values', ()
   assert.throws(() => loadConfig({ ...env(), PORT: 'NaN' }), /PORT/);
   assert.throws(() => loadConfig({ ...env(), DATABASE_URL: 'https://password@example.com' }), /DATABASE_URL/);
   assert.equal(loadConfig(env()).port, 3101);
+});
+
+test('old WeChat environment names cannot replace canonical names', () => {
+  const input = { ...env(), WECHAT_APPID: 'legacy-id', WECHAT_SECRET: 'legacy-secret' };
+  delete input.WECHAT_APP_ID;
+  assert.throws(() => loadConfig(input), /WECHAT_APP_ID/);
+  input.WECHAT_APP_ID = 'canonical-id'; delete input.WECHAT_APP_SECRET;
+  assert.throws(() => loadConfig(input), /WECHAT_APP_SECRET/);
 });
 
 test('JWT binds subject, issuer, audience and algorithm', () => {
