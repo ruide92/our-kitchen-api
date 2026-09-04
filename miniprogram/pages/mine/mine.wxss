@@ -1,4 +1,4 @@
-/* 我的 Tab V4 fixture — 延续首页/菜单/冰箱/购物温暖家庭风 */
+/* 我的 Tab V1 Auth/Family — 保留已接受的温暖家庭风 */
 .page {
   padding: 0 0 32rpx;
   min-height: 100vh;
@@ -546,3 +546,14 @@
   background: #7CB342;
   color: #FFFFFF;
 }
+
+button::after { border: none; }
+button.family-btn, button.sheet-btn { margin: 0; line-height: 1.4; }
+button[disabled] { opacity: 0.6; }
+.account-actions { margin: 0 24rpx 20rpx; }
+.retry-button { margin-top: 24rpx !important; }
+.status-card { margin-top: 24rpx; }
+.error-note { color: #A64C3A; font-size: 25rpx; }
+.family-choice { width: 100%; background: #fff; border-radius: 0; }
+.family-avatars { max-width: 36%; flex-wrap: wrap; row-gap: 8rpx; }
+.invite-code { word-break: break-all; letter-spacing: 3rpx; }

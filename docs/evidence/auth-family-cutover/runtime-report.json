@@ -1,0 +1,38 @@
+{
+  "observed_at": "2026-09-04T15:11:19.962Z",
+  "base_head": "fc9b6543b10f7896a69d1f5d4570a6946ca7d68d",
+  "working_tree_changes": [
+    "miniprogram/pages/mine/mine.js",
+    "miniprogram/pages/mine/mine.wxml",
+    "miniprogram/pages/mine/mine.wxss",
+    "miniprogram/utils/v1-session.js",
+    "test/unit/v1-frontend.test.js"
+  ],
+  "page": "pages/mine/mine",
+  "status": "authFailed",
+  "environment_status": "BLOCKED_BY_ENV",
+  "authenticated": false,
+  "has_family": false,
+  "fixture_injected": false,
+  "project_exceptions_observed": 0,
+  "device": {
+    "model": "iPhone 12/13 (Pro)",
+    "platform": "devtools",
+    "window_width": 390,
+    "window_height": 753
+  },
+  "screenshot": "mine-BLOCKED_BY_ENV.png",
+  "source_sha256": {
+    "miniprogram/app.js": "f69f2c990804246f2867038934a0a62b30d627fcf576884fb1c5f1547fb14061",
+    "miniprogram/config/v1.js": "67856924a7c20272ea90c89f4ea6baac41614c9fc969a3f42c5e10b302a2fc24",
+    "miniprogram/utils/v1-api.js": "ed489be65cc8c10121b3b0a0a08769cce1887dea74e3851ec3964483c96b7bb0",
+    "miniprogram/utils/v1-session.js": "73bdeb2c53153087fdff83fa99da75196d475dc1a4023feed5681b11e6ac634c",
+    "miniprogram/pages/mine/mine.js": "1f1d59b1b03caaf19b9362d19c419877a9a0f7d36db70fdfef8f92688904048b",
+    "miniprogram/pages/mine/mine-controller.js": "412c3f05d8ad7b0708dfe98521f5d1f94cbf4af44eaf75c0767d607ff73e398b",
+    "miniprogram/pages/mine/mine.wxml": "0768af23489fefbd58bc5d57479cae940a3d1393bfd445c8f0de1037bc08bae1",
+    "miniprogram/pages/mine/mine.wxss": "b964da2968bdbbb9f690d8b05b378025a3e2a57c0aac3d929c0b3b08b279a826"
+  },
+  "real_login_accepted": false,
+  "real_family_creation_accepted": false,
+  "dual_user_accepted": false
+}

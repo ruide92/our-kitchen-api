@@ -128,3 +128,40 @@ test('401 invalidates in-memory session without an automatic relogin loop',async
   await assert.rejects(session.refresh());
   assert.equal(session.getState().status,'authFailed');assert.equal(session.getState().user,null);assert.equal(session.getState().activeFamily,null);assert.equal(wx.loginCount,1);
 });
+test('failed follow-up from a completed creation cannot poison a later selected family',async()=>{
+  const wx=adapter([{id:'f1',name:'One'}]);const session=make(wx);await session.ensureReady();
+  const original=wx.respond, pending=deferred(), reached=deferred();
+  wx.respond=options=>{
+    if(options.url.endsWith('/me/families')){reached.resolve();return pending.promise;}
+    return original(options);
+  };
+  const creating=session.createFamily('New');await reached.promise;
+  await session.selectFamily('f1');
+  pending.resolve({statusCode:500,data:{error:{code:'INTERNAL_ERROR',message:'Old follow-up failed'}}});
+  await assert.rejects(creating);
+  assert.equal(session.getState().activeFamily.id,'f1');assert.equal(session.getState().familyStatus,'ready');assert.equal(session.getState().familyError,null);
+});
+test('an older onShow refresh cannot undo a newly created active family',async()=>{
+  const wx=adapter([{id:'f1',name:'One'}]);const session=make(wx);await session.ensureReady();
+  const original=wx.respond,pending=deferred(),reached=deferred();let paused=false;
+  wx.respond=options=>{
+    if(options.url.endsWith('/me/families')&&!paused){paused=true;const old=original(options);reached.resolve();return pending.promise.then(()=>old);}
+    return original(options);
+  };
+  const refreshing=session.refresh();await reached.promise;
+  await session.createFamily('New');pending.resolve();await refreshing;
+  assert.equal(session.getState().active_family_id,'new-family');assert.equal(session.getState().activeFamily.id,'new-family');
+});
+test('refresh started during nickname PATCH cannot overwrite its committed result',async()=>{
+  const wx=adapter();const session=make(wx);await session.ensureReady();
+  const original=wx.respond,patchGate=deferred(),patchReached=deferred(),getGate=deferred(),getReached=deferred();
+  wx.respond=options=>{
+    if(options.method==='PATCH'){patchReached.resolve();return patchGate.promise.then(()=>original(options));}
+    if(options.url.endsWith('/me')){const captured=JSON.parse(JSON.stringify(original(options)));getReached.resolve();return getGate.promise.then(()=>captured);}
+    return original(options);
+  };
+  const patching=session.updateNickname('New name');await patchReached.promise;
+  const refreshing=session.refresh();await getReached.promise;
+  patchGate.resolve();await patching;getGate.resolve();await refreshing;
+  assert.equal(session.getState().user.nickname,'New name');assert.equal(wx.store.v1_user.nickname,'New name');
+});

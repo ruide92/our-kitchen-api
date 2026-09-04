@@ -1,14 +1,14 @@
 const { createV1Api, v1Error, SESSION_KEYS } = require('./v1-api')
 function createV1Session({ wxAdapter, baseUrl, timeoutMs }) {
   const empty = () => ({ status: 'loading', user: null, families: [], active_family_id: null, activeFamily: null, hasFamily: false, members: [], settings: null, familyStatus: 'idle', error: null, familyError: null })
-  let state = empty(), ready = null, pending = false, epoch = 0, familyEpoch = 0
+  let state = empty(), ready = null, pending = false, epoch = 0, familyEpoch = 0, refreshEpoch = 0
   const listeners = new Set()
   const snapshot = () => JSON.parse(JSON.stringify(state))
   const publish = values => { state = { ...state, ...values }; listeners.forEach(listener => listener(snapshot())) }
   const current = run => { if (epoch !== run) throw v1Error('SESSION_CHANGED', '会话已变化，请重试') }
   const errorView = error => ({ code: error.code || 'SESSION_ERROR', message: error.message || '加载失败，请重试' })
   function invalidate() {
-    epoch++; familyEpoch++
+    epoch++; familyEpoch++; refreshEpoch++
     SESSION_KEYS.forEach(key => wxAdapter.removeStorageSync(key))
     publish({ ...empty(), status: 'authFailed', error: { code: 'AUTH_REQUIRED', message: '登录已过期，请重新登录' } })
   }
@@ -18,7 +18,7 @@ function createV1Session({ wxAdapter, baseUrl, timeoutMs }) {
     return families.some(family => family.id === saved) ? saved : null
   }
   function setSelection(id) {
-    familyEpoch++
+    familyEpoch++; refreshEpoch++
     if (id) wxAdapter.setStorageSync('v1_active_family_id', id)
     else wxAdapter.removeStorageSync('v1_active_family_id')
     publish({ active_family_id: id, activeFamily: null, hasFamily: Boolean(id), members: [], settings: null, familyStatus: id ? 'loading' : 'idle', familyError: null })
@@ -82,9 +82,10 @@ function createV1Session({ wxAdapter, baseUrl, timeoutMs }) {
   }
   async function refresh() {
     await requireAuthenticated()
-    const run = epoch
+    const run = epoch, refreshRun = ++refreshEpoch
     const [user, families] = await Promise.all([api.getMe(), api.getMyFamilies()])
     current(run)
+    if (refreshRun !== refreshEpoch) return snapshot()
     if (!user || !user.id || !Array.isArray(families)) throw v1Error('INVALID_RESPONSE', '用户数据格式异常')
     wxAdapter.setStorageSync('v1_user', user)
     const id = choose(families, state.active_family_id)
@@ -92,24 +93,29 @@ function createV1Session({ wxAdapter, baseUrl, timeoutMs }) {
   }
   async function mutateFamily(action, value) {
     await requireAuthenticated()
+    refreshEpoch++
     const run = epoch, family = await action(value.trim())
     current(run)
     if (!family || !family.id) throw v1Error('INVALID_RESPONSE', '家庭响应格式异常')
     publish({ families: [...state.families.filter(item => item.id !== family.id), { id: family.id, name: family.name, role: family.role }] })
     setSelection(family.id)
+    const selection = familyEpoch
     try {
       const families = await api.getMyFamilies(); current(run)
+      if (selection !== familyEpoch) return snapshot()
       if (!Array.isArray(families)) throw v1Error('INVALID_RESPONSE', '家庭列表格式异常')
       publish({ families }); await loadFamily(); return snapshot()
     } catch (error) {
-      if (run === epoch) publish({ familyStatus: 'error', familyError: errorView(error) })
+      if (run === epoch && selection === familyEpoch) publish({ familyStatus: 'error', familyError: errorView(error) })
       error.mutationSucceeded = true; throw error
     }
   }
   async function updateNickname(nickname) {
     await requireAuthenticated()
+    refreshEpoch++
     const run = epoch, user = await api.updateNickname(nickname.trim())
     current(run)
+    refreshEpoch++
     if (!user || !user.id) throw v1Error('INVALID_RESPONSE', '用户数据格式异常')
     wxAdapter.setStorageSync('v1_user', user); publish({ user })
     try { await loadFamily() } catch (error) { error.mutationSucceeded = true; throw error }

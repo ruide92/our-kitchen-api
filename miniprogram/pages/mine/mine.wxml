@@ -1,280 +1,151 @@
 <view class="page">
-
-  <!-- ===== 顶部标题 ===== -->
   <view class="page-title">我的</view>
-
-  <!-- ===== 个人区 ===== -->
-  <view class="profile-row" bindtap="openProfileSheet">
-    <view class="avatar avatar-owner">
-      <text class="avatar-text">{{user.nickname}}</text>
-    </view>
-    <view class="profile-info">
-      <text class="profile-name">{{user.nickname}}</text>
-      <text class="profile-sub">{{family.name}} · {{family.role}}</text>
-    </view>
-    <view class="profile-arrow">›</view>
+  <view wx:if="{{status === 'loading'}}" class="family-card status-card">
+    <text class="family-name">正在登录…</text>
+    <text class="profile-sub">正在连接微信与家庭服务</text>
+  </view>
+  <view wx:elif="{{status === 'authFailed'}}" class="family-card status-card">
+    <text class="family-name">登录暂时失败</text>
+    <text class="profile-sub">{{errorMessage || pageError}}</text>
+    <view wx:if="{{environmentBlocked}}" class="sheet-note">BLOCKED_BY_ENV · 真实登录尚未通过，请配置并启动 V1 服务。</view>
+    <button class="sheet-btn sheet-btn-confirm retry-button" bindtap="retryLogin" loading="{{busy}}" disabled="{{busy}}">重新登录</button>
   </view>
 
-  <!-- ===== 家庭卡 ===== -->
-  <view class="family-card">
-    <view class="family-header">
-      <view class="family-info">
-        <text class="family-name">{{family.name}}</text>
-        <text class="family-members">{{members.length}} 位成员</text>
+  <block wx:if="{{authenticated}}">
+    <view class="profile-row" bindtap="openProfileSheet">
+      <image wx:if="{{avatarUrl}}" class="avatar" src="{{avatarUrl}}" mode="aspectFill" />
+      <view wx:else class="avatar avatar-owner"><text class="avatar-text">👤</text></view>
+      <view class="profile-info">
+        <text class="profile-name">{{displayName}}</text>
+        <text class="profile-sub">{{family ? family.name : '微信身份已登录'}}</text>
       </view>
-      <view class="family-avatars">
-        <view wx:for="{{members}}" wx:key="id" class="mini-avatar {{item.role === 'OWNER' ? 'avatar-owner' : 'avatar-member'}}">
-          <text class="mini-avatar-text">{{item.nickname}}</text>
+      <view class="profile-arrow">›</view>
+    </view>
+
+    <view wx:if="{{pageError}}" class="family-card error-note">{{pageError}}</view>
+    <view wx:if="{{families.length === 0}}" class="family-card">
+      <text class="family-name">你还没有加入家庭</text>
+      <text class="profile-sub">创建自己的厨房，或用家人的邀请码加入</text>
+      <view class="family-actions">
+        <button class="family-btn" bindtap="openCreateSheet">创建家庭</button>
+        <button class="family-btn" bindtap="openJoinSheet">加入家庭</button>
+      </view>
+    </view>
+    <view wx:elif="{{!hasFamily}}" class="family-card">
+      <text class="family-name">请选择一个家庭</text>
+      <text class="profile-sub">你已加入多个家庭，请选择本次使用的厨房</text>
+      <button class="family-btn retry-button" bindtap="openSelectSheet">选择家庭 ›</button>
+    </view>
+    <view wx:elif="{{familyStatus === 'loading'}}" class="family-card">
+      <text class="family-name">正在加载家庭…</text>
+    </view>
+    <view wx:elif="{{familyStatus === 'error'}}" class="family-card">
+      <text class="family-name">家庭数据加载失败</text>
+      <text class="profile-sub">{{errorMessage}}</text>
+      <button class="family-btn retry-button" bindtap="refreshPage" disabled="{{busy}}">重新加载</button>
+    </view>
+    <view wx:elif="{{family}}" class="family-card">
+      <view class="family-header">
+        <view class="family-info">
+          <text class="family-name">{{family.name}}</text>
+          <text class="family-members">{{members.length}} 位成员</text>
+        </view>
+        <view class="family-avatars">
+          <block wx:for="{{members}}" wx:key="id">
+            <image wx:if="{{item.avatar_url}}" class="mini-avatar" src="{{item.avatar_url}}" mode="aspectFill" />
+            <view wx:else class="mini-avatar avatar-member"><text class="mini-avatar-text">👤</text></view>
+          </block>
         </view>
       </view>
-    </view>
-    <view class="family-role-row">
-      <text class="family-role-badge">家庭主人</text>
-      <view class="family-manage" bindtap="openFamilySheet">
-        <text>家庭管理</text>
-        <text class="arrow">›</text>
+      <view class="family-role-row">
+        <text class="family-role-badge">{{roleLabel}} · {{family.role}}</text>
+        <view class="family-manage" bindtap="openFamilySheet">家庭成员 ›</view>
+      </view>
+      <view class="family-actions">
+        <button class="family-btn" bindtap="openInviteSheet">📩 邀请家人</button>
+        <button class="family-btn" bindtap="openKitchenSettingsSheet">⚙️ 厨房设置</button>
       </view>
     </view>
-    <view class="family-actions">
-      <view class="family-btn" bindtap="openInviteSheet">
-        <text class="family-btn-icon">📩</text>
-        <text>邀请家人</text>
-      </view>
-      <view class="family-btn" bindtap="openKitchenSettingsSheet">
-        <text class="family-btn-icon">⚙️</text>
-        <text>厨房设置</text>
-      </view>
+    <view wx:if="{{families.length > 0}}" class="family-actions account-actions">
+      <button wx:if="{{families.length > 1}}" class="family-btn" bindtap="openSelectSheet" disabled="{{busy}}">切换家庭 ›</button>
+      <button class="family-btn" bindtap="openCreateSheet" disabled="{{busy}}">创建家庭</button>
+      <button class="family-btn" bindtap="openJoinSheet" disabled="{{busy}}">加入家庭</button>
     </view>
-  </view>
 
-  <!-- ===== 轻量统计 ===== -->
-  <view class="stats-row">
-    <view class="stat-item">
-      <text class="stat-num">{{stats.favorites}}</text>
-      <text class="stat-label">收藏</text>
+    <view class="stats-row">
+      <view class="stat-item"><text class="stat-num">—</text><text class="stat-label">收藏</text></view>
+      <view class="stat-divider"></view>
+      <view class="stat-item"><text class="stat-num">—</text><text class="stat-label">评分</text></view>
+      <view class="stat-divider"></view>
+      <view class="stat-item"><text class="stat-num">—</text><text class="stat-label">做过</text></view>
+      <view class="stat-divider"></view>
+      <view class="stat-item"><text class="stat-num">—</text><text class="stat-label">么么哒</text></view>
     </view>
-    <view class="stat-divider"></view>
-    <view class="stat-item">
-      <text class="stat-num">{{stats.ratings}}</text>
-      <text class="stat-label">评分</text>
-    </view>
-    <view class="stat-divider"></view>
-    <view class="stat-item">
-      <text class="stat-num">{{stats.cooked}}</text>
-      <text class="stat-label">做过</text>
-    </view>
-    <view class="stat-divider"></view>
-    <view class="stat-item">
-      <text class="stat-num">{{stats.kisses}}</text>
-      <text class="stat-label">么么哒</text>
-    </view>
-  </view>
-
-  <!-- ===== 功能菜单分组 ===== -->
-  <view class="menu-groups">
-    <block wx:for="{{menuGroups}}" wx:for-item="group" wx:key="title">
-      <view class="menu-group">
+    <view class="menu-groups">
+      <view wx:for="{{menuGroups}}" wx:for-item="group" wx:key="title" class="menu-group">
         <text class="menu-group-title">{{group.title}}</text>
         <view class="menu-group-card">
-          <view
-            wx:for="{{group.items}}"
-            wx:for-item="item"
-            wx:key="name"
-            class="menu-item"
-            data-action="{{item.action}}"
-            bindtap="onMenuTap"
-          >
-            <text class="menu-icon">{{item.icon}}</text>
-            <text class="menu-name">{{item.name}}</text>
-            <text wx:if="{{item.badge}}" class="menu-badge">{{item.badge}}</text>
-            <text class="menu-arrow">›</text>
+          <view wx:for="{{group.items}}" wx:key="name" class="menu-item" data-action="{{item.action}}" bindtap="onMenuTap">
+            <text class="menu-icon">{{item.icon}}</text><text class="menu-name">{{item.name}}</text>
+            <text wx:if="{{item.badge}}" class="menu-badge">{{item.badge}}</text><text class="menu-arrow">›</text>
           </view>
         </view>
       </view>
-    </block>
-  </view>
-
+    </view>
+  </block>
   <view class="page-bottom-space"></view>
 
-  <!-- ===== 个人资料 sheet ===== -->
-  <view wx:if="{{showProfileSheet}}" class="sheet-mask" bindtap="closeProfileSheet">
+  <view wx:if="{{sheet}}" class="sheet-mask" bindtap="closeSheet">
     <view class="sheet-panel" catchtap="noop">
       <view class="sheet-handle"></view>
-      <text class="sheet-title">个人资料</text>
-      <view class="profile-sheet-avatar">
-        <view class="avatar avatar-owner avatar-large">
-          <text class="avatar-text">{{user.nickname}}</text>
-        </view>
-      </view>
-      <view class="form-item">
+      <block wx:if="{{sheet === 'create' || sheet === 'join'}}">
+        <text class="sheet-title">{{sheet === 'create' ? '创建家庭' : '加入家庭'}}</text>
+        <text class="sheet-subtitle">{{sheet === 'create' ? '给你们的厨房起个名字' : '输入家人分享的邀请码'}}</text>
+        <input class="form-input" maxlength="{{sheet === 'create' ? 80 : 128}}" value="{{fieldText}}" bindinput="onFieldInput" placeholder="{{sheet === 'create' ? '家庭名称' : '邀请码'}}" disabled="{{busy}}" />
+        <view class="sheet-actions"><button class="sheet-btn sheet-btn-cancel" bindtap="closeSheet" disabled="{{busy}}">取消</button><button class="sheet-btn sheet-btn-confirm" bindtap="submitFamily" loading="{{busy}}" disabled="{{busy}}">确认</button></view>
+      </block>
+      <block wx:elif="{{sheet === 'profile'}}">
+        <text class="sheet-title">个人资料</text>
+        <view class="profile-sheet-avatar"><image wx:if="{{avatarUrl}}" class="avatar avatar-large" src="{{avatarUrl}}" mode="aspectFill" /><view wx:else class="avatar avatar-owner avatar-large"><text>👤</text></view></view>
         <text class="form-label">昵称</text>
-        <input class="form-input" value="{{editNickname}}" bindinput="onNicknameInput" />
-      </view>
-      <view class="sheet-note">头像上传与真实资料将在 Auth V1 接入后启用。</view>
-      <view class="sheet-actions">
-        <view class="sheet-btn sheet-btn-cancel" bindtap="closeProfileSheet">取消</view>
-        <view class="sheet-btn sheet-btn-confirm" bindtap="saveProfile">保存</view>
-      </view>
-    </view>
-  </view>
-
-  <!-- ===== 家庭管理 sheet ===== -->
-  <view wx:if="{{showFamilySheet}}" class="sheet-mask" bindtap="closeFamilySheet">
-    <view class="sheet-panel" catchtap="noop">
-      <view class="sheet-handle"></view>
-      <text class="sheet-title">{{family.name}}</text>
-      <text class="sheet-subtitle">家庭管理</text>
-
-      <view class="member-list">
+        <input class="form-input" type="nickname" maxlength="80" value="{{fieldText}}" bindinput="onFieldInput" disabled="{{busy}}" />
+        <view class="sheet-note">昵称保存到真实账号；头像目前只展示，不上传本地文件。</view>
+        <view class="sheet-actions"><button class="sheet-btn sheet-btn-cancel" bindtap="closeSheet" disabled="{{busy}}">取消</button><button class="sheet-btn sheet-btn-confirm" bindtap="saveProfile" loading="{{busy}}" disabled="{{busy}}">保存昵称</button></view>
+      </block>
+      <block wx:elif="{{sheet === 'select'}}">
+        <text class="sheet-title">切换家庭</text>
+        <button wx:for="{{families}}" wx:key="id" class="setting-row family-choice" data-id="{{item.id}}" bindtap="selectFamily" disabled="{{busy}}">
+          <text class="setting-label">{{item.name}}</text><text class="setting-value">{{item.role_label}} ›</text>
+        </button>
+      </block>
+      <block wx:elif="{{sheet === 'family'}}">
+        <text class="sheet-title">{{family.name}}</text><text class="sheet-subtitle">真实家庭成员 · {{members.length}} 位</text>
         <view wx:for="{{members}}" wx:key="id" class="member-row">
-          <view class="mini-avatar {{item.role === 'OWNER' ? 'avatar-owner' : 'avatar-member'}}">
-            <text class="mini-avatar-text">{{item.nickname}}</text>
-          </view>
-          <view class="member-info">
-            <text class="member-name">{{item.nickname}}</text>
-            <text class="member-role">{{item.role_label}}</text>
-          </view>
-          <text class="member-role-badge {{item.role === 'OWNER' ? 'badge-owner' : 'badge-member'}}">{{item.role}}</text>
+          <image wx:if="{{item.avatar_url}}" class="mini-avatar" src="{{item.avatar_url}}" mode="aspectFill" />
+          <view wx:else class="mini-avatar avatar-member"><text>👤</text></view>
+          <view class="member-info"><text class="member-name">{{item.nickname}}</text><text class="member-role">{{item.role_label}}</text></view>
+          <text class="member-role-badge badge-member">{{item.role}}</text>
         </view>
-      </view>
-
-      <view class="family-sheet-action" bindtap="openInviteSheet">
-        <text class="family-sheet-action-icon">📩</text>
-        <text>邀请家人</text>
-        <text class="arrow">›</text>
-      </view>
-
-      <view class="sheet-note">真实版本将在 Family V1 API 接入后支持角色管理和移除成员。</view>
-
-      <view class="sheet-actions">
-        <view class="sheet-btn sheet-btn-cancel" bindtap="closeFamilySheet">关闭</view>
-      </view>
+        <view class="family-sheet-action" bindtap="openInviteSheet">📩 邀请家人 ›</view>
+        <view class="sheet-note">本轮只读成员列表，不提供角色修改和移除操作。</view>
+      </block>
+      <block wx:elif="{{sheet === 'invite'}}">
+        <text class="sheet-title">邀请家人加入</text>
+        <view class="invite-code-box"><text class="invite-code-label">邀请码</text><text class="invite-code">{{family.invite_code || '暂无邀请码'}}</text></view>
+        <button class="sheet-btn sheet-btn-confirm" bindtap="copyInviteCode">复制邀请码</button>
+        <view class="sheet-note">邀请码来自当前家庭服务端；请仅分享给要加入的家人。</view>
+      </block>
+      <block wx:elif="{{sheet === 'kitchen'}}">
+        <text class="sheet-title">厨房设置</text><text class="sheet-subtitle">{{family.name}} · 服务端数据，只读预览</text>
+        <view wx:for="{{settingsRows}}" wx:key="label" class="setting-row"><text class="setting-label">{{item.label}}</text><text class="setting-value">{{item.value}}</text></view>
+      </block>
+      <block wx:elif="{{sheet === 'settings'}}">
+        <text class="sheet-title">设置</text>
+        <view class="setting-row" bindtap="openProfileSheet"><text class="setting-label">修改昵称</text><text class="setting-arrow">›</text></view>
+        <view class="setting-row" bindtap="openKitchenSettingsSheet"><text class="setting-label">厨房设置（只读）</text><text class="setting-arrow">›</text></view>
+        <view class="sheet-note">饮食偏好、数据导出等功能待接入；本页不会提交未实现的数据。</view>
+      </block>
+      <button wx:if="{{sheet !== 'create' && sheet !== 'join' && sheet !== 'profile'}}" class="sheet-btn sheet-btn-cancel retry-button" bindtap="closeSheet" disabled="{{busy}}">关闭</button>
     </view>
   </view>
-
-  <!-- ===== 邀请家人 sheet ===== -->
-  <view wx:if="{{showInviteSheet}}" class="sheet-mask" bindtap="closeInviteSheet">
-    <view class="sheet-panel" catchtap="noop">
-      <view class="sheet-handle"></view>
-      <text class="sheet-title">邀请家人加入</text>
-
-      <view class="invite-code-box">
-        <text class="invite-code-label">邀请码</text>
-        <text class="invite-code">{{family.invite_code}}</text>
-      </view>
-
-      <view class="sheet-actions">
-        <view class="sheet-btn sheet-btn-cancel" bindtap="closeInviteSheet">关闭</view>
-        <view class="sheet-btn sheet-btn-confirm" bindtap="copyInviteCode">复制邀请码</view>
-      </view>
-
-      <view class="sheet-note">真实版本邀请码将由家庭服务端生成。</view>
-    </view>
-  </view>
-
-  <!-- ===== 厨房设置 preview sheet ===== -->
-  <view wx:if="{{showKitchenSettingsSheet}}" class="sheet-mask" bindtap="closeKitchenSettingsSheet">
-    <view class="sheet-panel" catchtap="noop">
-      <view class="sheet-handle"></view>
-      <text class="sheet-title">厨房设置</text>
-      <text class="sheet-subtitle">预览结构，暂不保存</text>
-
-      <view class="setting-list">
-        <view class="setting-row">
-          <text class="setting-label">厨房名称</text>
-          <text class="setting-value">{{kitchenSettings.kitchen_name}}</text>
-        </view>
-        <view class="setting-row">
-          <text class="setting-label">默认用餐人数</text>
-          <text class="setting-value">{{kitchenSettings.default_diners}} 人</text>
-        </view>
-        <view class="setting-row">
-          <text class="setting-label">早餐默认菜数</text>
-          <text class="setting-value">{{kitchenSettings.breakfast_target_count}}</text>
-        </view>
-        <view class="setting-row">
-          <text class="setting-label">午餐默认菜数</text>
-          <text class="setting-value">{{kitchenSettings.lunch_target_count}}</text>
-        </view>
-        <view class="setting-row">
-          <text class="setting-label">晚餐默认菜数</text>
-          <text class="setting-value">{{kitchenSettings.dinner_target_count}}</text>
-        </view>
-        <view class="setting-row">
-          <text class="setting-label">常用厨具</text>
-          <text class="setting-value setting-value-multi">{{kitchenSettings.common_tools}}</text>
-        </view>
-        <view class="setting-row">
-          <text class="setting-label">推荐偏好</text>
-          <text class="setting-value">{{kitchenSettings.random_default_mode}}</text>
-        </view>
-        <view class="setting-row">
-          <text class="setting-label">重复周期</text>
-          <text class="setting-value">{{kitchenSettings.repeat_strong_days}}天强避 / {{kitchenSettings.repeat_penalty_days}}天惩罚 / {{kitchenSettings.repeat_recover_days}}天恢复</text>
-        </view>
-      </view>
-
-      <view class="sheet-note">真实设置保存将在 Family V1 API 接入后启用。</view>
-
-      <view class="sheet-actions">
-        <view class="sheet-btn sheet-btn-cancel" bindtap="closeKitchenSettingsSheet">关闭</view>
-      </view>
-    </view>
-  </view>
-
-  <!-- ===== 设置 preview sheet ===== -->
-  <view wx:if="{{showSettingsSheet}}" class="sheet-mask" bindtap="closeSettingsSheet">
-    <view class="sheet-panel" catchtap="noop">
-      <view class="sheet-handle"></view>
-      <text class="sheet-title">设置</text>
-      <text class="sheet-subtitle">预览结构，暂不保存</text>
-
-      <view class="setting-group">
-        <text class="setting-group-title">个人设置</text>
-        <view class="setting-row" wx:for="{{settingsPreview.personal}}" wx:key="*this">
-          <text class="setting-label">{{item}}</text>
-          <text class="setting-arrow">›</text>
-        </view>
-      </view>
-
-      <view class="setting-group">
-        <text class="setting-group-title">家庭设置</text>
-        <view class="setting-row" wx:for="{{settingsPreview.family}}" wx:key="*this">
-          <text class="setting-label">{{item}}</text>
-          <text class="setting-arrow">›</text>
-        </view>
-      </view>
-
-      <view class="setting-group">
-        <text class="setting-group-title">饮食偏好</text>
-        <view class="setting-row" wx:for="{{settingsPreview.diet}}" wx:key="*this">
-          <text class="setting-label">{{item}}</text>
-          <text class="setting-arrow">›</text>
-        </view>
-      </view>
-
-      <view class="setting-group">
-        <text class="setting-group-title">推荐设置</text>
-        <view class="setting-row" wx:for="{{settingsPreview.recommendation}}" wx:key="*this">
-          <text class="setting-label">{{item}}</text>
-          <text class="setting-arrow">›</text>
-        </view>
-      </view>
-
-      <view class="setting-group">
-        <text class="setting-group-title">其他</text>
-        <view class="setting-row" wx:for="{{settingsPreview.other}}" wx:key="*this">
-          <text class="setting-label">{{item}}</text>
-          <text class="setting-arrow">›</text>
-        </view>
-      </view>
-
-      <view class="sheet-note">全部为 preview，真实设置将在后续阶段接入。</view>
-
-      <view class="sheet-actions">
-        <view class="sheet-btn sheet-btn-cancel" bindtap="closeSettingsSheet">关闭</view>
-      </view>
-    </view>
-  </view>
-
 </view>

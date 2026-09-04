@@ -4,6 +4,20 @@ Last updated: 2026-09-04 (Asia/Shanghai)
 
 ## Current stage
 
+### TASK-REAL-AUTH-FAMILY-CUTOVER-01 (2026-09-04)
+
+- Handoff gate passed: local = remote = `c40c6db20d0e8e839a22ecb65ebe19edb08b70b3`, clean worktree after fetch.
+- Commit A: `fc9b6543b10f7896a69d1f5d4570a6946ca7d68d`, pushed. [CI 33886425548](https://github.com/ruide92/our-kitchen-api/actions/runs/33886425548) completed successfully.
+- V1 API/session/bootstrap implemented with isolated `v1_token`, `v1_user`, `v1_active_family_id`; no legacy auth/storage operations. One pending bootstrap promise; explicit retry; no fake fallback.
+- Mine normal path no longer imports fixture. Real endpoint wiring: account, create/join, membership selection, family/members/settings reads, nickname PATCH and invite copy. Statistics are unavailable markers, avatar display only, settings read only.
+- Backend unchanged. Homepage/menu/fridge/shopping and Custom TabBar unchanged; their business data remain fixture. Do not describe them as real shared data.
+- Local unit tests: 38 pass, 0 fail, 0 skipped (16 backend + 22 frontend/session/Mine).
+- Local PostgreSQL integration: not run because TEST_DATABASE_URL is absent. CI evidence is separate and does not prove real WeChat login.
+- Real WeChat + V1 environment: `BLOCKED_BY_ENV`. DATABASE_URL/JWT_SECRET/WECHAT_APP_ID/WECHAT_APP_SECRET absent; no local .env beyond example. No server credentials added to mini program.
+- DevTools CLI auto returned success; actual Mine runtime captured as authFailed/BLOCKED_BY_ENV, 0 project exceptions observed, no injected fixture/token. [Screenshot](evidence/auth-family-cutover/mine-BLOCKED_BY_ENV.png) and [runtime report](evidence/auth-family-cutover/runtime-report.json) include source hashes. Simulator was iPhone 12/13 Pro, not claimed as iPhone15 evidence.
+- Real login accepted: NO. Real family creation/join accepted: NO. Two-phone test accepted: NO. These require configured backend and real WeChat users; unit adapters are not business acceptance.
+- Stop after Commit B push/verification. No recipe/weekly/meal/inventory/shopping/recommendation/KRP cutover or production deployment.
+
 - Phase 0: complete
 - Phase 1: complete
 - Phase 2: complete
@@ -94,10 +108,10 @@ Homepage fixture UI implemented and visually accepted.
 
 ## In progress
 
-### Family checkpoint (2026-09-04; awaiting PostgreSQL CI / Reviewer)
+### Historical Family checkpoint (superseded by the c40c6db handoff)
 
 - Local Family implementation commit: `6a39392a770c94596a244a99dc6cc8fdf09f060a`.
-- Push currently blocked by Git Credential Manager authentication. Noninteractive retry reports `unable to get password from user`; remote remains `ce42ac86600645a7dfd39c0da12dc684b9b55825`. Do not mark remote/CI complete.
+- Historical push blockage was resolved before current handoff; current remote c40c6db and subsequent Commit A have been verified. Old blockage is not the current state.
 
 - Canonical WeChat env correction: `33919a6ad0c2ac800a9faa0b3a744eec0b164edb`; only WECHAT_APP_ID/WECHAT_APP_SECRET, no legacy fallback.
 - Family create/join/read/update/members/roles/invite rotation/settings and PATCH me implemented in isolated v1 backend.
@@ -130,7 +144,7 @@ Phase 3 backend foundation in `backend/v1/`:
 - Fake openid derived from `wx.login` code remains in legacy code until Phase 3.
 - JsonDatabase still cannot implement route SQL semantics and must not be extended.
 - Existing production JSON persistence is not V4-compliant.
-- Existing frontend remains connected to legacy contract until phased migration.
+- Five main Tabs no longer start legacy auth. Mine now uses V1; the other four remain fixture. Non-migrated secondary legacy pages are not repaired or wired in this task.
 - Phase 2.5 homepage is fixture UI only; must not be described as real multi-user completion until Phase 3 backend is live.
 
 ## Test status
@@ -154,4 +168,4 @@ Phase 2.5 added homepage fixture UI only. WeChat DevTools real compile: 0 error.
 
 ## Next first action
 
-Restore GitHub authentication, push existing commits without rewriting them, wait for new PostgreSQL CI to complete, record the actual run, then return to Reviewer. Do not proceed to another Phase or touch frontend fixtures. Member preferences/pantry summaries and full schema/seed remain explicitly pending.
+Reviewer checks Auth/Family cutover code and failure-state evidence. Securely configure the real V1 environment, then test actual wx.login, create/join and two real users sharing the same family. Do not inject fixture success or proceed to other domains without a separate task.
