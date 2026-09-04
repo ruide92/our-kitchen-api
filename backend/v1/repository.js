@@ -14,6 +14,12 @@ function createRepository(pool) {
     async getUser(id) {
       return (await pool.query('SELECT id,nickname,avatar_url FROM users WHERE id=$1', [id])).rows[0] || null;
     },
+    async updateUser(id, data) {
+      const validated = require('./family-validation').validateProfile(data);
+      const keys = ['nickname','avatar_url'].filter(key => key in validated);
+      const values = keys.map(key => validated[key]); values.push(id);
+      return (await pool.query(`UPDATE users SET ${keys.map((key,i)=>`${key}=$${i+1}`).join(',')},updated_at=now() WHERE id=$${values.length} RETURNING id,nickname,avatar_url`,values)).rows[0];
+    },
     async listFamilies(userId) {
       return (await pool.query(`SELECT f.id,f.name,m.role FROM families f
         JOIN family_members m ON m.family_id=f.id

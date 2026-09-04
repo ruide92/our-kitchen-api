@@ -1,9 +1,10 @@
 const express = require('express');
 const { ApiError, errorHandler } = require('./errors');
-const { UUID } = require('./tokens');
+const { installFamilyRoutes } = require('./family-routes');
+const { validateProfile } = require('./family-validation');
 const asyncRoute = handler => (req, res, next) => Promise.resolve(handler(req, res)).catch(next);
 
-function createApp({ repo, wechat, tokens }) {
+function createApp({ repo, wechat, tokens, families }) {
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json({ limit: '32kb' }));
@@ -28,14 +29,9 @@ function createApp({ repo, wechat, tokens }) {
     }).catch(next);
   });
   app.get('/api/v1/me', (req, res) => res.json({ data: req.user, meta: {} }));
+  app.patch('/api/v1/me', asyncRoute(async (req,res) => res.json({data:await repo.updateUser(req.user.id,validateProfile(req.body)),meta:{}})));
   app.get('/api/v1/me/families', asyncRoute(async (req, res) => res.json({ data: await repo.listFamilies(req.user.id), meta: {} })));
-  app.use('/api/v1/families/:family_id', (req, res, next) => {
-    if (!UUID.test(req.params.family_id)) return next(new ApiError(400, 'INVALID_REQUEST', '家庭 ID 无效'));
-    repo.getMembership(req.params.family_id, req.user.id).then(member => {
-      if (!member) return next(new ApiError(403, 'FAMILY_FORBIDDEN', '你不是该家庭成员'));
-      req.membership = member; next();
-    }).catch(next);
-  });
+  installFamilyRoutes(app,repo,families);
   app.use((req, res, next) => next(new ApiError(404, 'NOT_FOUND', '接口不存在')));
   app.use(errorHandler);
   return app;

@@ -94,6 +94,17 @@ Homepage fixture UI implemented and visually accepted.
 
 ## In progress
 
+### Family checkpoint (2026-09-04; awaiting PostgreSQL CI / Reviewer)
+
+- Canonical WeChat env correction: `33919a6ad0c2ac800a9faa0b3a744eec0b164edb`; only WECHAT_APP_ID/WECHAT_APP_SECRET, no legacy fallback.
+- Family create/join/read/update/members/roles/invite rotation/settings and PATCH me implemented in isolated v1 backend.
+- Shared middleware plus fresh transaction authorization; family locks protect last OWNER and optimistic version updates; settings read uses shared lock.
+- 16 local unit tests pass. Expanded PostgreSQL tests must pass in CI before this checkpoint is accepted; full Phase 3 remains incomplete.
+- npm audit risks recorded in PHASE3_BACKEND_PROGRESS; no audit fix or dependency version change.
+- No miniprogram, legacy JsonDatabase/routes or production deployment changes.
+
+### Foundation checkpoint (previously reviewed)
+
 Phase 3 backend foundation in `backend/v1/`:
 
 - Independent `start:v1`; legacy `npm start`, Render and all frontend files unchanged.
@@ -101,13 +112,13 @@ Phase 3 backend foundation in `backend/v1/`:
 - Parameterized PostgreSQL identity/membership reads; four-table core migration with transactional runner/checksum lock.
 - Node tests and PostgreSQL CI service added. Local unit tests: 12 passed. Local integration: fails explicitly without TEST_DATABASE_URL (0 skipped); real PostgreSQL result must be recorded separately.
 - Real PostgreSQL 16 CI at implementation checkpoint: [run 33839190932](https://github.com/ruide92/our-kitchen-api/actions/runs/33839190932) completed successfully, including npm test (12 unit + 1 core integration). This validates only the four-table foundation, not full A01–A05/A46/A47 or production behavior.
-- This does not deliver family create/join/settings/roles write APIs, all-resource isolation, seed, production secrets rotation, or deployment. A01–A05/A45–A47 remain incomplete.
+- The foundation checkpoint did not deliver family writes. Current Family slice adds them; all-resource isolation, seed, production secret rotation and deployment remain incomplete.
 - See `docs/PHASE3_BACKEND_PROGRESS.md` for scope, validation and remaining work.
 - Menu fixture commits through `27b3fcb` are preserved. No `miniprogram/**` modifications permitted in this slice; menu visual acceptance remains outstanding but not a backend blocker.
 
 ## Not started
 
-- Phase 3 remaining: real test DB validation, family write APIs/OWNER invariants, complete schema/seed, production secret rotation/persistence rollout.
+- Phase 3 remaining: complete schema/seed, member preference/pantry summaries, production secret rotation/persistence rollout and all-resource isolation.
 - Phase 4+ recipe assets, meal/shopping/cooking core, recommendation, KRP, family experience and future community work.
 
 ## Known critical risks
@@ -140,4 +151,4 @@ Phase 2.5 added homepage fixture UI only. WeChat DevTools real compile: 0 error.
 
 ## Next first action
 
-Verify core migration/repository against dedicated PostgreSQL (CI or TEST_DATABASE_URL), then implement family create/join/permissions/settings with A02–A05 tests. Resolve documented family write payload details before adding endpoints; do not invent a `/homepage` endpoint absent from API_CONTRACT. Keep homepage and menu fixtures untouched until separately authorized wiring work.
+Wait for Family checkpoint PostgreSQL CI and independent Reviewer. Do not proceed to another Phase or touch frontend fixtures. Member preferences/pantry summaries and full schema/seed remain explicitly pending.
