@@ -28,12 +28,14 @@ const MINE_FIXTURE = {
   members: [
     {
       id: 'fixture-member-rui',
+      user_id: 'fixture-user-rui',
       nickname: '锐',
       role: 'OWNER',
       role_label: '家庭主人',
     },
     {
       id: 'fixture-member-tangtang',
+      user_id: 'fixture-user-tangtang',
       nickname: '糖糖',
       role: 'MEMBER',
       role_label: '家庭成员',

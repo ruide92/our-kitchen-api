@@ -4,6 +4,7 @@
  * 重要：本页面仅使用 menu-fixture.js，不调用 legacy api.js，不接真实后端。
  * 所有"重新安排"操作为 placeholder（推荐引擎 Phase 6 接入）。
  * 本餐选菜使用 date + meal_type 二维隔离，与首页一致。
+ * toggleLock 仅修改页面运行态 weeklyPlanItems，不污染 fixture 模块单例。
  */
 
 const fixture = require('./menu-fixture.js')
@@ -29,6 +30,9 @@ Page({
     selectedDate: '',
     selectedMeals: [],   // [{key, label, icon, count, dishes: [...]}]
 
+    // 周计划运行态副本（深拷贝自 fixture，toggleLock 只改这里，不污染模块单例）
+    weeklyPlanItems: [],
+
     // 全部菜品
     categories: [],
     currentCategory: 'RECOMMEND',
@@ -51,7 +55,7 @@ Page({
   },
 
   onShow() {
-    // fixture 阶段：每次 onShow 从 fixture 重新计算展示数据
+    // fixture 阶段：每次 onShow 从运行态副本重新计算展示数据
     this._refreshSelectedMeals()
     this._refreshMiniCart()
     try { if (this.getTabBar()) this.getTabBar().setData({ selected: 1 }) } catch(e) {}
@@ -100,6 +104,9 @@ Page({
       familyVariantText: (r.has_family_variant || r.kind === 'FAMILY') ? '我家版本' : '',
     }))
 
+    // 周计划深拷贝到运行态，toggleLock 只改这个副本
+    const weeklyPlanItems = JSON.parse(JSON.stringify(fixture.weekly_plan.items))
+
     // mealsByDateAndType 深拷贝（避免直接改 fixture）
     const mealsByDateAndType = JSON.parse(JSON.stringify(fixture.meals_by_date_and_type))
 
@@ -112,6 +119,7 @@ Page({
       weekDays,
       selectedDayIndex: selectedIndex,
       selectedDate: weekDays[selectedIndex].fullDate,
+      weeklyPlanItems,
       categories,
       recipes,
       filteredRecipes: recipes,
@@ -126,8 +134,8 @@ Page({
 
   // ===== 本周安排：根据选中日期组装三餐 =====
   _refreshSelectedMeals() {
-    const { selectedDate, mealsByDateAndType } = this.data
-    const items = fixture.weekly_plan.items.filter(it => it.plan_date === selectedDate)
+    const { selectedDate, weeklyPlanItems } = this.data
+    const items = weeklyPlanItems.filter(it => it.plan_date === selectedDate)
 
     const meals = ['BREAKFAST', 'LUNCH', 'DINNER'].map(mealKey => {
       const meta = MEAL_META[mealKey]
@@ -200,15 +208,21 @@ Page({
     }, () => this._refreshSelectedMeals())
   },
 
-  // ===== 锁定 / 解锁（仅改本地 fixture 展示状态）=====
+  // ===== 锁定 / 解锁（仅改页面运行态副本，不写 fixture 模块）=====
   toggleLock(e) {
     const itemId = e.currentTarget.dataset.itemId
-    const item = fixture.weekly_plan.items.find(it => it.id === itemId)
-    if (item) {
-      item.locked = !item.locked
-      this._refreshSelectedMeals()
+    const { weeklyPlanItems } = this.data
+    const idx = weeklyPlanItems.findIndex(it => it.id === itemId)
+    if (idx >= 0) {
+      const newLocked = !weeklyPlanItems[idx].locked
+      const updated = weeklyPlanItems.map((it, i) =>
+        i === idx ? { ...it, locked: newLocked } : it
+      )
+      this.setData({ weeklyPlanItems: updated }, () => {
+        this._refreshSelectedMeals()
+      })
       wx.showToast({
-        title: item.locked ? '已锁定，重新安排时保留' : '已解锁',
+        title: newLocked ? '已锁定，重新安排时保留' : '已解锁',
         icon: 'none',
         duration: 1200,
       })

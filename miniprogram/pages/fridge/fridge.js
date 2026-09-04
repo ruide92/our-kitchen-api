@@ -136,6 +136,29 @@ Page({
     this._refreshFiltered()
   },
 
+  /**
+   * 解析数量输入。
+   * 空字符串 → 返回 oldValue（编辑时保留旧值，新增时为 0）。
+   * NaN → toast 提示，返回 null（调用方应中止保存）。
+   * 负数 → toast 提示，返回 null。
+   * 合法数字（含 0）→ 返回该数字。
+   */
+  _parseQuantity(raw, oldValue) {
+    if (raw === '' || raw === null || raw === undefined) {
+      return oldValue
+    }
+    const n = Number(raw)
+    if (isNaN(n)) {
+      wx.showToast({ title: '请输入正确数量', icon: 'none' })
+      return null
+    }
+    if (n < 0) {
+      wx.showToast({ title: '数量不能小于0', icon: 'none' })
+      return null
+    }
+    return n
+  },
+
   // ===== 双段切换 =====
   switchTab(e) {
     this.setData({ activeTab: e.currentTarget.dataset.tab })
@@ -196,13 +219,16 @@ Page({
       wx.showToast({ title: '请输入食材名称', icon: 'none' })
       return
     }
+    // 数量校验：空 → 0；NaN/负数 → 拒绝
+    const qty = this._parseQuantity(addForm.quantity, 0)
+    if (qty === null) return
     const fresh = this._computeFreshness(addForm.expiry_date || null)
     const newItem = {
       id: 'inv-runtime-' + Date.now(),
       ingredient_id: 'ing-runtime-' + Date.now(),
       name: addForm.name.trim(),
       image: null,
-      quantity: Number(addForm.quantity) || 0,
+      quantity: qty,
       unit_code: addForm.unit_code,
       storage_location: addForm.storage_location,
       category: '其他',
@@ -266,12 +292,15 @@ Page({
   saveEditItem() {
     const { editingItem, editForm, inventoryItems } = this.data
     if (!editingItem) return
+    // 数量校验：空字符串保留旧值；0 允许保存；NaN/负数拒绝
+    const qty = this._parseQuantity(editForm.quantity, editingItem.quantity)
+    if (qty === null) return
     const fresh = this._computeFreshness(editForm.expiry_date || null)
     const items = inventoryItems.map(i => {
       if (i.id !== editingItem.id) return i
       return {
         ...i,
-        quantity: Number(editForm.quantity) || i.quantity,
+        quantity: qty,
         unit_code: editForm.unit_code,
         storage_location: editForm.storage_location,
         purchase_date: editForm.purchase_date,

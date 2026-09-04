@@ -231,7 +231,11 @@ Page({
     }
     // 自定义单位：unit_code=null，unit_text=自定义文字，不做任何换算
     const isCustom = editForm.unit === '自定义'
-    const unitText = isCustom ? (editForm.customUnit || '') : editForm.unit
+    if (isCustom && !editForm.customUnit.trim()) {
+      wx.showToast({ title: '请输入自定义单位', icon: 'none' })
+      return
+    }
+    const unitText = isCustom ? editForm.customUnit.trim() : editForm.unit
     const qtyText = (editForm.quantity || '') + unitText
     const updated = items.map(i => {
       if (i.id !== editingManualId) return i
@@ -305,7 +309,11 @@ Page({
     }
     // 自定义单位：unit_code=null，unit_text=自定义文字，不做任何换算
     const isCustom = addForm.unit === '自定义'
-    const unitText = isCustom ? (addForm.customUnit || '') : addForm.unit
+    if (isCustom && !addForm.customUnit.trim()) {
+      wx.showToast({ title: '请输入自定义单位', icon: 'none' })
+      return
+    }
+    const unitText = isCustom ? addForm.customUnit.trim() : addForm.unit
     const qtyText = (addForm.quantity || '') + unitText
     const newItem = {
       id: 'si-runtime-' + Date.now(),

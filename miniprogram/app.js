@@ -10,19 +10,10 @@ App({
   },
 
   onLaunch() {
-    // 读取本地存储
-    const token = wx.getStorageSync('token')
-    const userInfo = wx.getStorageSync('userInfo')
-    const kitchenInfo = wx.getStorageSync('kitchenInfo')
-    if (token) this.globalData.token = token
-    if (userInfo) this.globalData.userInfo = userInfo
-    if (kitchenInfo) {
-      this.globalData.kitchenInfo = kitchenInfo
-      this.globalData.hasKitchen = true
-    }
-
-    // 微信登录
-    this.wxLogin()
+    // V4 fixture 阶段：启动时不执行 legacy wx.login / api.login。
+    // 不读取旧 storage，不写入旧 token/userInfo/kitchenInfo。
+    // 真实 Auth 将在下一阶段统一接入 V1 backend。
+    // legacy helper 方法暂时保留但不被启动路径调用。
   },
 
   wxLogin() {

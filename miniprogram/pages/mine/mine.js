@@ -117,9 +117,15 @@ Page({
       wx.showToast({ title: '昵称不能为空', icon: 'none' })
       return
     }
-    // 仅 runtime fixture 修改，不写后端
+    // 仅 runtime fixture 修改，不写后端。
+    // 同步更新 members 中 user_id === user.id 的成员昵称，保证家庭管理列表一致。
+    const userId = this.data.user.id
+    const members = this.data.members.map(m =>
+      m.user_id === userId ? { ...m, nickname } : m
+    )
     this.setData({
       'user.nickname': nickname,
+      members,
       showProfileSheet: false,
     })
     wx.showToast({ title: '已保存（fixture 运行态）', icon: 'none' })
@@ -135,8 +141,9 @@ Page({
   },
 
   // ===== 邀请家人 =====
+  // 从家庭管理 sheet 打开邀请时，先关闭 family sheet，避免两个 mask 重叠。
   openInviteSheet() {
-    this.setData({ showInviteSheet: true })
+    this.setData({ showInviteSheet: true, showFamilySheet: false })
   },
 
   closeInviteSheet() {

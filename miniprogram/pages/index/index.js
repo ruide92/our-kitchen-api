@@ -277,9 +277,11 @@ Page({
   },
 
   // ===== 快捷入口 =====
+  // V4 fixture 阶段：legacy 页面（random/favorites/today-menu/detail）尚未迁移，
+  // 全部阻断为 placeholder toast，避免误入旧系统调用不存在的 API。
 
   goRandom() {
-    wx.navigateTo({ url: '/pages/random/random' })
+    wx.showToast({ title: '随机菜谱将在推荐引擎接入后启用', icon: 'none', duration: 1500 })
   },
 
   goFridgeCook() {
@@ -287,32 +289,26 @@ Page({
   },
 
   goFavorites() {
-    wx.navigateTo({ url: '/pages/favorites/favorites' })
+    wx.showToast({ title: '家庭收藏真实数据接入后启用', icon: 'none', duration: 1500 })
   },
 
   goOnePerson() {
-    wx.navigateTo({ url: '/pages/random/random?mode=one' })
+    wx.showToast({ title: '一人菜将在推荐引擎接入后启用', icon: 'none', duration: 1500 })
   },
 
-  // 查看完整周计划 — Phase 2.5 placeholder
-  // 旧 menu 页尚未接入"本周安排"，暂不跳转，避免错误交互。
-  // 下一阶段菜单页完成后改为 wx.switchTab({ url: '/pages/menu/menu' })。
+  // 菜单 Tab 已完成，直接进入
   goWeeklyPlan() {
-    wx.showToast({
-      title: '完整周计划将在菜单页接入',
-      icon: 'none'
-    })
+    wx.switchTab({ url: '/pages/menu/menu' })
   },
 
   // ===== 已点菜单 =====
 
   goTodayMenu() {
-    wx.navigateTo({ url: '/pages/today-menu/today-menu' })
+    wx.showToast({ title: '本餐菜单真实数据接入后启用', icon: 'none', duration: 1500 })
   },
 
   goDetail(e) {
-    const id = e.currentTarget.dataset.recipeId
-    wx.navigateTo({ url: `/pages/detail/detail?id=${id}` })
+    wx.showToast({ title: '菜品详情真实数据接入后启用', icon: 'none', duration: 1500 })
   },
 
   // 下拉刷新（fixture 模式：重建 view model 并停止刷新）
