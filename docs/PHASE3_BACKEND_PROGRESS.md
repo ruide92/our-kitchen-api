@@ -107,3 +107,9 @@ express@4.22.2 (direct)
 Express4.22.2声明 `qs ~6.15.1`，普通lock刷新无法纳入6.16.0。可提出单独checkpoint评估 qs override=6.16.0并回归query/form解析；这超出其原传递版本范围，不能无测试称无破坏。Express5是主版本迁移，本轮不做。未运行npm audit fix/force，未修改依赖版本或lock。
 
 CI增加只读audit输出artifact（允许已知漏洞令audit步骤非零但不遮蔽测试结果）；测试步骤仍严格pipefail。最终以该run输出核对风险数量。
+
+## 当前阻塞：GitHub 身份认证
+
+Family实现本地commit：`6a39392a770c94596a244a99dc6cc8fdf09f060a`。环境变量修正和Family实现均已本地提交，但push卡在Git Credential Manager；禁用交互后的安全重试明确返回 `unable to get password from user`。远端仍为 `ce42ac86600645a7dfd39c0da12dc684b9b55825`。
+
+本轮没有新GitHub Actions run；不得借用上一个foundation的13/13结果作为Family验收。恢复GitHub登录后推送现有commit、等待PostgreSQL CI结束、核对audit artifact，再交Reviewer。未继续后续Phase。

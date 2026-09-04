@@ -96,6 +96,9 @@ Homepage fixture UI implemented and visually accepted.
 
 ### Family checkpoint (2026-09-04; awaiting PostgreSQL CI / Reviewer)
 
+- Local Family implementation commit: `6a39392a770c94596a244a99dc6cc8fdf09f060a`.
+- Push currently blocked by Git Credential Manager authentication. Noninteractive retry reports `unable to get password from user`; remote remains `ce42ac86600645a7dfd39c0da12dc684b9b55825`. Do not mark remote/CI complete.
+
 - Canonical WeChat env correction: `33919a6ad0c2ac800a9faa0b3a744eec0b164edb`; only WECHAT_APP_ID/WECHAT_APP_SECRET, no legacy fallback.
 - Family create/join/read/update/members/roles/invite rotation/settings and PATCH me implemented in isolated v1 backend.
 - Shared middleware plus fresh transaction authorization; family locks protect last OWNER and optimistic version updates; settings read uses shared lock.
@@ -151,4 +154,4 @@ Phase 2.5 added homepage fixture UI only. WeChat DevTools real compile: 0 error.
 
 ## Next first action
 
-Wait for Family checkpoint PostgreSQL CI and independent Reviewer. Do not proceed to another Phase or touch frontend fixtures. Member preferences/pantry summaries and full schema/seed remain explicitly pending.
+Restore GitHub authentication, push existing commits without rewriting them, wait for new PostgreSQL CI to complete, record the actual run, then return to Reviewer. Do not proceed to another Phase or touch frontend fixtures. Member preferences/pantry summaries and full schema/seed remain explicitly pending.
