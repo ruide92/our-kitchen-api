@@ -66,6 +66,7 @@ Page({
 
   onShow() {
     // fixture 模式下 onShow 不重新拉取；保持本地状态
+    try { if (this.getTabBar()) this.getTabBar().setData({ selected: 0 }) } catch(e) {}
   },
 
   /**

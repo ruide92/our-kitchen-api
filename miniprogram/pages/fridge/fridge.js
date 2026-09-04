@@ -60,6 +60,10 @@ Page({
     this.initFromFixture()
   },
 
+  onShow() {
+    try { if (this.getTabBar()) this.getTabBar().setData({ selected: 2 }) } catch(e) {}
+  },
+
   // 注意：不在 onShow 重置 fixture。
   // 用户运行态（添加/编辑/删除/常备食材修改）在切换 Tab 后必须保留。
   // 只有页面真正重新加载（onLoad）时才恢复 fixture。

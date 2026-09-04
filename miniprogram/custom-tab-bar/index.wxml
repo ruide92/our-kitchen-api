@@ -1,0 +1,54 @@
+<view class="tab-bar">
+  <view
+    wx:for="{{list}}"
+    wx:key="pagePath"
+    class="tab-item {{selected === index ? 'tab-active' : ''}}"
+    data-index="{{index}}"
+    data-path="{{item.pagePath}}"
+    bindtap="switchTab"
+  >
+    <view class="tab-icon-wrap">
+      <!-- 首页：房子 -->
+      <block wx:if="{{index === 0}}">
+        <view class="icon icon-home">
+          <view class="icon-home-roof"></view>
+          <view class="icon-home-body"></view>
+        </view>
+      </block>
+      <!-- 菜单：列表 -->
+      <block wx:if="{{index === 1}}">
+        <view class="icon icon-list">
+          <view class="icon-list-line"></view>
+          <view class="icon-list-line"></view>
+          <view class="icon-list-line icon-list-line-short"></view>
+        </view>
+      </block>
+      <!-- 冰箱：轮廓 -->
+      <block wx:if="{{index === 2}}">
+        <view class="icon icon-fridge">
+          <view class="icon-fridge-top"></view>
+          <view class="icon-fridge-bottom"></view>
+          <view class="icon-fridge-handle-top"></view>
+          <view class="icon-fridge-handle-bottom"></view>
+        </view>
+      </block>
+      <!-- 购物清单：checkbox -->
+      <block wx:if="{{index === 3}}">
+        <view class="icon icon-cart">
+          <view class="icon-cart-box"></view>
+          <view class="icon-cart-check"></view>
+          <view class="icon-cart-line1"></view>
+          <view class="icon-cart-line2"></view>
+        </view>
+      </block>
+      <!-- 我的：人物 -->
+      <block wx:if="{{index === 4}}">
+        <view class="icon icon-person">
+          <view class="icon-person-head"></view>
+          <view class="icon-person-body"></view>
+        </view>
+      </block>
+    </view>
+    <text class="tab-text">{{item.text}}</text>
+  </view>
+</view>

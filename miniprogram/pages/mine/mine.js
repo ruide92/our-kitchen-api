@@ -76,6 +76,10 @@ Page({
     this.initFromFixture()
   },
 
+  onShow() {
+    try { if (this.getTabBar()) this.getTabBar().setData({ selected: 4 }) } catch(e) {}
+  },
+
   // 注意：不实现 onShow 网络刷新。
 
   initFromFixture() {

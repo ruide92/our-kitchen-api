@@ -369,7 +369,7 @@
 /* 分类 + 列表 */
 .recipes-content {
   display: flex;
-  height: calc(100vh - 340rpx);
+  height: calc(100vh - 460rpx);
   padding: 0 24rpx;
 }
 
@@ -553,17 +553,13 @@
 
 /* ===== mini cart（sticky）===== */
 .mini-cart {
-  position: fixed;
-  left: 24rpx;
-  right: 24rpx;
-  bottom: calc(100rpx + env(safe-area-inset-bottom));
+  margin: 16rpx 24rpx 0;
   background: #3E2723;
   border-radius: 40rpx;
   padding: 20rpx 28rpx;
   display: flex;
   align-items: center;
   box-shadow: 0 4rpx 20rpx rgba(62, 39, 35, 0.3);
-  z-index: 100;
 }
 
 .mini-cart-icon {
@@ -586,5 +582,5 @@
 
 /* 底部安全区 */
 .bottom-space {
-  height: calc(120rpx + env(safe-area-inset-bottom));
+  height: calc(130rpx + env(safe-area-inset-bottom));
 }

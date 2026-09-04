@@ -1,6 +1,6 @@
 /* 冰箱 Tab V4 fixture — 延续首页/菜单温暖家庭风 */
 .page {
-  padding: 0 0 32rpx;
+  padding: 0 0 calc(130rpx + env(safe-area-inset-bottom));
   min-height: 100vh;
   box-sizing: border-box;
   background: #FFF9F0;
@@ -298,18 +298,14 @@
 
 /* ===== sticky 看冰箱做菜 ===== */
 .cook-bar {
-  position: fixed;
-  left: 24rpx;
-  right: 24rpx;
-  bottom: calc(env(safe-area-inset-bottom) + 110rpx);
+  margin: 24rpx 24rpx 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   background: #FFFFFF;
   border-radius: 24rpx;
   padding: 20rpx 28rpx;
-  box-shadow: 0 4rpx 20rpx rgba(92, 74, 58, 0.1);
-  z-index: 50;
+  box-shadow: 0 4rpx 20rpx rgba(92, 74, 58, 0.08);
 }
 
 .cook-bar-left {

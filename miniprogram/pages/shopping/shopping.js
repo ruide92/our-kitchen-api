@@ -67,6 +67,10 @@ Page({
     this.initFromFixture()
   },
 
+  onShow() {
+    try { if (this.getTabBar()) this.getTabBar().setData({ selected: 3 }) } catch(e) {}
+  },
+
   // 注意：不实现 onShow 重置。运行态在 Tab 切换后保留。
 
   initFromFixture() {

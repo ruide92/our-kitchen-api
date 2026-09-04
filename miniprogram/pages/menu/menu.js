@@ -54,6 +54,7 @@ Page({
     // fixture 阶段：每次 onShow 从 fixture 重新计算展示数据
     this._refreshSelectedMeals()
     this._refreshMiniCart()
+    try { if (this.getTabBar()) this.getTabBar().setData({ selected: 1 }) } catch(e) {}
   },
 
   // ===== 初始化 =====

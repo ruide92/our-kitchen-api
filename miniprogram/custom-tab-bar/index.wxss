@@ -1,0 +1,250 @@
+/* Custom TabBar — 温暖家庭风，极简线性图标 */
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(100rpx + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: #FFFFFF;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-around;
+  box-shadow: 0 -2rpx 12rpx rgba(92, 74, 58, 0.06);
+  z-index: 100;
+}
+
+.tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-top: 12rpx;
+  height: 100rpx;
+  box-sizing: border-box;
+}
+
+.tab-icon-wrap {
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4rpx;
+  border-radius: 12rpx;
+}
+
+.tab-active .tab-icon-wrap {
+  background: #F1F8E9;
+}
+
+.tab-text {
+  font-size: 22rpx;
+  color: #918781;
+  line-height: 1;
+}
+
+.tab-active .tab-text {
+  color: #7CB342;
+  font-size: 23rpx;
+  font-weight: 600;
+}
+
+/* ===== 图标通用 ===== */
+.icon {
+  position: relative;
+  width: 40rpx;
+  height: 40rpx;
+  color: #918781;
+}
+
+.tab-active .icon {
+  color: #7CB342;
+}
+
+/* ===== 首页：房子 ===== */
+.icon-home-roof {
+  position: absolute;
+  top: 4rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 16rpx solid transparent;
+  border-right: 16rpx solid transparent;
+  border-bottom: 14rpx solid currentColor;
+}
+
+.icon-home-body {
+  position: absolute;
+  bottom: 4rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24rpx;
+  height: 18rpx;
+  border: 3rpx solid currentColor;
+  border-top: none;
+  border-radius: 0 0 4rpx 4rpx;
+}
+
+/* ===== 菜单：列表 ===== */
+.icon-list {
+  width: 36rpx;
+  height: 36rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.icon-list-line {
+  width: 100%;
+  height: 3rpx;
+  background: currentColor;
+  border-radius: 2rpx;
+  margin-bottom: 7rpx;
+}
+
+.icon-list-line:last-child {
+  margin-bottom: 0;
+}
+
+.icon-list-line-short {
+  width: 60%;
+}
+
+/* ===== 冰箱：轮廓 ===== */
+.icon-fridge {
+  width: 28rpx;
+  height: 38rpx;
+  position: relative;
+}
+
+.icon-fridge-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 14rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 4rpx 4rpx 0 0;
+  box-sizing: border-box;
+}
+
+.icon-fridge-bottom {
+  position: absolute;
+  top: 14rpx;
+  left: 0;
+  width: 100%;
+  height: 24rpx;
+  border: 3rpx solid currentColor;
+  border-top: none;
+  border-radius: 0 0 4rpx 4rpx;
+  box-sizing: border-box;
+}
+
+.icon-fridge-handle-top {
+  position: absolute;
+  top: 5rpx;
+  right: 4rpx;
+  width: 3rpx;
+  height: 6rpx;
+  background: currentColor;
+  border-radius: 2rpx;
+}
+
+.icon-fridge-handle-bottom {
+  position: absolute;
+  top: 20rpx;
+  right: 4rpx;
+  width: 3rpx;
+  height: 8rpx;
+  background: currentColor;
+  border-radius: 2rpx;
+}
+
+/* ===== 购物清单：checkbox + 线 ===== */
+.icon-cart {
+  width: 36rpx;
+  height: 36rpx;
+  position: relative;
+}
+
+.icon-cart-box {
+  position: absolute;
+  top: 4rpx;
+  left: 4rpx;
+  width: 20rpx;
+  height: 20rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 4rpx;
+  box-sizing: border-box;
+}
+
+.icon-cart-check {
+  position: absolute;
+  top: 8rpx;
+  left: 9rpx;
+  width: 10rpx;
+  height: 6rpx;
+  border-left: 3rpx solid currentColor;
+  border-bottom: 3rpx solid currentColor;
+  transform: rotate(-45deg);
+  opacity: 0;
+}
+
+.tab-active .icon-cart-check {
+  opacity: 1;
+}
+
+.icon-cart-line1 {
+  position: absolute;
+  top: 10rpx;
+  right: 2rpx;
+  width: 12rpx;
+  height: 3rpx;
+  background: currentColor;
+  border-radius: 2rpx;
+}
+
+.icon-cart-line2 {
+  position: absolute;
+  top: 20rpx;
+  right: 2rpx;
+  width: 8rpx;
+  height: 3rpx;
+  background: currentColor;
+  border-radius: 2rpx;
+}
+
+/* ===== 我的：人物 ===== */
+.icon-person {
+  width: 36rpx;
+  height: 36rpx;
+  position: relative;
+}
+
+.icon-person-head {
+  position: absolute;
+  top: 2rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 14rpx;
+  height: 14rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.icon-person-body {
+  position: absolute;
+  bottom: 2rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 26rpx;
+  height: 14rpx;
+  border: 3rpx solid currentColor;
+  border-bottom: none;
+  border-radius: 12rpx 12rpx 0 0;
+  box-sizing: border-box;
+}

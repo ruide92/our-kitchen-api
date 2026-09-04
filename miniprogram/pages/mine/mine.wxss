@@ -283,7 +283,7 @@
 }
 
 .page-bottom-space {
-  height: 40rpx;
+  height: calc(130rpx + env(safe-area-inset-bottom));
 }
 
 /* ===== bottom sheet ===== */

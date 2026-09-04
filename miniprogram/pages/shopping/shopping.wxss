@@ -1,9 +1,18 @@
 /* 购物清单 Tab V4 fixture — 延续首页/菜单/冰箱温暖家庭风 */
 .page {
-  padding: 0 0 32rpx;
+  padding: 0 0 calc(100rpx + env(safe-area-inset-bottom));
   min-height: 100vh;
   box-sizing: border-box;
   background: #FFF9F0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.page-scroll {
+  flex: 1;
+  min-height: 0;
+  padding: 0 0 24rpx;
 }
 
 /* ===== 顶部标题区 ===== */
@@ -179,7 +188,7 @@
 /* ===== 购物列表 ===== */
 .shopping-list {
   padding: 0 24rpx;
-  margin-bottom: 160rpx;
+  margin-bottom: 24rpx;
 }
 
 .cat-title {
@@ -327,10 +336,7 @@
 
 /* ===== sticky 完成采购 ===== */
 .complete-bar {
-  position: fixed;
-  left: 24rpx;
-  right: 24rpx;
-  bottom: calc(env(safe-area-inset-bottom) + 110rpx);
+  margin: 0 24rpx 16rpx;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -338,7 +344,7 @@
   border-radius: 24rpx;
   padding: 20rpx 28rpx;
   box-shadow: 0 4rpx 20rpx rgba(92, 74, 58, 0.1);
-  z-index: 50;
+  flex-shrink: 0;
 }
 
 .complete-count {
