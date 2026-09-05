@@ -228,6 +228,63 @@ Phase 2 consisted only of specification documents; no business code or productio
 
 Phase 2.5 added homepage fixture UI only. WeChat DevTools real compile: 0 error. No backend, database, or auth code was touched.
 
+## CORE KITCHEN LOCAL CUTOVER (2026-09-05)
+
+Frontend cutover from fixture to real V1 data for core kitchen flow.
+
+### Backend core (already deployed in prior checkpoints)
+- Schema 003-006: ingredients, recipes, meals, weekly plans, fridge, pantry, shopping, inventory movements — **PASS**
+- Recipe family isolation (BASE + current FAMILY only) — **PASS**
+- Safe unit conversion (g/kg, ml/l; COUNT/TEXT no cross-dimension) — **PASS**
+- Shopping calculation: meal → recipe → canonical ingredient → merge → subtract fridge/pantry → missing — **PASS**
+- Complete purchase → fridge with PURCHASE_IN movement — **PASS**
+- Fridge optimistic concurrency (version + 409) — **PASS**
+- Pantry PUT/DELETE by ingredient_id — **PASS**
+- Ingredient resolve (alias exact → canonical) — **PASS**
+- Weekly GET returns ACTIVE single object or null (no implicit generation) — **PASS**
+- Meal confirm with recipe snapshot — **PASS**
+
+### Frontend real cutover
+- **Menu**: removed fixture init; real recipes API; real weekly plan API (null = empty state); manual add only writes Meal never Weekly; shared meal-target helper; dynamic toast by date+meal_type — **DONE**
+- **Meal page**: dynamic title; diners count +/- via PUT /meals/current; source label; selected_by display; remove with confirm; continue add saves meal target — **DONE**
+- **Fridge**: removed fixture; real GET/POST/PATCH/DELETE; freshness from real today; storage enum mapping (冷藏→REFRIGERATED); edit with version concurrency; pantry real GET/PUT/DELETE — **DONE**
+- **Shopping**: removed fixture; real GET current list (null = empty); toggle PATCH success only; manual CRUD via API; update from meal via generate REPLACE_GENERATED; complete purchase with per-item quantity/storage/expiry — **DONE**
+- **Homepage**: minimal real state (family/members from session, real today date, real current meal); fixture remains for weekly plan display until recommendation engine — **PARTIAL**
+
+### Global Bottom Dock
+- Menu mini-cart: normal flow + bottom-space — **PASS**
+- Shopping complete-bar: normal flow + bottom-space — **PASS**
+- Meal action-bar: fixed above safe area (secondary page no TabBar) — **PASS**
+- Sheet open hides custom TabBar — **PASS**
+
+### Tests
+- Unit: **44/44 PASS** (38 legacy + 6 meal-target)
+- Core integration: **20/20 PASS** (A14-A31 + incompatible units)
+- Legacy integration: **19/19 PASS**
+- Total integration: **39/39 PASS**
+
+### Fixture remaining
+- Homepage weekly plan display (recommendation engine not implemented)
+- Homepage quick entries (random/family-favorites/one-person) — placeholder toasts
+- Recipe detail page — not migrated
+- Recommendation engine — not implemented
+- AI import, community, KRP — not started
+
+### Explicitly NOT DONE
+- Neon core migration (003-006): **NOT YET**
+- Public Render redeploy with new code: **NOT YET**
+- Public core E2E: **NOT YET**
+- Owner phone core acceptance: **NOT YET**
+- Second user / 糖糖 join: **NOT DONE**
+- members=2 verification: **NOT DONE**
+
+### Checkpoint commits
+- `a3b857d` — B0 backend preflight
+- `d5dab66` — B1 V1 API client + meal-target
+- `9e3b9f5` — B2 Menu + Meal real cutover
+- `f9226b4` — B3 Fridge + Pantry real cutover
+- `879884e` — B4 Shopping real cutover
+
 V1 local checkpoint (2026-09-05): unit 38/38 PASS, PostgreSQL integration 19/19 PASS, real wx.login LOGIN_ACCEPTED, real family created and verified.
 
 ## Deployment status

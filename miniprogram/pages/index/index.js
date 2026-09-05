@@ -7,6 +7,7 @@
  */
 
 const fixture = require('./homepage-fixture.js')
+const { createV1Api } = require('../../utils/v1-api')
 
 const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
 const MEAL_TYPES = [
@@ -61,7 +62,42 @@ Page({
   },
 
   onLoad() {
+    this._familyId = wx.getStorageSync('v1_active_family_id')
+    this._api = createV1Api({ wxAdapter: wx })
     this._buildFromFixture()
+    this._loadRealData()
+  },
+
+  async _loadRealData() {
+    if (!this._familyId) return
+    try {
+      // Real family/members from session storage
+      const family = wx.getStorageSync('v1_family')
+      const members = wx.getStorageSync('v1_members')
+      if (family) {
+        this.setData({
+          family: { name: family.name || '我们的小厨房' },
+          members: (members || []).map(m => ({ nickname: m.nickname || '家庭成员', role: m.role || 'MEMBER' })),
+        })
+      }
+      // Real today label
+      const now = new Date()
+      const weekday = WEEKDAYS[(now.getDay() + 6) % 7]
+      this.setData({ todayLabel: now.getFullYear() + '年' + (now.getMonth() + 1) + '月' + now.getDate() + '日 ' + weekday })
+      // Real current meal
+      const mealTarget = wx.getStorageSync('v1_meal_target')
+      if (mealTarget) {
+        const meal = await this._api.getCurrentMeal(this._familyId, mealTarget.meal_date, mealTarget.meal_type)
+        if (meal && meal.items) {
+          this.setData({
+            currentMeal: { meal_date: meal.meal_date, meal_type: meal.meal_type, items: meal.items },
+            currentMealDate: meal.meal_date,
+          })
+        }
+      }
+    } catch (e) {
+      // Keep fixture as fallback for non-critical display
+    }
   },
 
   onShow() {
