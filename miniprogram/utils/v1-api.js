@@ -48,7 +48,32 @@ function createV1Api({ wxAdapter, baseUrl = config.baseUrl, timeoutMs = config.t
     joinFamily: invite_code => dataRequest('/families/join', { method: 'POST', data: { invite_code } }),
     getFamily: id => dataRequest(familyPath(id)),
     getMembers: id => dataRequest(familyPath(id) + '/members'),
-    getSettings: id => dataRequest(familyPath(id) + '/settings')
+    getSettings: id => dataRequest(familyPath(id) + '/settings'),
+    // Recipes
+    listRecipes: (id, query) => dataRequest(familyPath(id) + '/recipes' + (query ? '?' + Object.entries(query).filter(([,v]) => v != null).map(([k,v]) => k + '=' + encodeURIComponent(v)).join('&') : '')),
+    getRecipe: (id, recipeId) => dataRequest(familyPath(id) + '/recipes/' + recipeId),
+    createRecipe: (id, data) => dataRequest(familyPath(id) + '/recipes', { method: 'POST', data }),
+    setFavorite: (id, recipeId, fav) => dataRequest(familyPath(id) + '/recipes/' + recipeId + '/favorite', { method: fav ? 'PUT' : 'DELETE' }),
+    // Meals
+    getCurrentMeal: (id, date, mealType) => dataRequest(familyPath(id) + '/meals/current?date=' + date + '&meal_type=' + mealType),
+    ensureCurrentMeal: (id, data) => dataRequest(familyPath(id) + '/meals/current', { method: 'PUT', data }),
+    getMeal: (id, mealId) => dataRequest(familyPath(id) + '/meals/' + mealId),
+    addMealItem: (id, mealId, data) => dataRequest(familyPath(id) + '/meals/' + mealId + '/items', { method: 'POST', data }),
+    removeMealItem: (id, mealId, itemId) => dataRequest(familyPath(id) + '/meals/' + mealId + '/items/' + itemId, { method: 'DELETE' }),
+    confirmMeal: (id, mealId) => dataRequest(familyPath(id) + '/meals/' + mealId + '/confirm', { method: 'POST' }),
+    // Fridge
+    listFridge: (id, query) => dataRequest(familyPath(id) + '/fridge' + (query ? '?' + Object.entries(query).filter(([,v]) => v != null).map(([k,v]) => k + '=' + encodeURIComponent(v)).join('&') : '')),
+    addFridgeItem: (id, data) => dataRequest(familyPath(id) + '/fridge', { method: 'POST', data }),
+    updateFridgeItem: (id, itemId, data) => dataRequest(familyPath(id) + '/fridge/' + itemId, { method: 'PATCH', data }),
+    deleteFridgeItem: (id, itemId) => dataRequest(familyPath(id) + '/fridge/' + itemId, { method: 'DELETE' }),
+    listPantry: id => dataRequest(familyPath(id) + '/pantry-staples'),
+    // Shopping
+    getCurrentShoppingList: id => dataRequest(familyPath(id) + '/shopping-lists/current'),
+    generateShoppingList: (id, data) => dataRequest(familyPath(id) + '/shopping-lists/generate', { method: 'POST', data }),
+    addShoppingItem: (id, listId, data) => dataRequest(familyPath(id) + '/shopping-lists/' + listId + '/items', { method: 'POST', data }),
+    updateShoppingItem: (id, listId, itemId, data) => dataRequest(familyPath(id) + '/shopping-lists/' + listId + '/items/' + itemId, { method: 'PATCH', data }),
+    deleteShoppingItem: (id, listId, itemId) => dataRequest(familyPath(id) + '/shopping-lists/' + listId + '/items/' + itemId, { method: 'DELETE' }),
+    completeShoppingList: (id, listId, data) => dataRequest(familyPath(id) + '/shopping-lists/' + listId + '/complete', { method: 'POST', data })
   }
 }
 module.exports = { createV1Api, v1Error, SESSION_KEYS }

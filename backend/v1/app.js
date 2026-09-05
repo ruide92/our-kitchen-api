@@ -1,10 +1,15 @@
 const express = require('express');
 const { ApiError, errorHandler } = require('./errors');
 const { installFamilyRoutes } = require('./family-routes');
+const { installKitchenRoutes } = require('./kitchen-routes');
 const { validateProfile } = require('./family-validation');
+const { createRecipeService } = require('./recipe-service');
+const { createMealService } = require('./meal-service');
+const { createFridgeService } = require('./fridge-service');
+const { createShoppingService } = require('./shopping-service');
 const asyncRoute = handler => (req, res, next) => Promise.resolve(handler(req, res)).catch(next);
 
-function createApp({ repo, wechat, tokens, families }) {
+function createApp({ repo, wechat, tokens, families, pool }) {
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json({ limit: '32kb' }));
@@ -32,6 +37,13 @@ function createApp({ repo, wechat, tokens, families }) {
   app.patch('/api/v1/me', asyncRoute(async (req,res) => res.json({data:await repo.updateUser(req.user.id,validateProfile(req.body)),meta:{}})));
   app.get('/api/v1/me/families', asyncRoute(async (req, res) => res.json({ data: await repo.listFamilies(req.user.id), meta: {} })));
   installFamilyRoutes(app,repo,families);
+  const kitchenServices = {
+    recipes: createRecipeService(pool),
+    meals: createMealService(pool),
+    fridge: createFridgeService(pool),
+    shopping: createShoppingService(pool)
+  };
+  installKitchenRoutes(app, kitchenServices);
   app.use((req, res, next) => next(new ApiError(404, 'NOT_FOUND', '接口不存在')));
   app.use(errorHandler);
   return app;

@@ -1,6 +1,6 @@
 /* 购物清单 Tab V4 fixture — 延续首页/菜单/冰箱温暖家庭风 */
 .page {
-  padding: 0 0 calc(100rpx + env(safe-area-inset-bottom));
+  padding: 0 0 calc(140rpx + env(safe-area-inset-bottom));
   min-height: 100vh;
   box-sizing: border-box;
   background: #FFF9F0;

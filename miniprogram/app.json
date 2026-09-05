@@ -15,7 +15,8 @@
     "pages/ai-import/ai-import",
     "pages/recycle/recycle",
     "pages/family/family",
-    "pages/today-menu/today-menu"
+    "pages/today-menu/today-menu",
+    "pages/meal/meal"
   ],
   "window": {
     "backgroundTextStyle": "light",

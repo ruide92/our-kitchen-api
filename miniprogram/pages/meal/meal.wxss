@@ -1,0 +1,109 @@
+.page {
+  padding: 0 0 calc(140rpx + env(safe-area-inset-bottom));
+  min-height: 100vh;
+  box-sizing: border-box;
+  background: #FFF9F0;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 24rpx 24rpx 16rpx;
+}
+
+.header-title {
+  font-size: 38rpx;
+  font-weight: 700;
+  color: #3E2723;
+}
+
+.header-sub {
+  font-size: 22rpx;
+  color: #A1887F;
+  margin-top: 6rpx;
+  display: block;
+}
+
+.header-add {
+  display: flex;
+  align-items: center;
+  background: #7CB342;
+  padding: 12rpx 24rpx;
+  border-radius: 32rpx;
+}
+
+.header-add-icon { color: #FFF; font-size: 26rpx; margin-right: 6rpx; }
+.header-add-text { color: #FFF; font-size: 24rpx; font-weight: 500; }
+
+.loading { text-align: center; padding: 80rpx; color: #A1887F; }
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 120rpx 40rpx;
+}
+
+.empty-icon { font-size: 80rpx; margin-bottom: 20rpx; }
+.empty-title { font-size: 32rpx; color: #5D4037; font-weight: 600; }
+.empty-sub { font-size: 24rpx; color: #A1887F; margin-top: 8rpx; }
+
+.empty-btn {
+  margin-top: 32rpx;
+  background: #7CB342;
+  color: #FFF;
+  padding: 16rpx 48rpx;
+  border-radius: 32rpx;
+  font-size: 26rpx;
+  font-weight: 500;
+}
+
+.meal-list { padding: 0 24rpx; }
+
+.meal-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #FFF;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+  box-shadow: 0 2rpx 12rpx rgba(92,74,58,0.06);
+}
+
+.meal-item-name { font-size: 30rpx; color: #3E2723; font-weight: 600; display: block; }
+.meal-item-meta { font-size: 22rpx; color: #A1887F; margin-top: 6rpx; display: block; }
+
+.meal-item-remove {
+  color: #E57373;
+  font-size: 24rpx;
+  padding: 8rpx 16rpx;
+}
+
+.action-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(100rpx + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #FFF;
+  padding: 20rpx 32rpx;
+  box-shadow: 0 -2rpx 12rpx rgba(92,74,58,0.08);
+  z-index: 50;
+}
+
+.action-count { font-size: 26rpx; color: #5D4037; font-weight: 500; }
+
+.action-btn {
+  background: #7CB342;
+  color: #FFF;
+  padding: 16rpx 36rpx;
+  border-radius: 32rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.bottom-space { height: calc(130rpx + env(safe-area-inset-bottom)); }

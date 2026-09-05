@@ -1,0 +1,38 @@
+<view class="page">
+  <view class="header">
+    <view class="header-left">
+      <text class="header-title">今晚的菜单</text>
+      <text class="header-sub">{{mealDate}} · {{mealType === 'DINNER' ? '晚餐' : mealType === 'LUNCH' ? '午餐' : '早餐'}} · {{dinersCount}}人</text>
+    </view>
+    <view class="header-add" bindtap="goAddRecipes">
+      <text class="header-add-icon">＋</text>
+      <text class="header-add-text">加菜</text>
+    </view>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading">加载中...</view>
+
+  <view wx:elif="{{items.length === 0}}" class="empty">
+    <text class="empty-icon">🍽</text>
+    <text class="empty-title">这顿饭还没有菜</text>
+    <text class="empty-sub">去全部菜品选几道吧</text>
+    <view class="empty-btn" bindtap="goAddRecipes">去选菜</view>
+  </view>
+
+  <view wx:else class="meal-list">
+    <view wx:for="{{items}}" wx:key="id" class="meal-item">
+      <view class="meal-item-info">
+        <text class="meal-item-name">{{item.recipe_name}}</text>
+        <text class="meal-item-meta">{{item.servings}}人份 · {{item.source === 'WEEKLY_PLAN' ? '周计划' : '手工添加'}}</text>
+      </view>
+      <view class="meal-item-remove" bindtap="removeItem" data-id="{{item.id}}">删除</view>
+    </view>
+  </view>
+
+  <view wx:if="{{items.length > 0}}" class="action-bar">
+    <view class="action-count">{{items.length}} 道菜</view>
+    <view class="action-btn" bindtap="generateShopping">生成购物清单</view>
+  </view>
+
+  <view class="bottom-space"></view>
+</view>
