@@ -184,8 +184,8 @@
   </block>
 
   <!-- Target meal picker sheet -->
-  <view wx:if="{{showTargetPicker}}" class="sheet-mask" data-surface-id="MENU-OVERLAY-01" bindtap="closeTargetPicker">
-    <view class="sheet-panel" catchtap="noop">
+  <view wx:if="{{showTargetPicker}}" class="sheet-mask tab-safe-sheet-mask" data-surface-id="MENU-OVERLAY-01" bindtap="closeTargetPicker">
+    <view class="sheet-panel tab-safe-sheet-panel" catchtap="noop">
       <view class="sheet-handle"></view>
       <text class="sheet-title">选择目标餐次</text>
       <view class="target-options">
@@ -197,8 +197,8 @@
   </view>
 
   <!-- Custom date picker sheet -->
-  <view wx:if="{{showCustomDate}}" class="sheet-mask" data-surface-id="MENU-OVERLAY-02" bindtap="cancelCustomDate">
-    <view class="sheet-panel" catchtap="noop">
+  <view wx:if="{{showCustomDate}}" class="sheet-mask tab-safe-sheet-mask" data-surface-id="MENU-OVERLAY-02" bindtap="cancelCustomDate">
+    <view class="sheet-panel tab-safe-sheet-panel" catchtap="noop">
       <view class="sheet-handle"></view>
       <text class="sheet-title">自选日期和餐次</text>
       <view class="custom-date-row">

@@ -240,15 +240,19 @@ function main() {
     }
   }
 
-  // PLANNED_DISABLED check: any executable action (including placeholderToast) = clickable
+  // PLANNED_DISABLED check: any executable action = clickable
+  // Applies to both status=PLANNED_DISABLED AND final=PLANNED_DISABLED (current may be BROKEN/PARTIAL/REAL)
   const plannedClickable = [];
   for (const s of registry) {
-    if (s.status !== 'PLANNED_DISABLED') continue;
+    if (s.final !== 'PLANNED_DISABLED' && s.status !== 'PLANNED_DISABLED') continue;
     if (s.kind === 'menu-action' && s.action) {
-      plannedClickable.push({ id: s.id, label: s.label, action: s.action, reason: 'PLANNED_DISABLED menu action is clickable' });
+      plannedClickable.push({ id: s.id, label: s.label, action: s.action, reason: `PLANNED_DISABLED target but action=${s.action} is executable` });
     }
     if (s.kind === 'wxml-handler' && s.handler) {
-      plannedClickable.push({ id: s.id, handler: s.handler, reason: 'PLANNED_DISABLED handler is bound' });
+      plannedClickable.push({ id: s.id, handler: s.handler, reason: `PLANNED_DISABLED target but handler=${s.handler} is bound` });
+    }
+    if (s.kind === 'navigation' && s.url) {
+      plannedClickable.push({ id: s.id, url: s.url, reason: `PLANNED_DISABLED target but navigation exists` });
     }
   }
 
@@ -303,19 +307,19 @@ function main() {
     plannedClickable.forEach(p => console.log(`  ${p.id}: ${p.reason}`));
   }
 
-  // Governance FAIL: unclassified, duplicates, dynamic, invalid-nav, missing-handler, real-violation
-  // These are truth violations — governance must catch fake REAL
-  const governanceFailures = unclassified.length + duplicates.length + dynamicHandlers.length + invalidNavs.length + missingHandlers.length + realViolations.length;
+  // Governance FAIL: unclassified, duplicates, dynamic, invalid-nav, missing-handler, real-violation, missing-surface
+  // REAL/PARTIAL surfaces must exist in code — missing = fake REAL/PARTIAL
+  const governanceFailures = unclassified.length + duplicates.length + dynamicHandlers.length + invalidNavs.length + missingHandlers.length + realViolations.length + missingSurfaces.length;
 
   if (governanceFailures > 0) {
-    console.log(`\nFAIL: ${governanceFailures} governance failures (unclassified/duplicates/dynamic/invalid-nav/missing-handler/real-violation)`);
+    console.log(`\nFAIL: ${governanceFailures} governance failures (unclassified/duplicates/dynamic/invalid-nav/missing-handler/real-violation/missing-surface)`);
     process.exit(1);
   }
 
   if (mode === 'release') {
-    const releaseFailures = missingSurfaces.length + plannedClickable.length;
+    const releaseFailures = plannedClickable.length;
     if (releaseFailures > 0) {
-      console.log(`\nFAIL: ${releaseFailures} release failures (missing-surface/planned-clickable)`);
+      console.log(`\nFAIL: ${releaseFailures} release failures (planned-clickable)`);
       process.exit(1);
     }
   }

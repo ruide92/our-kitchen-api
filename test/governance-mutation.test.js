@@ -205,6 +205,67 @@ test('Mutation H: REAL wxml-handler missing from JS causes MISSING_HANDLER FAIL'
     `should report MISSING_HANDLER for realAction, got: ${result.stdout.slice(0, 300)}`);
 });
 
+// Case I: Registry overlay status=REAL, WXML has data-surface-id, but no global contract class → Governance FAIL
+test('Mutation I: REAL overlay without global contract class causes Governance FAIL', () => {
+  const tmp = makeTempDir();
+  makeMinimalRepo(tmp);
+  // index is a TAB page; add REAL overlay with surface_id but no tab-safe-sheet class
+  writeFile(tmp, 'miniprogram/pages/index/index.wxml',
+    '<view wx:if="{{showSheet}}" class="sheet-mask" data-surface-id="INDEX-OVERLAY-01"></view>' +
+    '<view class="sheet-panel"></view>');
+  const registry = {
+    $schema: 'v1',
+    surfaces: [
+      { id: 'TEST-01', page: 'test', kind: 'wxml-handler', handler: 'existingHandler', label: 'e', status: 'REAL', final: 'REAL' },
+      { id: 'INDEX-OVERLAY-01', page: 'index', kind: 'overlay', surface_id: 'INDEX-OVERLAY-01', label: 'index sheet', status: 'REAL', final: 'REAL' }
+    ]
+  };
+  writeFile(tmp, 'governance/product-surfaces.json', JSON.stringify(registry));
+
+  const result = runScript('overlay-contract-audit.js', ['--mode=governance'], tmp);
+  assert.notEqual(result.code, 0, `should FAIL for REAL overlay without contract, got code=0`);
+  assert.ok(result.stdout.includes('REAL_OVERLAY_CONTRACT_VIOLATION'),
+    `should report REAL_OVERLAY_CONTRACT_VIOLATION, got: ${result.stdout.slice(0, 400)}`);
+});
+
+// Case J: Registry REAL surface completely absent from code → MISSING_SURFACE Governance FAIL
+test('Mutation J: REAL registry surface absent from code causes MISSING_SURFACE Governance FAIL', () => {
+  const tmp = makeTempDir();
+  makeMinimalRepo(tmp);
+  // Registry has a REAL menu-action that doesn't exist in code
+  const registry = {
+    $schema: 'v1',
+    surfaces: [
+      { id: 'TEST-01', page: 'test', kind: 'wxml-handler', handler: 'existingHandler', label: 'e', status: 'REAL', final: 'REAL' },
+      { id: 'TEST-MENU-01', page: 'test', kind: 'menu-action', label: 'Ghost Menu', action: 'ghostAction', status: 'REAL', final: 'REAL' }
+    ]
+  };
+  writeFile(tmp, 'governance/product-surfaces.json', JSON.stringify(registry));
+
+  const result = runScript('product-surface-audit.js', ['--mode=governance'], tmp);
+  assert.notEqual(result.code, 0, `should FAIL for missing REAL surface, got code=0`);
+  assert.ok(result.stdout.includes('MISSING_SURFACE'),
+    `should report MISSING_SURFACE, got: ${result.stdout.slice(0, 300)}`);
+});
+
+// Case K: status=BROKEN final=PLANNED_DISABLED action=placeholderToast → release-readiness FAIL
+test('Mutation K: BROKEN final=PLANNED_DISABLED with clickable action causes release-readiness FAIL', () => {
+  const tmp = makeTempDir();
+  const registry = {
+    $schema: 'v1',
+    surfaces: [
+      { id: 'TEST-01', page: 'test', kind: 'wxml-handler', handler: 'existingHandler', label: 'e', status: 'REAL', final: 'REAL' },
+      { id: 'TEST-PLAN-01', page: 'test', kind: 'menu-action', label: 'Future Feature', action: 'placeholderToast', status: 'BROKEN', final: 'PLANNED_DISABLED' }
+    ]
+  };
+  writeFile(tmp, 'governance/product-surfaces.json', JSON.stringify(registry));
+
+  const result = runScript('release-readiness-audit.js', [], tmp);
+  assert.notEqual(result.code, 0, `release-readiness should FAIL, got code=0`);
+  assert.ok(result.stdout.includes('PLANNED_DISABLED_NOT_READY'),
+    `should report PLANNED_DISABLED_NOT_READY, got: ${result.stdout.slice(0, 300)}`);
+});
+
 // Baseline tests on real repo
 test('Baseline: governance surface audit passes on real repo', () => {
   const result = runScript('product-surface-audit.js', ['--mode=governance']);

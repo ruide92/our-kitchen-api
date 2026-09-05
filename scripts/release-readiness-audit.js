@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Release Readiness Audit — all Final=REAL surfaces must be Status=REAL
+// Release Readiness Audit — all Final=REAL must be Status=REAL; all Final=PLANNED_DISABLED must be Status=PLANNED_DISABLED
 // Single source of truth: governance/product-surfaces.json
 // Usage: node scripts/release-readiness-audit.js
 const fs = require('node:fs');
@@ -16,7 +16,8 @@ function main() {
   const partialRequired = [];
   const placeholderRequired = [];
   const realOk = [];
-  const planned = [];
+  const plannedDisabledReady = [];
+  const plannedDisabledNotReady = [];
   const hidden = [];
 
   for (const s of surfaces) {
@@ -26,7 +27,12 @@ function main() {
       else if (s.status === 'PARTIAL') partialRequired.push(s);
       else if (s.status === 'PLANNED_DISABLED') placeholderRequired.push(s);
     } else if (s.final === 'PLANNED_DISABLED') {
-      planned.push(s);
+      // status=PLANNED_DISABLED or HIDDEN means user cannot access it = ready
+      if (s.status === 'PLANNED_DISABLED' || s.status === 'HIDDEN') {
+        plannedDisabledReady.push(s);
+      } else {
+        plannedDisabledNotReady.push(s);
+      }
     } else if (s.final === 'HIDDEN') {
       hidden.push(s);
     }
@@ -39,7 +45,8 @@ function main() {
   console.log(`Final=REAL but Status=BROKEN/KNOWN_BROKEN: ${brokenRequired.length}`);
   console.log(`Final=REAL but Status=PARTIAL: ${partialRequired.length}`);
   console.log(`Final=REAL but Status=PLANNED_DISABLED: ${placeholderRequired.length}`);
-  console.log(`Final=PLANNED_DISABLED: ${planned.length}`);
+  console.log(`Final=PLANNED_DISABLED and Status=PLANNED_DISABLED: ${plannedDisabledReady.length}`);
+  console.log(`PLANNED_DISABLED_NOT_READY: ${plannedDisabledNotReady.length}`);
   console.log(`Final=HIDDEN: ${hidden.length}`);
 
   if (brokenRequired.length > 0) {
@@ -54,16 +61,20 @@ function main() {
     console.log('\n--- PLACEHOLDER_REQUIRED_NOW ---');
     placeholderRequired.forEach(s => console.log(`  ${s.id}: ${s.label || s.handler || s.page} [${s.status}]`));
   }
+  if (plannedDisabledNotReady.length > 0) {
+    console.log('\n--- PLANNED_DISABLED_NOT_READY (final=PLANNED_DISABLED but not yet disabled) ---');
+    plannedDisabledNotReady.forEach(s => console.log(`  ${s.id}: ${s.label || s.handler || s.page} [current=${s.status}]`));
+  }
 
-  const blockers = brokenRequired.length + partialRequired.length + placeholderRequired.length;
+  const blockers = brokenRequired.length + partialRequired.length + placeholderRequired.length + plannedDisabledNotReady.length;
   console.log(`\n=== SUMMARY ===`);
   console.log(`BLOCKERS: ${blockers}`);
 
   if (blockers > 0) {
-    console.log(`\nFAIL: release not ready — ${blockers} required surfaces are not REAL`);
+    console.log(`\nFAIL: release not ready — ${blockers} required surfaces not at final status`);
     process.exit(1);
   }
-  console.log('\nPASS: all required surfaces are REAL');
+  console.log('\nPASS: all required surfaces at final status');
   process.exit(0);
 }
 
