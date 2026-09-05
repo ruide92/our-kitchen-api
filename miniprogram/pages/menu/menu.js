@@ -8,6 +8,7 @@
  */
 
 const fixture = require('./menu-fixture.js')
+const { createV1Api } = require('../../utils/v1-api')
 
 const MEAL_META = {
   BREAKFAST: { key: 'BREAKFAST', label: '早餐', icon: '🌅' },
@@ -52,6 +53,21 @@ Page({
 
   onLoad() {
     this._initFromFixture()
+    this._familyId = wx.getStorageSync('v1_active_family_id')
+    this._api = createV1Api({ wxAdapter: wx })
+    this._loadRealRecipes()
+  },
+
+  async _loadRealRecipes() {
+    if (!this._familyId) return
+    try {
+      const recipes = await this._api.listRecipes(this._familyId, {})
+      if (recipes && recipes.length > 0) {
+        this.setData({ recipes, filteredRecipes: recipes })
+      }
+    } catch (e) {
+      // fallback to fixture
+    }
   },
 
   onShow() {
@@ -173,8 +189,19 @@ Page({
   },
 
   // ===== mini cart =====
-  _refreshMiniCart() {
+  async _refreshMiniCart() {
     const { targetMeal, mealsByDateAndType } = this.data
+    // 如果有真实 V1 环境，从 API 获取
+    if (this._familyId && this._api) {
+      try {
+        const meal = await this._api.getCurrentMeal(this._familyId, targetMeal.meal_date, targetMeal.meal_type)
+        const count = meal && meal.items ? meal.items.length : 0
+        this.setData({ miniCartCount: count, miniCartVisible: count > 0 })
+        return
+      } catch (e) {
+        // fallback to fixture
+      }
+    }
     const bucket = mealsByDateAndType[targetMeal.meal_date]
     const meal = bucket && bucket[targetMeal.meal_type]
     const count = meal && meal.items ? meal.items.length : 0
@@ -303,7 +330,7 @@ Page({
   },
 
   // ===== 加入当前目标餐次（date + meal_type 隔离，幂等，V4 家庭版本语义）=====
-  addRecipeToMeal(e) {
+  async addRecipeToMeal(e) {
     const clickedId = e.currentTarget.dataset.recipeId
     const clickedRecipe = this.data.recipes.find(r => r.id === clickedId)
     if (!clickedRecipe) return
@@ -318,27 +345,44 @@ Page({
     }
     const effectiveId = effectiveRecipe.id
 
-    const { targetMeal, mealsByDateAndType } = this.data
+    const { targetMeal } = this.data
     const date = targetMeal.meal_date
     const mealType = targetMeal.meal_type
 
-    // 确保 bucket 存在
+    // 如果有真实 V1 环境，调用真实 API
+    if (this._familyId && this._api) {
+      try {
+        let meal = await this._api.getCurrentMeal(this._familyId, date, mealType)
+        if (!meal) {
+          meal = await this._api.ensureCurrentMeal(this._familyId, { meal_date: date, meal_type: mealType, diners_count: 2 })
+        }
+        await this._api.addMealItem(this._familyId, meal.id, { recipe_id: effectiveId, servings: 2, source: 'MANUAL' })
+        this._refreshMiniCart()
+        wx.showToast({ title: '已加入今晚菜单', icon: 'success', duration: 1000 })
+        return
+      } catch (err) {
+        if (err.code === 'ALREADY_IN_MEAL') {
+          wx.showToast({ title: '已在今晚菜单中', icon: 'none', duration: 1200 })
+          return
+        }
+        // fallback to fixture below
+      }
+    }
+
+    // Fixture fallback
+    const { mealsByDateAndType } = this.data
     if (!mealsByDateAndType[date]) {
       mealsByDateAndType[date] = { BREAKFAST: { items: [] }, LUNCH: { items: [] }, DINNER: { items: [] } }
     }
     if (!mealsByDateAndType[date][mealType]) {
       mealsByDateAndType[date][mealType] = { items: [] }
     }
-
     const bucket = mealsByDateAndType[date][mealType]
-
-    // 幂等：针对最终实际 recipe_id（BASE 与其 FAMILY 派生版视为同一道菜）
     const exists = bucket.items.some(it => it.recipe_id === effectiveId)
     if (exists) {
       wx.showToast({ title: '已在' + this.data.targetMealText + '中', icon: 'none', duration: 1200 })
       return
     }
-
     bucket.items.push({
       id: 'mi-' + date + '-' + mealType + '-' + effectiveId + '-' + Date.now(),
       recipe_id: effectiveId,
@@ -350,16 +394,18 @@ Page({
       selected_by_user_id: 'u1',
       selected_by_nickname: '锐',
     })
-
     this.setData({ mealsByDateAndType }, () => {
       this._refreshMiniCart()
       wx.showToast({ title: '已加入' + this.data.targetMealText, icon: 'success', duration: 1000 })
     })
   },
 
-  // ===== mini cart：查看菜单（placeholder：today-menu 尚未 V4 化）=====
+  // ===== mini cart：查看本餐菜单 =====
   goTodayMenu() {
-    wx.showToast({ title: '完整本餐菜单将在后续阶段接入', icon: 'none', duration: 1500 })
+    const { targetMeal } = this.data
+    wx.navigateTo({
+      url: '/pages/meal/meal?date=' + targetMeal.meal_date + '&meal_type=' + targetMeal.meal_type
+    })
   },
 
   // ===== 菜品详情（fixture 阶段 placeholder）=====
