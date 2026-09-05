@@ -1,14 +1,13 @@
 /**
- * 菜单 Tab — Phase fixture UI
+ * 菜单 Tab — Real V1 data mode
  *
- * 重要：本页面仅使用 menu-fixture.js，不调用 legacy api.js，不接真实后端。
- * 所有"重新安排"操作为 placeholder（推荐引擎 Phase 6 接入）。
- * 本餐选菜使用 date + meal_type 二维隔离，与首页一致。
- * toggleLock 仅修改页面运行态 weeklyPlanItems，不污染 fixture 模块单例。
+ * REAL MODE: authenticated + active family -> no fixture fallback.
+ * Recipes from GET /recipes, weekly from GET /weekly-plans.
+ * Manual add only writes to Meal, never Weekly Plan.
  */
 
-const fixture = require('./menu-fixture.js')
 const { createV1Api } = require('../../utils/v1-api')
+const { createMealTarget } = require('../../utils/meal-target')
 
 const MEAL_META = {
   BREAKFAST: { key: 'BREAKFAST', label: '早餐', icon: '🌅' },
@@ -17,406 +16,308 @@ const MEAL_META = {
 }
 
 const WEEK_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+const CATEGORIES = [
+  { code: 'RECOMMEND', label: '推荐' },
+  { code: 'HOT_DISH', label: '热菜' },
+  { code: 'COLD_DISH', label: '凉菜' },
+  { code: 'SOUP', label: '汤' },
+  { code: 'STAPLE', label: '主食' },
+  { code: 'FAVORITES', label: '收藏' },
+  { code: 'MY_RECIPES', label: '我家' },
+]
+
+function pad(n) { return n < 10 ? '0' + n : '' + n }
+function formatDate(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) }
 
 Page({
   data: {
-    // 视图切换：'weekly' | 'recipes'
     activeTab: 'weekly',
-
-    // 本周安排
+    // Week
     weekStartDate: '',
     weekRangeText: '',
-    weekDays: [],        // [{index, label, date, isToday}]
-    selectedDayIndex: 2, // 默认周三（today）
+    weekDays: [],
+    selectedDayIndex: 0,
     selectedDate: '',
-    selectedMeals: [],   // [{key, label, icon, count, dishes: [...]}]
-
-    // 周计划运行态副本（深拷贝自 fixture，toggleLock 只改这里，不污染模块单例）
-    weeklyPlanItems: [],
-
-    // 全部菜品
-    categories: [],
+    selectedMeals: [],
+    weeklyPlan: null,
+    weeklyLoading: false,
+    weeklyError: null,
+    // Recipes
+    categories: CATEGORIES,
     currentCategory: 'RECOMMEND',
     recipes: [],
     filteredRecipes: [],
     searchText: '',
-
-    // 选菜目标（全部菜品视图顶部上下文）
-    targetMeal: { meal_date: '', meal_type: 'DINNER' },
+    recipesLoading: false,
+    recipesError: null,
+    // Meal target
+    targetMeal: { meal_date: '', meal_type: 'DINNER', diners_count: 2 },
     targetMealText: '',
-
-    // 本餐菜单本地状态（date + meal_type 二维隔离）
-    mealsByDateAndType: {},
+    targetMealOptions: [],
+    showTargetPicker: false,
+    // Mini cart
     miniCartCount: 0,
     miniCartVisible: false,
+    miniCartLoading: false,
   },
 
   onLoad() {
-    this._initFromFixture()
     this._familyId = wx.getStorageSync('v1_active_family_id')
     this._api = createV1Api({ wxAdapter: wx })
-    this._loadRealRecipes()
-  },
-
-  async _loadRealRecipes() {
-    if (!this._familyId) return
-    try {
-      const recipes = await this._api.listRecipes(this._familyId, {})
-      if (recipes && recipes.length > 0) {
-        this.setData({ recipes, filteredRecipes: recipes })
-      }
-    } catch (e) {
-      // fallback to fixture
-    }
+    this._mealTarget = createMealTarget({ wxAdapter: wx })
+    this._buildWeekDays()
+    this._loadAll()
   },
 
   onShow() {
-    // fixture 阶段：每次 onShow 从运行态副本重新计算展示数据
-    this._refreshSelectedMeals()
+    if (this._mealTarget) {
+      const target = this._mealTarget.get()
+      this.setData({ targetMeal: target })
+      this._refreshTargetMealText()
+    }
     this._refreshMiniCart()
-    try { if (this.getTabBar()) this.getTabBar().setData({ selected: 1 }) } catch(e) {}
+    try { if (this.getTabBar()) this.getTabBar().setData({ selected: 1 }) } catch (e) {}
   },
 
-  // ===== 初始化 =====
-  _initFromFixture() {
-    const weekStart = fixture.weekly_plan.week_start_date
-    const today = fixture.today.date
-
-    // 生成周一到周日（使用本地日期，避免 toISOString 时区偏移）
+  _buildWeekDays() {
+    const now = new Date()
+    const day = now.getDay() // 0=Sun
+    const mondayOffset = day === 0 ? -6 : 1 - day
+    const monday = new Date(now)
+    monday.setDate(now.getDate() + mondayOffset)
     const weekDays = []
-    const start = new Date(weekStart + 'T00:00:00')
     for (let i = 0; i < 7; i++) {
-      const d = new Date(start.getTime() + i * 86400000)
-      const y = d.getFullYear()
-      const m = String(d.getMonth() + 1).padStart(2, '0')
-      const day = String(d.getDate()).padStart(2, '0')
-      const dateStr = y + '-' + m + '-' + day
-      const md = m + '.' + day
+      const d = new Date(monday)
+      d.setDate(monday.getDate() + i)
+      const dateStr = formatDate(d)
       weekDays.push({
         index: i,
         label: WEEK_LABELS[i],
-        date: md,
+        date: (d.getMonth() + 1) + '.' + d.getDate(),
         fullDate: dateStr,
-        isToday: dateStr === today,
+        isToday: dateStr === formatDate(now),
       })
     }
-
-    // 周范围文本：8.31 - 9.06
-    const rangeText = weekDays[0].date + ' - ' + weekDays[6].date
-
-    // 今天的 index
     const todayIndex = weekDays.findIndex(d => d.isToday)
-    const selectedIndex = todayIndex >= 0 ? todayIndex : 0
-
-    // 分类
-    const categories = fixture.categories
-
-    // 菜谱
-    const recipes = fixture.recipes.map(r => ({
-      ...r,
-      spicyText: r.spiciness > 0 ? '🌶️'.repeat(Math.min(r.spiciness, 5)) : '',
-      kissText: r.suggested_kiss > 0 ? '💋×' + r.suggested_kiss : '',
-      timeText: r.cook_time_minutes + '分钟',
-      familyVariantText: (r.has_family_variant || r.kind === 'FAMILY') ? '我家版本' : '',
-    }))
-
-    // 周计划深拷贝到运行态，toggleLock 只改这个副本
-    const weeklyPlanItems = JSON.parse(JSON.stringify(fixture.weekly_plan.items))
-
-    // mealsByDateAndType 深拷贝（避免直接改 fixture）
-    const mealsByDateAndType = JSON.parse(JSON.stringify(fixture.meals_by_date_and_type))
-
-    // target meal
-    const targetMeal = { ...fixture.target_meal }
-
     this.setData({
-      weekStartDate: weekStart,
-      weekRangeText: rangeText,
+      weekStartDate: weekDays[0].fullDate,
+      weekRangeText: weekDays[0].date + ' - ' + weekDays[6].date,
       weekDays,
-      selectedDayIndex: selectedIndex,
-      selectedDate: weekDays[selectedIndex].fullDate,
-      weeklyPlanItems,
-      categories,
-      recipes,
-      filteredRecipes: recipes,
-      mealsByDateAndType,
-      targetMeal,
-    }, () => {
-      this._refreshSelectedMeals()
-      this._refreshTargetMealText()
-      this._refreshMiniCart()
+      selectedDayIndex: todayIndex >= 0 ? todayIndex : 0,
+      selectedDate: weekDays[todayIndex >= 0 ? todayIndex : 0].fullDate,
     })
   },
 
-  // ===== 本周安排：根据选中日期组装三餐 =====
-  _refreshSelectedMeals() {
-    const { selectedDate, weeklyPlanItems } = this.data
-    const items = weeklyPlanItems.filter(it => it.plan_date === selectedDate)
+  async _loadAll() {
+    this._loadRecipes()
+    this._loadWeeklyPlan()
+  },
 
+  // ===== Recipes (real API) =====
+  async _loadRecipes() {
+    if (!this._familyId) {
+      this.setData({ recipesError: '未登录家庭' })
+      return
+    }
+    this.setData({ recipesLoading: true, recipesError: null })
+    try {
+      const recipes = await this._api.listRecipes(this._familyId, {})
+      const list = (recipes || []).map(r => ({
+        ...r,
+        spicyText: r.spiciness > 0 ? '🌶️'.repeat(Math.min(r.spiciness, 5)) : '',
+        timeText: r.cook_time_minutes ? r.cook_time_minutes + '分钟' : '',
+        familyVariantText: (r.has_family_variant || r.kind === 'FAMILY') ? '我家版本' : '',
+      }))
+      this.setData({ recipes: list, filteredRecipes: list, recipesLoading: false })
+      this._applyFilter()
+    } catch (e) {
+      this.setData({ recipesLoading: false, recipesError: e.message || '加载失败' })
+    }
+  },
+
+  // ===== Weekly plan (real API, null = empty) =====
+  async _loadWeeklyPlan() {
+    if (!this._familyId) return
+    this.setData({ weeklyLoading: true, weeklyError: null })
+    try {
+      const plan = await this._api.getWeeklyPlan(this._familyId, this.data.weekStartDate)
+      this.setData({ weeklyPlan: plan, weeklyLoading: false })
+      this._refreshSelectedMeals()
+    } catch (e) {
+      this.setData({ weeklyLoading: false, weeklyError: e.message || '加载失败' })
+    }
+  },
+
+  _refreshSelectedMeals() {
+    const { selectedDate, weeklyPlan } = this.data
+    const items = weeklyPlan && weeklyPlan.items ? weeklyPlan.items.filter(it => it.plan_date === selectedDate) : []
     const meals = ['BREAKFAST', 'LUNCH', 'DINNER'].map(mealKey => {
       const meta = MEAL_META[mealKey]
       const dishes = items
         .filter(it => it.meal_type === mealKey)
-        .sort((a, b) => a.sort_order - b.sort_order)
+        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
         .map(it => ({
           id: it.id,
-          recipeId: it.recipe.id,
-          name: it.recipe.name,
-          coverImageUrl: it.recipe.cover_image_url,
-          locked: it.locked,
-          color: this._phColor(it.recipe.name),
-          initial: it.recipe.name.charAt(0),
+          recipeId: it.recipe_id,
+          name: it.recipe_name || '菜谱',
+          coverImageUrl: it.cover_image_url || null,
+          locked: it.locked || false,
+          initial: (it.recipe_name || '菜').charAt(0),
         }))
-      return {
-        key: mealKey,
-        label: meta.label,
-        icon: meta.icon,
-        count: dishes.length,
-        dishes,
-      }
+      return { key: mealKey, label: meta.label, icon: meta.icon, count: dishes.length, dishes }
     })
-
     this.setData({ selectedMeals: meals })
   },
 
-  // ===== 全部菜品：目标餐次文本 =====
+  // ===== Meal target =====
   _refreshTargetMealText() {
-    const { targetMeal, weekDays } = this.data
-    const day = weekDays.find(d => d.fullDate === targetMeal.meal_date)
-    const dayLabel = day ? day.label : targetMeal.meal_date
-    const mealLabel = MEAL_META[targetMeal.meal_type].label
+    const { targetMeal } = this.data
+    const mealLabel = MEAL_META[targetMeal.meal_type] ? MEAL_META[targetMeal.meal_type].label : targetMeal.meal_type
+    const today = formatDate(new Date())
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const tomorrowStr = formatDate(tomorrow)
+    let dayLabel = targetMeal.meal_date
+    if (targetMeal.meal_date === today) dayLabel = '今天'
+    else if (targetMeal.meal_date === tomorrowStr) dayLabel = '明天'
     this.setData({ targetMealText: dayLabel + mealLabel })
   },
 
-  // ===== mini cart =====
-  async _refreshMiniCart() {
-    const { targetMeal, mealsByDateAndType } = this.data
-    // 如果有真实 V1 环境，从 API 获取
-    if (this._familyId && this._api) {
-      try {
-        const meal = await this._api.getCurrentMeal(this._familyId, targetMeal.meal_date, targetMeal.meal_type)
-        const count = meal && meal.items ? meal.items.length : 0
-        this.setData({ miniCartCount: count, miniCartVisible: count > 0 })
-        return
-      } catch (e) {
-        // fallback to fixture
-      }
-    }
-    const bucket = mealsByDateAndType[targetMeal.meal_date]
-    const meal = bucket && bucket[targetMeal.meal_type]
-    const count = meal && meal.items ? meal.items.length : 0
-    this.setData({
-      miniCartCount: count,
-      miniCartVisible: count > 0,
-    })
+  openTargetPicker() {
+    const options = this._mealTarget.options()
+    this.setData({ targetMealOptions: options, showTargetPicker: true })
   },
 
-  // ===== 占位图颜色 =====
-  _phColor(name) {
-    const colors = ['#FFE0B2', '#C8E6C9', '#BBDEFB', '#F8BBD0', '#D1C4E9', '#FFCCBC', '#B2DFDB']
-    let hash = 0
-    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
-    return colors[Math.abs(hash) % colors.length]
+  closeTargetPicker() {
+    this.setData({ showTargetPicker: false })
   },
 
-  // ===== 视图切换 =====
-  switchTab(e) {
-    const tab = e.currentTarget.dataset.tab
-    this.setData({ activeTab: tab })
-  },
-
-  // ===== 选日期 =====
-  selectDay(e) {
-    const index = e.currentTarget.dataset.index
-    const day = this.data.weekDays[index]
-    this.setData({
-      selectedDayIndex: index,
-      selectedDate: day.fullDate,
-    }, () => this._refreshSelectedMeals())
-  },
-
-  // ===== 锁定 / 解锁（仅改页面运行态副本，不写 fixture 模块）=====
-  toggleLock(e) {
-    const itemId = e.currentTarget.dataset.itemId
-    const { weeklyPlanItems } = this.data
-    const idx = weeklyPlanItems.findIndex(it => it.id === itemId)
-    if (idx >= 0) {
-      const newLocked = !weeklyPlanItems[idx].locked
-      const updated = weeklyPlanItems.map((it, i) =>
-        i === idx ? { ...it, locked: newLocked } : it
-      )
-      this.setData({ weeklyPlanItems: updated }, () => {
-        this._refreshSelectedMeals()
-      })
-      wx.showToast({
-        title: newLocked ? '已锁定，重新安排时保留' : '已解锁',
-        icon: 'none',
-        duration: 1200,
-      })
-    }
-  },
-
-  // ===== 换一道（placeholder）=====
-  swapDish(e) {
-    wx.showToast({ title: '推荐引擎将在 Phase 6 接入', icon: 'none', duration: 1500 })
-  },
-
-  // ===== 删除计划项（placeholder：fixture 阶段不真删）=====
-  removePlanItem(e) {
-    wx.showToast({ title: 'fixture 演示：删除将在真实后端接入', icon: 'none', duration: 1500 })
-  },
-
-  // ===== 重新安排（placeholder）=====
-  rearrangeMeal(e) {
-    wx.showToast({ title: '推荐引擎将在 Phase 6 接入', icon: 'none', duration: 1500 })
-  },
-  rearrangeDay() {
-    wx.showToast({ title: '推荐引擎将在 Phase 6 接入', icon: 'none', duration: 1500 })
-  },
-  rearrangeWeek() {
-    wx.showToast({ title: '推荐引擎将在 Phase 6 接入', icon: 'none', duration: 1500 })
-  },
-
-  // ===== 从本周安排点"+添加" → 切到全部菜品，设置目标餐次 =====
-  addToMeal(e) {
-    const mealKey = e.currentTarget.dataset.mealKey
-    const { selectedDate } = this.data
-    this.setData({
-      activeTab: 'recipes',
-      targetMeal: { meal_date: selectedDate, meal_type: mealKey },
-      currentCategory: 'RECOMMEND',
-      searchText: '',
-      filteredRecipes: this.data.recipes,
-    }, () => {
+  selectTargetMeal(e) {
+    const idx = e.currentTarget.dataset.index
+    const option = this.data.targetMealOptions[idx]
+    if (!option) return
+    const target = this._mealTarget.update({ meal_date: option.meal_date, meal_type: option.meal_type })
+    this.setData({ targetMeal: target, showTargetPicker: false }, () => {
       this._refreshTargetMealText()
       this._refreshMiniCart()
     })
   },
 
-  // ===== 全部菜品：选分类 =====
-  selectCategory(e) {
-    const code = e.currentTarget.dataset.code
-    this.setData({ currentCategory: code }, () => this._applyFilter())
+  // ===== Mini cart (real Meal API) =====
+  async _refreshMiniCart() {
+    if (!this._familyId || !this._api) return
+    const { targetMeal } = this.data
+    this.setData({ miniCartLoading: true })
+    try {
+      const meal = await this._api.getCurrentMeal(this._familyId, targetMeal.meal_date, targetMeal.meal_type)
+      const count = meal && meal.items ? meal.items.length : 0
+      this.setData({ miniCartCount: count, miniCartVisible: count > 0, miniCartLoading: false })
+    } catch (e) {
+      // Meal not found = 0 items
+      this.setData({ miniCartCount: 0, miniCartVisible: false, miniCartLoading: false })
+    }
   },
 
-  // ===== 全部菜品：搜索 =====
+  // ===== UI actions =====
+  switchTab(e) {
+    this.setData({ activeTab: e.currentTarget.dataset.tab })
+  },
+
+  selectDay(e) {
+    const index = e.currentTarget.dataset.index
+    const day = this.data.weekDays[index]
+    this.setData({ selectedDayIndex: index, selectedDate: day.fullDate }, () => this._refreshSelectedMeals())
+  },
+
+  selectCategory(e) {
+    this.setData({ currentCategory: e.currentTarget.dataset.code }, () => this._applyFilter())
+  },
+
   onSearchInput(e) {
-    const text = e.detail.value
-    this.setData({ searchText: text }, () => this._applyFilter())
+    this.setData({ searchText: e.detail.value }, () => this._applyFilter())
   },
 
   _applyFilter() {
     const { recipes, currentCategory, searchText } = this.data
     let list = recipes
-    if (currentCategory !== 'RECOMMEND') {
-      if (currentCategory === 'FAVORITES') {
-        list = list.filter(r => r.is_favorite)
-      } else if (currentCategory === 'RECENT') {
-        list = list.slice(0, 6) // fixture：最近吃过取前6
-      } else if (currentCategory === 'MY_RECIPES') {
-        list = list.filter(r => r.kind === 'FAMILY')
-      } else {
-        list = list.filter(r => r.category_code === currentCategory)
-      }
-    }
+    if (currentCategory === 'FAVORITES') list = list.filter(r => r.is_favorite)
+    else if (currentCategory === 'MY_RECIPES') list = list.filter(r => r.kind === 'FAMILY')
+    else if (currentCategory !== 'RECOMMEND') list = list.filter(r => r.category_code === currentCategory)
     if (searchText) {
       const kw = searchText.toLowerCase()
-      list = list.filter(r =>
-        r.name.toLowerCase().includes(kw) ||
-        (r.tags && r.tags.some(t => t.toLowerCase().includes(kw)))
-      )
+      list = list.filter(r => r.name.toLowerCase().includes(kw))
     }
     this.setData({ filteredRecipes: list })
   },
 
-  // ===== 加入当前目标餐次（date + meal_type 隔离，幂等，V4 家庭版本语义）=====
+  // ===== Add recipe to current Meal (real API, never Weekly) =====
   async addRecipeToMeal(e) {
     const clickedId = e.currentTarget.dataset.recipeId
     const clickedRecipe = this.data.recipes.find(r => r.id === clickedId)
     if (!clickedRecipe) return
-
-    // V4 语义：BASE 且已有家庭派生版时，业务动作优先使用 family_variant_id
-    let effectiveRecipe = clickedRecipe
-    if (clickedRecipe.kind === 'BASE' &&
-        clickedRecipe.has_family_variant === true &&
-        clickedRecipe.family_variant_id) {
-      const familyRecipe = this.data.recipes.find(r => r.id === clickedRecipe.family_variant_id)
-      if (familyRecipe) effectiveRecipe = familyRecipe
+    let effectiveId = clickedId
+    if (clickedRecipe.kind === 'BASE' && clickedRecipe.has_family_variant && clickedRecipe.family_variant_id) {
+      effectiveId = clickedRecipe.family_variant_id
     }
-    const effectiveId = effectiveRecipe.id
-
     const { targetMeal } = this.data
-    const date = targetMeal.meal_date
-    const mealType = targetMeal.meal_type
-
-    // 如果有真实 V1 环境，调用真实 API
-    if (this._familyId && this._api) {
-      try {
-        let meal = await this._api.getCurrentMeal(this._familyId, date, mealType)
-        if (!meal) {
-          meal = await this._api.ensureCurrentMeal(this._familyId, { meal_date: date, meal_type: mealType, diners_count: 2 })
-        }
-        await this._api.addMealItem(this._familyId, meal.id, { recipe_id: effectiveId, servings: 2, source: 'MANUAL' })
-        this._refreshMiniCart()
-        wx.showToast({ title: '已加入今晚菜单', icon: 'success', duration: 1000 })
-        return
-      } catch (err) {
-        if (err.code === 'ALREADY_IN_MEAL') {
-          wx.showToast({ title: '已在今晚菜单中', icon: 'none', duration: 1200 })
-          return
-        }
-        // fallback to fixture below
-      }
-    }
-
-    // Fixture fallback
-    const { mealsByDateAndType } = this.data
-    if (!mealsByDateAndType[date]) {
-      mealsByDateAndType[date] = { BREAKFAST: { items: [] }, LUNCH: { items: [] }, DINNER: { items: [] } }
-    }
-    if (!mealsByDateAndType[date][mealType]) {
-      mealsByDateAndType[date][mealType] = { items: [] }
-    }
-    const bucket = mealsByDateAndType[date][mealType]
-    const exists = bucket.items.some(it => it.recipe_id === effectiveId)
-    if (exists) {
-      wx.showToast({ title: '已在' + this.data.targetMealText + '中', icon: 'none', duration: 1200 })
+    if (!this._familyId || !this._api) {
+      wx.showToast({ title: '请先登录', icon: 'none' })
       return
     }
-    bucket.items.push({
-      id: 'mi-' + date + '-' + mealType + '-' + effectiveId + '-' + Date.now(),
-      recipe_id: effectiveId,
-      source_recipe_id: clickedRecipe.id,
-      recipe_name: effectiveRecipe.name,
-      cover_image_url: effectiveRecipe.cover_image_url,
-      servings: 2,
-      source: 'MANUAL',
-      selected_by_user_id: 'u1',
-      selected_by_nickname: '锐',
-    })
-    this.setData({ mealsByDateAndType }, () => {
+    wx.showLoading({ title: '加入中...' })
+    try {
+      let meal = await this._api.getCurrentMeal(this._familyId, targetMeal.meal_date, targetMeal.meal_type)
+      if (!meal || !meal.id) {
+        meal = await this._api.ensureCurrentMeal(this._familyId, {
+          meal_date: targetMeal.meal_date,
+          meal_type: targetMeal.meal_type,
+          diners_count: targetMeal.diners_count || 2,
+        })
+      }
+      await this._api.addMealItem(this._familyId, meal.id, { recipe_id: effectiveId, servings: targetMeal.diners_count || 2 })
+      wx.hideLoading()
       this._refreshMiniCart()
-      wx.showToast({ title: '已加入' + this.data.targetMealText, icon: 'success', duration: 1000 })
-    })
+      wx.showToast({ title: this._mealTarget.toastLabel(targetMeal), icon: 'success', duration: 1000 })
+    } catch (err) {
+      wx.hideLoading()
+      if (err.code === 'ALREADY_IN_MEAL' || err.status === 409) {
+        wx.showToast({ title: '已在' + this.data.targetMealText + '中', icon: 'none' })
+      } else {
+        wx.showToast({ title: err.message || '加入失败', icon: 'none' })
+      }
+    }
   },
 
-  // ===== mini cart：查看本餐菜单 =====
   goTodayMenu() {
     const { targetMeal } = this.data
     wx.navigateTo({
-      url: '/pages/meal/meal?date=' + targetMeal.meal_date + '&meal_type=' + targetMeal.meal_type
+      url: '/pages/meal/meal?date=' + targetMeal.meal_date + '&meal_type=' + targetMeal.meal_type,
     })
   },
 
-  // ===== 菜品详情（fixture 阶段 placeholder）=====
-  goDetail(e) {
-    wx.showToast({ title: '菜品详情将在后续阶段接入', icon: 'none', duration: 1200 })
+  // Weekly placeholders (recommendation not implemented)
+  toggleLock() { wx.showToast({ title: '推荐引擎接入后启用', icon: 'none' }) },
+  swapDish() { wx.showToast({ title: '推荐引擎接入后启用', icon: 'none' }) },
+  removePlanItem() { wx.showToast({ title: '推荐引擎接入后启用', icon: 'none' }) },
+  rearrangeMeal() { wx.showToast({ title: '推荐引擎接入后启用', icon: 'none' }) },
+  rearrangeDay() { wx.showToast({ title: '推荐引擎接入后启用', icon: 'none' }) },
+  rearrangeWeek() { wx.showToast({ title: '推荐引擎接入后启用', icon: 'none' }) },
+
+  addToMeal(e) {
+    const mealKey = e.currentTarget.dataset.mealKey
+    const { selectedDate } = this.data
+    const target = this._mealTarget.update({ meal_date: selectedDate, meal_type: mealKey })
+    this.setData({ activeTab: 'recipes', targetMeal: target, currentCategory: 'RECOMMEND', searchText: '' }, () => {
+      this._refreshTargetMealText()
+      this._refreshMiniCart()
+      this._applyFilter()
+    })
   },
 
-  // 下拉刷新
+  goDetail() { wx.showToast({ title: '菜品详情接入后启用', icon: 'none' }) },
+
   onPullDownRefresh() {
-    this._refreshSelectedMeals()
-    this._refreshMiniCart()
+    this._loadAll()
     wx.stopPullDownRefresh()
   },
 })

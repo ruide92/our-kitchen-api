@@ -1,8 +1,14 @@
 <view class="page">
   <view class="header">
     <view class="header-left">
-      <text class="header-title">今晚的菜单</text>
-      <text class="header-sub">{{mealDate}} · {{mealType === 'DINNER' ? '晚餐' : mealType === 'LUNCH' ? '午餐' : '早餐'}} · {{dinersCount}}人</text>
+      <text class="header-title">{{pageTitle}}</text>
+      <text class="header-sub">{{dateLabel}} ·
+        <view class="diners-control" catchtap="">
+          <text class="diners-btn" bindtap="decreaseDiners">−</text>
+          <text class="diners-count">{{dinersCount}}人</text>
+          <text class="diners-btn" bindtap="increaseDiners">＋</text>
+        </view>
+      </text>
     </view>
     <view class="header-add" bindtap="goAddRecipes">
       <text class="header-add-icon">＋</text>
@@ -19,15 +25,16 @@
     <view class="empty-btn" bindtap="goAddRecipes">去选菜</view>
   </view>
 
-  <view wx:else class="meal-list">
+  <scroll-view wx:else class="meal-list" scroll-y>
     <view wx:for="{{items}}" wx:key="id" class="meal-item">
       <view class="meal-item-info">
         <text class="meal-item-name">{{item.recipe_name}}</text>
-        <text class="meal-item-meta">{{item.servings}}人份 · {{item.source === 'WEEKLY_PLAN' ? '周计划' : '手工添加'}}</text>
+        <text class="meal-item-meta">{{item.servings}}人份 · {{item.sourceLabel}} · {{item.selectedByLabel}}</text>
       </view>
       <view class="meal-item-remove" bindtap="removeItem" data-id="{{item.id}}">删除</view>
     </view>
-  </view>
+    <view class="list-bottom-space"></view>
+  </scroll-view>
 
   <view wx:if="{{items.length > 0}}" class="action-bar">
     <view class="action-count">{{items.length}} 道菜</view>

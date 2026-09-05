@@ -22,7 +22,31 @@
   font-size: 22rpx;
   color: #A1887F;
   margin-top: 6rpx;
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.diners-control {
+  display: inline-flex;
+  align-items: center;
+  background: #F5F0E8;
+  border-radius: 20rpx;
+  padding: 2rpx 8rpx;
+}
+
+.diners-btn {
+  font-size: 28rpx;
+  color: #7CB342;
+  padding: 0 12rpx;
+  font-weight: 600;
+}
+
+.diners-count {
+  font-size: 22rpx;
+  color: #5D4037;
+  min-width: 60rpx;
+  text-align: center;
 }
 
 .header-add {
