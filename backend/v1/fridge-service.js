@@ -140,14 +140,8 @@ function createFridgeService(pool) {
     return access(familyId, userId, null, true, async tx => {
       const displayName = (body.display_name || body.name || '').trim();
       if (!displayName) throw new ApiError(400, 'CUSTOM_NAME_REQUIRED', '自定义食材名称不能为空');
-      const existing = (await tx.query('SELECT * FROM pantry_staples WHERE family_id=$1 AND ingredient_id IS NULL AND COALESCE(display_name_override,\'\')=$2 FOR UPDATE', [familyId, displayName])).rows[0];
-      if (existing) {
-        const result = await tx.query(`UPDATE pantry_staples SET quantity=$1, quantity_text=$2, unit_code=$3, assume_available=$4, updated_by_user_id=$5, updated_at=now()
-          WHERE id=$6 RETURNING *`,
-          [body.quantity != null ? body.quantity : null, body.quantity_text || null, body.unit_code || null,
-           body.assume_available != null ? body.assume_available : true, userId, existing.id]);
-        return result.rows[0];
-      }
+      const existing = (await tx.query('SELECT * FROM pantry_staples WHERE family_id=$1 AND ingredient_id IS NULL AND LOWER(BTRIM(COALESCE(display_name_override,\'\')))=LOWER(BTRIM($2)) FOR UPDATE', [familyId, displayName])).rows[0];
+      if (existing) throw new ApiError(409, 'CUSTOM_PANTRY_EXISTS', '同名自定义常备食材已存在');
       const id = randomUUID();
       const item = (await tx.query(`INSERT INTO pantry_staples(id,family_id,ingredient_id,display_name_override,quantity,quantity_text,unit_code,assume_available,updated_by_user_id)
         VALUES($1,$2,NULL,$3,$4,$5,$6,$7,$8) RETURNING *`,

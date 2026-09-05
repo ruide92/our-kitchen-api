@@ -2,6 +2,7 @@
 const { withTransaction } = require('./db');
 const { ApiError } = require('./errors');
 const { authorize, forbidden } = require('./family-access');
+const { requireSnapshot, getIngredientsFromSnapshot } = require('./meal-snapshot');
 
 function createShoppingService(pool) {
   async function access(familyId, userId, roles, write, work) {
@@ -21,49 +22,86 @@ function createShoppingService(pool) {
     return { quantity: quantity * unit.to_base_factor, unitCode: unit.dimension === 'MASS' ? 'g' : unit.dimension === 'VOLUME' ? 'ml' : unitCode, converted: true };
   }
 
-  // Calculate required ingredients from meal items with canonical merge and safe unit conversion
+  // Calculate required ingredients from meal.
+  // PLANNING: read live recipe (not yet frozen).
+  // CONFIRMED/COOKING/COMPLETED: read from recipe_snapshot (immune to recipe edits).
   async function calculateMealIngredients(tx, mealId, dinersCount, unitsMap) {
-    const items = (await tx.query(`
-      SELECT mi.*, r.base_servings, r.name as recipe_name
-      FROM meal_items mi JOIN recipes r ON r.id = mi.recipe_id
-      WHERE mi.meal_id = $1`, [mealId])).rows;
-    const ingredientMap = new Map();
-    for (const item of items) {
-      const ratio = item.servings / (item.base_servings || 2);
-      const ingredients = (await tx.query(`
-        SELECT ri.*, i.display_name as ingredient_name, i.canonical_code, i.default_unit_code
-        FROM recipe_ingredients ri
-        LEFT JOIN ingredients i ON i.id = ri.ingredient_id
-        WHERE ri.recipe_id=$1 AND ri.required=true`, [item.recipe_id])).rows;
-      for (const ing of ingredients) {
-        // Convert to base unit for merging
-        const rawQty = ing.quantity ? ing.quantity * ratio : null;
-        const converted = toBaseQuantity(rawQty, ing.unit_code, unitsMap);
-        // Key includes unit dimension so incompatible units stay as separate requirements
-        const unitDim = converted.converted ? converted.unitCode : (ing.unit_code || 'text');
-        const key = (ing.ingredient_id || ing.canonical_code || ing.display_name_override || 'unknown_' + ing.id) + '|' + unitDim;
-        if (!ingredientMap.has(key)) {
-          ingredientMap.set(key, {
+    const meal = (await tx.query('SELECT status, recipe_snapshot FROM meals WHERE id=$1', [mealId])).rows[0];
+    if (!meal) throw new ApiError(404, 'MEAL_NOT_FOUND', '本餐不存在');
+
+    const isFrozen = ['CONFIRMED', 'COOKING', 'COMPLETED'].includes(meal.status);
+    let rawIngredients;
+
+    if (isFrozen) {
+      // Fail closed: snapshot must exist for frozen meals
+      const snapshot = requireSnapshot(meal, 'calculateMealIngredients');
+      rawIngredients = getIngredientsFromSnapshot(snapshot);
+    } else {
+      // PLANNING: read live recipe_ingredients
+      const items = (await tx.query(`
+        SELECT mi.*, r.base_servings, r.name as recipe_name
+        FROM meal_items mi JOIN recipes r ON r.id = mi.recipe_id
+        WHERE mi.meal_id = $1`, [mealId])).rows;
+      rawIngredients = [];
+      for (const item of items) {
+        const ratio = item.servings / (item.base_servings || 2);
+        const ingredients = (await tx.query(`
+          SELECT ri.*, i.display_name as ingredient_name, i.canonical_code, i.default_unit_code
+          FROM recipe_ingredients ri
+          LEFT JOIN ingredients i ON i.id = ri.ingredient_id
+          WHERE ri.recipe_id=$1 AND ri.required=true`, [item.recipe_id])).rows;
+        for (const ing of ingredients) {
+          rawIngredients.push({
             ingredient_id: ing.ingredient_id,
             canonical_code: ing.canonical_code,
             name: ing.ingredient_name || ing.display_name_override,
-            unit_code: converted.converted ? converted.unitCode : ing.unit_code,
-            quantity: 0,
+            display_name_override: ing.display_name_override,
+            quantity: ing.quantity ? ing.quantity * ratio : null,
             quantity_text: ing.quantity_text,
-            needs_unit_confirmation: !converted.converted && !ing.unit_code && !!ing.quantity_text,
-            unit_incompatible: false,
-            sources: []
+            unit_code: ing.unit_code,
+            type: ing.type,
+            sort_order: ing.sort_order,
+            note: ing.note,
+            recipe_id: item.recipe_id,
+            recipe_name: item.recipe_name,
           });
         }
-        const entry = ingredientMap.get(key);
-        // Merge: same key means same unit dimension, safe to add
-        if (converted.converted) {
-          entry.quantity += converted.quantity;
-        } else if (ing.unit_code) {
-          entry.quantity += rawQty || 0;
-        }
-        entry.sources.push({ recipe_id: item.recipe_id, recipe_name: item.recipe_name, quantity: ing.quantity, quantity_text: ing.quantity_text, unit_code: ing.unit_code });
       }
+    }
+
+    // Merge by canonical ingredient + unit dimension (same logic for live and snapshot)
+    const ingredientMap = new Map();
+    for (const ing of rawIngredients) {
+      const rawQty = ing.quantity;
+      const converted = toBaseQuantity(rawQty, ing.unit_code, unitsMap);
+      const unitDim = converted.converted ? converted.unitCode : (ing.unit_code || 'text');
+      const key = (ing.ingredient_id || ing.canonical_code || ing.display_name_override || 'unknown') + '|' + unitDim;
+      if (!ingredientMap.has(key)) {
+        ingredientMap.set(key, {
+          ingredient_id: ing.ingredient_id,
+          canonical_code: ing.canonical_code,
+          name: ing.name,
+          unit_code: converted.converted ? converted.unitCode : ing.unit_code,
+          quantity: 0,
+          quantity_text: ing.quantity_text,
+          needs_unit_confirmation: !converted.converted && !ing.unit_code && !!ing.quantity_text,
+          unit_incompatible: false,
+          sources: []
+        });
+      }
+      const entry = ingredientMap.get(key);
+      if (converted.converted) {
+        entry.quantity += converted.quantity;
+      } else if (ing.unit_code) {
+        entry.quantity += rawQty || 0;
+      }
+      entry.sources.push({
+        recipe_id: ing.recipe_id,
+        recipe_name: ing.recipe_name,
+        quantity: ing.quantity,
+        quantity_text: ing.quantity_text,
+        unit_code: ing.unit_code
+      });
     }
     return Array.from(ingredientMap.values());
   }
@@ -109,12 +147,14 @@ function createShoppingService(pool) {
     return ingredients;
   }
 
-  // Deduct pantry staples: assume_available=true with null quantity means fully available
+  // Deduct pantry staples: only CANONICAL pantry (ingredient_id NOT NULL) participates.
+  // Custom pantry (ingredient_id=NULL, display_name_override) is NEVER auto-deducted
+  // until explicitly normalized/resolved to a canonical ingredient.
   async function deductPantry(tx, familyId, ingredients) {
     const pantry = (await tx.query(`
       SELECT ps.*, i.display_name as ingredient_name, i.canonical_code
-      FROM pantry_staples ps LEFT JOIN ingredients i ON i.id = ps.ingredient_id
-      WHERE ps.family_id=$1`, [familyId])).rows;
+      FROM pantry_staples ps JOIN ingredients i ON i.id = ps.ingredient_id
+      WHERE ps.family_id=$1 AND ps.ingredient_id IS NOT NULL`, [familyId])).rows;
     for (const ing of ingredients) {
       const matching = pantry.filter(p =>
         (p.ingredient_id && p.ingredient_id === ing.ingredient_id) ||

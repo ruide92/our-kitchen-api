@@ -2,6 +2,7 @@ const { randomUUID } = require('node:crypto');
 const { withTransaction } = require('./db');
 const { ApiError } = require('./errors');
 const { authorize, forbidden } = require('./family-access');
+const { buildRecipeSnapshot } = require('./meal-snapshot');
 
 function createMealService(pool) {
   async function access(familyId, userId, roles, write, work) {
@@ -96,36 +97,21 @@ function createMealService(pool) {
     });
   }
 
+  // Confirm meal: PLANNING -> CONFIRMED, build full versioned snapshot into meals.recipe_snapshot
+  // Snapshot failure rolls back transaction — no CONFIRMED without snapshot.
   async function confirmMeal(familyId, userId, mealId) {
     return access(familyId, userId, null, true, async tx => {
-      const result = await tx.query(`UPDATE meals SET status='CONFIRMED',updated_at=now()
-        WHERE id=$1 AND family_id=$2 AND status='PLANNING' RETURNING *`, [mealId, familyId]);
-      if (!result.rows[0]) throw new ApiError(409, 'MEAL_NOT_EDITABLE', '当前餐次状态不可确认');
-      // Freeze recipe snapshot for each meal item
-      const items = (await tx.query('SELECT * FROM meal_items WHERE meal_id=$1', [mealId])).rows;
-      for (const item of items) {
-        const recipe = (await tx.query('SELECT * FROM recipes WHERE id=$1', [item.recipe_id])).rows[0];
-        if (recipe) {
-          const ingredients = (await tx.query('SELECT * FROM recipe_ingredients WHERE recipe_id=$1 ORDER BY sort_order', [item.recipe_id])).rows;
-          const snapshot = {
-            recipe_id: recipe.id,
-            name: recipe.name,
-            version: recipe.version,
-            base_servings: recipe.base_servings,
-            ingredients: ingredients.map(i => ({
-              ingredient_id: i.ingredient_id,
-              display_name_override: i.display_name_override,
-              quantity: i.quantity,
-              quantity_text: i.quantity_text,
-              unit_code: i.unit_code,
-              type: i.type,
-              required: i.required
-            }))
-          };
-          await tx.query('UPDATE meal_items SET recipe_snapshot=$1 WHERE id=$2', [JSON.stringify(snapshot), item.id]);
-        }
-      }
-      return result.rows[0];
+      const meal = (await tx.query('SELECT * FROM meals WHERE id=$1 AND family_id=$2', [mealId, familyId])).rows[0];
+      if (!meal) throw new ApiError(404, 'MEAL_NOT_FOUND', '本餐不存在');
+      if (meal.status !== 'PLANNING') throw new ApiError(409, 'MEAL_NOT_EDITABLE', `当前状态 ${meal.status} 不可确认`);
+
+      const snapshot = await buildRecipeSnapshot(tx, mealId);
+
+      await tx.query(`UPDATE meals SET status='CONFIRMED', recipe_snapshot=$2, updated_at=now() WHERE id=$1`,
+        [mealId, JSON.stringify(snapshot)]);
+
+      const updated = (await tx.query('SELECT * FROM meals WHERE id=$1', [mealId])).rows[0];
+      return updated;
     });
   }
 

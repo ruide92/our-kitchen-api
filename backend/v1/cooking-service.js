@@ -1,9 +1,11 @@
 // Cooking Service — V4
 // Meal confirm -> cooking session -> complete -> inventory consumption -> history
+// CONFIRMED+ meals use frozen recipe_snapshot; no live recipe JOIN for historical content.
 const { randomUUID } = require('node:crypto');
 const { withTransaction } = require('./db');
 const { ApiError } = require('./errors');
 const { authorize } = require('./family-access');
+const { buildRecipeSnapshot, requireSnapshot, getStepsFromSnapshot, getItemsFromSnapshot } = require('./meal-snapshot');
 
 function createCookingService(pool) {
   async function access(familyId, userId, roles, write, work) {
@@ -15,28 +17,16 @@ function createCookingService(pool) {
     });
   }
 
-  // Confirm meal: PLANNING -> CONFIRMED, snapshot recipes
+  // Confirm meal: PLANNING -> CONFIRMED, build full versioned snapshot
+  // Snapshot failure rolls back entire transaction — no CONFIRMED without snapshot.
   async function confirmMeal(familyId, userId, mealId) {
     return access(familyId, userId, null, true, async tx => {
       const meal = (await tx.query('SELECT * FROM meals WHERE id=$1 AND family_id=$2', [mealId, familyId])).rows[0];
       if (!meal) throw new ApiError(404, 'MEAL_NOT_FOUND', '本餐不存在');
       if (meal.status !== 'PLANNING') throw new ApiError(409, 'MEAL_NOT_PLANNING', `当前状态 ${meal.status} 不能确认`);
 
-      // Snapshot recipe data
-      const items = (await tx.query(`
-        SELECT mi.*, r.name as recipe_name, r.base_servings
-        FROM meal_items mi JOIN recipes r ON r.id = mi.recipe_id
-        WHERE mi.meal_id=$1 ORDER BY mi.sort_order
-      `, [mealId])).rows;
-
-      const snapshot = items.map(i => ({
-        meal_item_id: i.id,
-        recipe_id: i.recipe_id,
-        recipe_name: i.recipe_name,
-        servings: i.servings,
-        source: i.source,
-        selected_by_user_id: i.selected_by_user_id
-      }));
+      // Build full snapshot (recipe + ingredients + steps + cookware + tags + etc.)
+      const snapshot = await buildRecipeSnapshot(tx, mealId);
 
       await tx.query(`UPDATE meals SET status='CONFIRMED', recipe_snapshot=$2, updated_at=now() WHERE id=$1`,
         [mealId, JSON.stringify(snapshot)]);
@@ -46,36 +36,25 @@ function createCookingService(pool) {
     });
   }
 
-  // Start cooking: CONFIRMED -> COOKING, create session
+  // Start cooking: CONFIRMED -> COOKING, steps from snapshot (no live recipe JOIN)
   async function startCooking(familyId, userId, mealId) {
     return access(familyId, userId, null, true, async tx => {
       const meal = (await tx.query('SELECT * FROM meals WHERE id=$1 AND family_id=$2', [mealId, familyId])).rows[0];
       if (!meal) throw new ApiError(404, 'MEAL_NOT_FOUND', '本餐不存在');
       if (meal.status !== 'CONFIRMED') throw new ApiError(409, 'MEAL_NOT_CONFIRMED', `当前状态 ${meal.status} 不能开始做饭`);
 
+      // Fail closed: snapshot must exist and be supported
+      const snapshot = requireSnapshot(meal, 'startCooking');
+
       const sessionId = randomUUID();
       await tx.query(`INSERT INTO cooking_sessions(id,family_id,meal_id,status,started_by_user_id)
         VALUES($1,$2,$3,'ACTIVE',$4)`, [sessionId, familyId, mealId, userId]);
       await tx.query(`UPDATE meals SET status='COOKING', updated_at=now() WHERE id=$1`, [mealId]);
 
-      // Return frozen steps from snapshot
-      const items = (await tx.query(`
-        SELECT mi.*, r.name as recipe_name
-        FROM meal_items mi JOIN recipes r ON r.id = mi.recipe_id
-        WHERE mi.meal_id=$1 ORDER BY mi.sort_order
-      `, [mealId])).rows;
+      // Steps come ENTIRELY from frozen snapshot
+      const steps = getStepsFromSnapshot(snapshot);
 
-      const allSteps = [];
-      for (const item of items) {
-        const steps = (await tx.query(`
-          SELECT rs.*, r.name as recipe_name
-          FROM recipe_steps rs JOIN recipes r ON r.id = rs.recipe_id
-          WHERE rs.recipe_id=$1 ORDER BY rs.sort_order
-        `, [item.recipe_id])).rows;
-        steps.forEach(s => allSteps.push({ ...s, recipe_name: item.recipe_name }));
-      }
-
-      return { session_id: sessionId, meal, steps: allSteps };
+      return { session_id: sessionId, meal, steps };
     });
   }
 
@@ -92,7 +71,6 @@ function createCookingService(pool) {
         const { ingredient_id, quantity, unit_code } = cons;
         if (!ingredient_id || quantity == null) continue;
 
-        // Find fridge items with this ingredient (FIFO by expiry)
         const fridgeItems = (await tx.query(`
           SELECT * FROM fridge_items WHERE family_id=$1 AND ingredient_id=$2 ORDER BY expiry_date NULLS LAST
           FOR UPDATE
@@ -102,7 +80,7 @@ function createCookingService(pool) {
         for (const fi of fridgeItems) {
           if (remaining <= 0) break;
           const fiQty = parseFloat(fi.quantity) || 0;
-          if (fi.unit_code !== unit_code) continue; // skip incompatible units
+          if (fi.unit_code !== unit_code) continue;
           const take = Math.min(fiQty, remaining);
           const newQty = fiQty - take;
           if (newQty <= 0.001) {
@@ -120,14 +98,12 @@ function createCookingService(pool) {
         }
       }
 
-      // Write inventory movements
       for (const m of movements) {
         await tx.query(`INSERT INTO inventory_movements(id,family_id,fridge_item_id,ingredient_id,movement_type,quantity_delta,unit_code,meal_id,performed_by_user_id)
           VALUES($1,$2,$3,$4,'COOK_OUT',$5,$6,$7,$8)`,
           [randomUUID(), familyId, m.fridge_item_id, m.ingredient_id, m.quantity_delta, m.unit_code, session.meal_id, userId]);
       }
 
-      // Complete session and meal
       await tx.query(`UPDATE cooking_sessions SET status='COMPLETED', completed_by_user_id=$2, completed_at=now() WHERE id=$1`, [sessionId, userId]);
       await tx.query(`UPDATE meals SET status='COMPLETED', updated_at=now() WHERE id=$1`, [session.meal_id]);
 
@@ -135,7 +111,7 @@ function createCookingService(pool) {
     });
   }
 
-  // Get meal history
+  // Get meal history — CONFIRMED+ uses snapshot for recipe identity (no live recipe JOIN drift)
   async function getMealHistory(familyId, userId, limit = 30) {
     return access(familyId, userId, null, false, async tx => {
       const meals = (await tx.query(`
@@ -149,13 +125,38 @@ function createCookingService(pool) {
 
       const result = [];
       for (const meal of meals) {
-        const items = (await tx.query(`
-          SELECT mi.*, r.name as recipe_name, u.nickname as selected_by_nickname
-          FROM meal_items mi
-          JOIN recipes r ON r.id = mi.recipe_id
-          LEFT JOIN users u ON u.id = mi.selected_by_user_id
-          WHERE mi.meal_id=$1 ORDER BY mi.sort_order
-        `, [meal.id])).rows;
+        let items;
+        if (meal.recipe_snapshot && meal.recipe_snapshot.schema_version === 1) {
+          // Use frozen snapshot — immune to recipe rename/edit/delete
+          const snapshotItems = getItemsFromSnapshot(meal.recipe_snapshot);
+          items = await Promise.all(snapshotItems.map(async si => {
+            const user = si.selected_by_user_id
+              ? (await tx.query('SELECT nickname FROM users WHERE id=$1', [si.selected_by_user_id])).rows[0]
+              : null;
+            return {
+              id: si.meal_item_id,
+              recipe_id: si.recipe_id,
+              recipe_name: si.recipe?.name || si.recipe_name,
+              servings: si.servings,
+              source: si.source,
+              selected_by_user_id: si.selected_by_user_id,
+              selected_by_nickname: user?.nickname || null,
+            };
+          }));
+        } else {
+          // Legacy: no snapshot — fail closed for CONFIRMED+, use live for PLANNING only
+          if (meal.status !== 'PLANNING') {
+            items = [{ error: 'MEAL_SNAPSHOT_MISSING', meal_id: meal.id, status: meal.status }];
+          } else {
+            items = (await tx.query(`
+              SELECT mi.*, r.name as recipe_name, u.nickname as selected_by_nickname
+              FROM meal_items mi
+              JOIN recipes r ON r.id = mi.recipe_id
+              LEFT JOIN users u ON u.id = mi.selected_by_user_id
+              WHERE mi.meal_id=$1 ORDER BY mi.sort_order
+            `, [meal.id])).rows;
+          }
+        }
         result.push({ ...meal, items });
       }
       return result;

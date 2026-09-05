@@ -349,11 +349,13 @@ test('Core kitchen HTTP checkpoint against real PostgreSQL', async t => {
     const meal = await makeMealWithRecipes('A', fa.id, '2026-09-19', 'DINNER', [recipeTomatoPork]);
     const confirmed = (await request('A', 'POST', `/families/${fa.id}/meals/${meal.id}/confirm`, {})).body.data;
     assert.equal(confirmed.status, 'CONFIRMED');
-    const item = (await pool.query('SELECT recipe_snapshot FROM meal_items WHERE meal_id=$1', [meal.id])).rows[0];
-    assert.ok(item.recipe_snapshot, 'recipe_snapshot should be populated');
-    assert.equal(item.recipe_snapshot.name, '番茄炒肉');
-    assert.ok(item.recipe_snapshot.ingredients.length > 0);
-    assert.ok(item.recipe_snapshot.version, 'snapshot should record recipe version');
+    const mealRow = (await pool.query('SELECT recipe_snapshot FROM meals WHERE id=$1', [meal.id])).rows[0];
+    assert.ok(mealRow.recipe_snapshot, 'meals.recipe_snapshot should be populated');
+    assert.equal(mealRow.recipe_snapshot.schema_version, 1);
+    const snapItem = mealRow.recipe_snapshot.items[0];
+    assert.equal(snapItem.recipe.name, '番茄炒肉');
+    assert.ok(snapItem.ingredients.length > 0);
+    assert.ok(snapItem.recipe_version, 'snapshot should record recipe version');
   });
 
   // ===== Single recipe no double count =====

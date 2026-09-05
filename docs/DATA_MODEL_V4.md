@@ -373,6 +373,8 @@
 
 `assume_available=true` 表示生成购物清单时默认足量；若家庭希望精确管理调味品可设 quantity。
 
+自定义常备食材（ingredient_id=NULL）：可以保存、展示、删除，但在标准化为 canonical ingredient 之前不得参与购物清单的自动数量抵扣。canonical pantry（ingredient_id NOT NULL）继续参与自动抵扣。
+
 ## 22. shopping_lists
 
 - `id`

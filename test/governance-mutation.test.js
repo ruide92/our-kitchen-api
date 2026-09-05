@@ -344,9 +344,23 @@ test('Baseline: schema governance passes with 008 BLOCKED reported', () => {
   assert.ok(result.stdout.includes('BLOCKED') || result.stdout.includes('DRAFT'), `should report 008 BLOCKED`);
 });
 
-test('Baseline: schema release fails due to 008 DRAFT', () => {
+test('Mutation E: DRAFT migration blocks release schema audit', () => {
+  const amendmentPath = path.join(ROOT, 'docs', 'SPEC_AMENDMENT_12A.md');
+  const original = fs.readFileSync(amendmentPath, 'utf8');
+  try {
+    // Temporarily mark as DRAFT
+    const draft = original.replace('Status: APPROVED', 'Status: DRAFT').replace('Blocked: NO', 'Blocked: YES');
+    fs.writeFileSync(amendmentPath, draft, 'utf8');
+    const result = runScript('schema-contract-audit.js', ['--mode=release']);
+    assert.notEqual(result.code, 0, `release schema should FAIL due to DRAFT amendment, got code=0`);
+  } finally {
+    fs.writeFileSync(amendmentPath, original, 'utf8');
+  }
+});
+
+test('Baseline: schema release passes because 008 is APPROVED', () => {
   const result = runScript('schema-contract-audit.js', ['--mode=release']);
-  assert.notEqual(result.code, 0, `release schema should FAIL due to 008, got code=0`);
+  assert.equal(result.code, 0, `release schema should PASS now that 008 is approved, got code=${result.code}: ${result.stdout}`);
 });
 
 test('Baseline: product surface matrix is in sync', () => {

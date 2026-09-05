@@ -1,7 +1,8 @@
 # Spec Amendment 12A — Full Product Closeout Schema Additions
 
-Status: DRAFT
-Blocked: YES (recipe_snapshot design incomplete)
+Status: APPROVED
+Blocked: NO
+Approved: 2026-09-06 — recipe_snapshot Option A (VERSIONED FULL JSON SNAPSHOT) + pantry custom display_name_override approved. All S1-S14 tests pass.
 基线: DATA_MODEL_V4.md + API_CONTRACT_V4.md
 Commit: b9df70c → 8c30814
 

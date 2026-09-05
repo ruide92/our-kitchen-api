@@ -3,14 +3,26 @@
 
 -- ===== Pantry custom items =====
 ALTER TABLE pantry_staples ADD COLUMN IF NOT EXISTS display_name_override TEXT;
--- Drop old unique constraint that blocks multiple null ingredient_id
+
+-- Custom pantry items (ingredient_id IS NULL) require a non-empty display name
+ALTER TABLE pantry_staples DROP CONSTRAINT IF EXISTS pantry_custom_name_required;
+ALTER TABLE pantry_staples ADD CONSTRAINT pantry_custom_name_required
+  CHECK (ingredient_id IS NOT NULL OR NULLIF(BTRIM(display_name_override), '') IS NOT NULL);
+
+-- Drop old unique constraint (PostgreSQL ordinary UNIQUE allows multiple NULLs,
+-- but we need partial unique indexes for canonical vs custom separation)
 ALTER TABLE pantry_staples DROP CONSTRAINT IF EXISTS pantry_staples_family_id_ingredient_id_key;
--- Partial unique: only canonical ingredients must be unique per family; custom items use display_name
+
+-- Canonical pantry: family_id + ingredient_id unique (only where ingredient_id NOT NULL)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_pantry_canonical_unique
   ON pantry_staples(family_id, ingredient_id)
   WHERE ingredient_id IS NOT NULL;
+
+-- Custom pantry: family_id + normalized display name unique (only where ingredient_id IS NULL)
+-- Normalization: lower(trim(name)) — "花椒" and " 花椒 " are duplicates
+-- Expression index requires extra parens around the expression
 CREATE UNIQUE INDEX IF NOT EXISTS idx_pantry_custom_unique
-  ON pantry_staples(family_id, COALESCE(display_name_override, ''))
+  ON pantry_staples(family_id, (LOWER(BTRIM(display_name_override))))
   WHERE ingredient_id IS NULL;
 
 -- ===== Cooking sessions =====

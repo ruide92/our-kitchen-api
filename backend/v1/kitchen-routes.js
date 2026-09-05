@@ -39,6 +39,10 @@ function installKitchenRoutes(app, services) {
   app.put('/api/v1/families/:family_id/meals/current', asyncRoute(async (req, res) => {
     res.json({ data: await meals.ensureCurrentMeal(familyId(req), req.user.id, req.body), meta: {} });
   }));
+  // NOTE: /meals/history must be registered BEFORE /meals/:meal_id to avoid UUID parse error
+  app.get('/api/v1/families/:family_id/meals/history', asyncRoute(async (req, res) => {
+    res.json({ data: await cooking.getMealHistory(familyId(req), req.user.id, parseInt(req.query.limit) || 30), meta: {} });
+  }));
   app.get('/api/v1/families/:family_id/meals/:meal_id', asyncRoute(async (req, res) => {
     res.json({ data: await meals.getMeal(familyId(req), req.user.id, req.params.meal_id), meta: {} });
   }));
@@ -133,9 +137,6 @@ function installKitchenRoutes(app, services) {
   }));
   app.post('/api/v1/families/:family_id/cooking-sessions/:session_id/complete', asyncRoute(async (req, res) => {
     res.json({ data: await cooking.completeCooking(familyId(req), req.user.id, req.params.session_id, req.body.consumption), meta: {} });
-  }));
-  app.get('/api/v1/families/:family_id/meals/history', asyncRoute(async (req, res) => {
-    res.json({ data: await cooking.getMealHistory(familyId(req), req.user.id, parseInt(req.query.limit) || 30), meta: {} });
   }));
 
   // ===== Kiss =====
