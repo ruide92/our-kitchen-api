@@ -120,7 +120,7 @@ Page({
       storage_label: STORAGE_REVERSE[item.storage_location] || item.storage_location,
       freshness_status: fresh.status,
       expiry_label: fresh.label,
-      name: item.display_name_override || item.ingredient_name || '食材',
+      name: item.name || item.display_name_override || item.ingredient_name || '食材',
       quantity_label: formatQuantity(item.quantity, item.unit_code, item.quantity_text),
       category_label: categoryLabel(item.category_code),
     }

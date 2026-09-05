@@ -19,6 +19,8 @@ function createFridgeService(pool) {
       id: row.id, family_id: row.family_id, ingredient_id: row.ingredient_id,
       display_name_override: row.display_name_override,
       name: row.display_name_override || row.ingredient_name || '未命名食材',
+      category_code: row.category_code || null,
+      canonical_code: row.canonical_code || null,
       quantity: row.quantity, quantity_text: row.quantity_text, unit_code: row.unit_code,
       storage_location: row.storage_location, purchase_date: row.purchase_date,
       expiry_date: row.expiry_date, note: row.note,
@@ -35,7 +37,7 @@ function createFridgeService(pool) {
       if (query.storage_location) { conditions.push('fi.storage_location = $' + idx++); params.push(query.storage_location); }
       if (query.category) { conditions.push('i.category_code = $' + idx++); params.push(query.category); }
       const rows = (await tx.query(`
-        SELECT fi.*, i.display_name as ingredient_name, i.canonical_code
+        SELECT fi.*, i.display_name as ingredient_name, i.canonical_code, i.category_code
         FROM fridge_items fi
         LEFT JOIN ingredients i ON i.id = fi.ingredient_id
         WHERE ${conditions.join(' AND ')}
@@ -57,7 +59,12 @@ function createFridgeService(pool) {
       await tx.query(`INSERT INTO inventory_movements(id,family_id,fridge_item_id,ingredient_id,movement_type,quantity_delta,unit_code,performed_by_user_id)
         VALUES($1,$2,$3,$4,'MANUAL_IN',$5,$6,$7)`,
         [randomUUID(), familyId, id, body.ingredient_id || null, body.quantity != null ? body.quantity : 0, body.unit_code || null, userId]);
-      return fridgeRow(item);
+      const enriched = (await tx.query(`
+        SELECT fi.*, i.display_name as ingredient_name, i.canonical_code, i.category_code
+        FROM fridge_items fi LEFT JOIN ingredients i ON i.id = fi.ingredient_id
+        WHERE fi.id = $1
+      `, [id])).rows[0];
+      return fridgeRow(enriched);
     });
   }
 
@@ -74,7 +81,12 @@ function createFridgeService(pool) {
       values.push(itemId, familyId, body.version);
       const result = await tx.query(`UPDATE fridge_items SET ${set.join(',')} WHERE id=$${values.length - 2} AND family_id=$${values.length - 1} AND version=$${values.length} RETURNING *`, values);
       if (!result.rows[0]) throw new ApiError(409, 'VERSION_CONFLICT', '版本已更新，请刷新');
-      return fridgeRow(result.rows[0]);
+      const enriched = (await tx.query(`
+        SELECT fi.*, i.display_name as ingredient_name, i.canonical_code, i.category_code
+        FROM fridge_items fi LEFT JOIN ingredients i ON i.id = fi.ingredient_id
+        WHERE fi.id = $1
+      `, [itemId])).rows[0];
+      return fridgeRow(enriched);
     });
   }
 
@@ -84,7 +96,7 @@ function createFridgeService(pool) {
       if (!item) throw new ApiError(404, 'NOT_FOUND', '食材不存在');
       await tx.query(`INSERT INTO inventory_movements(id,family_id,fridge_item_id,ingredient_id,movement_type,quantity_delta,unit_code,performed_by_user_id)
         VALUES($1,$2,$3,$4,'WASTE_OUT',$5,$6,$7)`,
-        [randomUUID(), familyId, itemId, item.ingredient_id, item.quantity ? -item.quantity : 0, item.unit_code, userId]);
+        [randomUUID(), familyId, itemId, item.ingredient_id, item.quantity ? -item.quantity : 0, item.unit_code || null, userId]);
       await tx.query('DELETE FROM fridge_items WHERE id=$1 AND family_id=$2', [itemId, familyId]);
       return { ok: true };
     });
@@ -94,7 +106,7 @@ function createFridgeService(pool) {
   async function listPantry(familyId, userId) {
     return access(familyId, userId, null, false, async tx => {
       const rows = (await tx.query(`
-        SELECT ps.*, i.display_name as ingredient_name, i.canonical_code
+        SELECT ps.*, i.display_name as ingredient_name, i.canonical_code, i.category_code
         FROM pantry_staples ps
         LEFT JOIN ingredients i ON i.id = ps.ingredient_id
         WHERE ps.family_id = $1

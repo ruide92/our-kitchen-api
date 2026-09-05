@@ -49,15 +49,20 @@ Page({
   },
 
   onLoad() {
-    this._familyId = wx.getStorageSync('v1_active_family_id')
     this._api = createV1Api({ wxAdapter: wx })
     this._initWeekDays()
-    this._loadRealData()
   },
 
-  onShow() {
+  async onShow() {
     try { if (this.getTabBar()) this.getTabBar().setData({ selected: 0, hidden: false }) } catch(e) {}
-    if (this._familyId) this._loadRealData()
+    try {
+      await getApp().ensureSessionReady()
+      const session = getApp().getV1Session().getState()
+      this._familyId = session.active_family_id || wx.getStorageSync('v1_active_family_id') || ''
+    } catch(e) {
+      this._familyId = wx.getStorageSync('v1_active_family_id') || ''
+    }
+    this._loadRealData()
   },
 
   _initWeekDays() {

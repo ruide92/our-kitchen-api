@@ -1,4 +1,4 @@
-/* 购物清单 Tab V4 fixture — 延续首页/菜单/冰箱温暖家庭风 */
+﻿/* 璐墿娓呭崟 Tab V4 fixture 鈥?寤剁画棣栭〉/鑿滃崟/鍐扮娓╂殩瀹跺涵椋?*/
 .page {
   padding: 0 0 calc(140rpx + env(safe-area-inset-bottom));
   min-height: 100vh;
@@ -15,7 +15,7 @@
   padding: 0 0 24rpx;
 }
 
-/* ===== 顶部标题区 ===== */
+/* ===== 椤堕儴鏍囬鍖?===== */
 .header {
   display: flex;
   align-items: flex-start;
@@ -60,7 +60,7 @@
   font-weight: 500;
 }
 
-/* ===== 本餐来源卡 ===== */
+/* ===== 鏈鏉ユ簮鍗?===== */
 .source-card {
   margin: 0 24rpx 16rpx;
   background: #FFFFFF;
@@ -124,7 +124,7 @@
   display: block;
 }
 
-/* ===== 购买进度 ===== */
+/* ===== 璐拱杩涘害 ===== */
 .progress-section {
   margin: 0 24rpx 16rpx;
   background: #FFFFFF;
@@ -185,7 +185,7 @@
   font-weight: 500;
 }
 
-/* ===== 购物列表 ===== */
+/* ===== 璐墿鍒楄〃 ===== */
 .shopping-list {
   padding: 0 24rpx;
   margin-bottom: 24rpx;
@@ -287,7 +287,7 @@
   flex-shrink: 0;
 }
 
-/* ===== 空状态 ===== */
+/* ===== 绌虹姸鎬?===== */
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -334,9 +334,9 @@
   font-weight: 500;
 }
 
-/* ===== sticky 完成采购 ===== */
+/* ===== sticky 瀹屾垚閲囪喘 ===== */
 .complete-bar {
-  margin: 0 24rpx 16rpx;
+  margin: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -523,7 +523,7 @@
   line-height: 1.5;
 }
 
-/* 表单 */
+/* 琛ㄥ崟 */
 .form-item {
   margin-bottom: 20rpx;
 }
@@ -599,4 +599,9 @@
   background: #FFEBEE;
   color: #E57373;
   flex: 0.8;
+}
+
+
+.bottom-space {
+  height: calc(100rpx + env(safe-area-inset-bottom) + 120rpx + 16rpx);
 }

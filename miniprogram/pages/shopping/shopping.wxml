@@ -110,7 +110,7 @@
     </scroll-view>
 
     <!-- 完成采购 dock -->
-    <view class="complete-bar" wx:if="{{items.length > 0}}">
+    <view class="complete-bar tab-page-dock" wx:if="{{items.length > 0}}">
       <view class="complete-left">
         <text class="complete-count">已买 {{purchasedCount}} / {{totalCount}}</text>
       </view>

@@ -174,7 +174,7 @@
       </scroll-view>
     </view>
 
-    <view wx:if="{{miniCartVisible}}" class="mini-cart" bindtap="goTodayMenu">
+    <view wx:if="{{miniCartVisible}}" class="mini-cart tab-page-dock" bindtap="goTodayMenu">
       <text class="mini-cart-icon">🍽</text>
       <text class="mini-cart-text">{{targetMealText}} · {{miniCartCount}}道</text>
       <text class="mini-cart-action">查看菜单 ›</text>

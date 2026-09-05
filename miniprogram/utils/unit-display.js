@@ -48,8 +48,10 @@ function isValidCode(code) {
 function formatQuantity(quantity, unitCode, quantityText) {
   if (quantityText) return quantityText
   if (quantity == null) return ''
+  const num = parseFloat(quantity)
+  const clean = isNaN(num) ? String(quantity) : String(num)
   const label = toLabel(unitCode)
-  return String(quantity) + (label || '')
+  return clean + (label || '')
 }
 
 // UI options for picker (Chinese labels)

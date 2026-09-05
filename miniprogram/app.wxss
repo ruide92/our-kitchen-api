@@ -220,3 +220,27 @@ page {
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/* ===== Global Bottom Dock Contract ===== */
+/* TAB 页面：PAGE CONTENT → PAGE DOCK → CUSTOM TABBAR → SAFE AREA */
+/* Custom TabBar height = calc(100rpx + env(safe-area-inset-bottom)) */
+
+.tab-page-dock {
+  position: fixed;
+  left: 24rpx;
+  right: 24rpx;
+  bottom: calc(100rpx + env(safe-area-inset-bottom) + 16rpx);
+  z-index: 50;
+}
+
+.tab-page-content-bottom {
+  padding-bottom: calc(100rpx + env(safe-area-inset-bottom) + 140rpx + 16rpx);
+}
+
+.page-dock-no-tabbar {
+  position: fixed;
+  left: 24rpx;
+  right: 24rpx;
+  bottom: calc(env(safe-area-inset-bottom) + 16rpx);
+  z-index: 50;
+}

@@ -1,4 +1,4 @@
-/* 菜单 Tab Phase fixture — 延续首页温暖家庭风 */
+﻿/* 鑿滃崟 Tab Phase fixture 鈥?寤剁画棣栭〉娓╂殩瀹跺涵椋?*/
 .page {
   padding: 0 0 24rpx;
   min-height: 100vh;
@@ -6,7 +6,7 @@
   background: #FFF9F0;
 }
 
-/* ===== 顶部双段切换 ===== */
+/* ===== 椤堕儴鍙屾鍒囨崲 ===== */
 .tab-switch {
   display: flex;
   background: #FFFFFF;
@@ -34,7 +34,7 @@
   font-weight: 600;
 }
 
-/* ===== 本周安排视图 ===== */
+/* ===== 鏈懆瀹夋帓瑙嗗浘 ===== */
 .weekly-header {
   display: flex;
   align-items: center;
@@ -65,7 +65,7 @@
   font-weight: 500;
 }
 
-/* 日期条（复用首页视觉）*/
+/* 鏃ユ湡鏉★紙澶嶇敤棣栭〉瑙嗚锛?/
 .week-tabs {
   white-space: nowrap;
   padding: 0 24rpx;
@@ -110,7 +110,7 @@
   color: #FFFFFF;
 }
 
-/* 三餐容器 */
+/* 涓夐瀹瑰櫒 */
 .meals-container {
   padding: 0 24rpx;
 }
@@ -161,7 +161,7 @@
   font-weight: 500;
 }
 
-/* 菜品横向排列 */
+/* 鑿滃搧妯悜鎺掑垪 */
 .meal-dishes {
   display: flex;
   flex-wrap: nowrap;
@@ -250,7 +250,7 @@
   color: #E57373;
 }
 
-/* + 添加菜品 */
+/* + 娣诲姞鑿滃搧 */
 .plan-dish-add {
   display: flex;
   flex-direction: column;
@@ -278,7 +278,7 @@
   font-weight: 500;
 }
 
-/* 重新安排今天 */
+/* 閲嶆柊瀹夋帓浠婂ぉ */
 .rearrange-day-btn {
   display: flex;
   align-items: center;
@@ -293,9 +293,9 @@
   box-shadow: 0 2rpx 12rpx rgba(92, 74, 58, 0.05);
 }
 
-/* ===== 全部菜品视图 ===== */
+/* ===== 鍏ㄩ儴鑿滃搧瑙嗗浘 ===== */
 
-/* 目标餐次上下文 */
+/* 鐩爣椁愭涓婁笅鏂?*/
 .target-bar {
   display: flex;
   align-items: center;
@@ -320,7 +320,7 @@
   color: #8D6E63;
 }
 
-/* 搜索框 */
+/* 鎼滅储妗?*/
 .search-bar {
   display: flex;
   align-items: center;
@@ -366,7 +366,7 @@
   box-shadow: 0 2rpx 10rpx rgba(92, 74, 58, 0.05);
 }
 
-/* 分类 + 列表 */
+/* 鍒嗙被 + 鍒楄〃 */
 .recipes-content {
   display: flex;
   height: calc(100vh - 460rpx);
@@ -407,7 +407,7 @@
   border-radius: 0 4rpx 4rpx 0;
 }
 
-/* 右侧菜品列表 */
+/* 鍙充晶鑿滃搧鍒楄〃 */
 .recipe-list {
   flex: 1;
   background: #FFFFFF;
@@ -507,7 +507,7 @@
   color: #E91E63;
 }
 
-/* 加入按钮 */
+/* 鍔犲叆鎸夐挳 */
 .recipe-add-btn {
   width: 56rpx;
   height: 56rpx;
@@ -551,9 +551,9 @@
   padding: 20rpx 0;
 }
 
-/* ===== mini cart（sticky）===== */
+/* ===== mini cart锛坰ticky锛?==== */
 .mini-cart {
-  margin: 16rpx 24rpx 0;
+  margin: 0;
   background: #3E2723;
   border-radius: 40rpx;
   padding: 20rpx 28rpx;
@@ -580,9 +580,9 @@
   font-weight: 600;
 }
 
-/* 底部安全区 */
+/* 搴曢儴瀹夊叏鍖?*/
 .bottom-space {
-  height: calc(130rpx + env(safe-area-inset-bottom));
+  height: calc(100rpx + env(safe-area-inset-bottom) + 140rpx + 16rpx);
 }
 
 /* Target meal picker */
@@ -590,3 +590,38 @@
 .target-option { padding: 24rpx 32rpx; font-size: 28rpx; color: #5D4037; border-bottom: 1rpx solid #F0EBE3; }
 .target-option-active { color: #7CB342; font-weight: 600; background: #F1F8E9; }
 
+
+/* Loading / Error / Empty states */
+.state-loading, .state-error, .state-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60rpx 32rpx;
+}
+.state-icon {
+  font-size: 80rpx;
+  margin-bottom: 20rpx;
+}
+.state-text {
+  font-size: 30rpx;
+  color: #5D4037;
+  font-weight: 500;
+  margin-bottom: 12rpx;
+  text-align: center;
+}
+.state-hint {
+  font-size: 24rpx;
+  color: #A1887F;
+  text-align: center;
+}
+.state-retry {
+  margin-top: 24rpx;
+  padding: 16rpx 48rpx;
+  background: #7CB342;
+  border-radius: 32rpx;
+}
+.state-retry text {
+  color: #FFFFFF;
+  font-size: 26rpx;
+}
