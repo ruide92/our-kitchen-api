@@ -13,29 +13,51 @@ function createFridgeService(pool) {
     });
   }
 
+  function fridgeRow(row) {
+    if (!row) return null;
+    return {
+      id: row.id, family_id: row.family_id, ingredient_id: row.ingredient_id,
+      display_name_override: row.display_name_override,
+      name: row.display_name_override || row.ingredient_name || '未命名食材',
+      quantity: row.quantity, quantity_text: row.quantity_text, unit_code: row.unit_code,
+      storage_location: row.storage_location, purchase_date: row.purchase_date,
+      expiry_date: row.expiry_date, note: row.note,
+      created_by_user_id: row.created_by_user_id,
+      created_at: row.created_at, updated_at: row.updated_at, version: row.version
+    };
+  }
+
   async function listFridge(familyId, userId, query) {
     return access(familyId, userId, null, false, async tx => {
-      const conditions = ['family_id = $1'];
+      const conditions = ['fi.family_id = $1'];
       const params = [familyId];
       let idx = 2;
-      if (query.storage_location) { conditions.push('storage_location = $' + idx++); params.push(query.storage_location); }
-      const rows = (await tx.query(`SELECT * FROM fridge_items WHERE ${conditions.join(' AND ')} ORDER BY expiry_date NULLS LAST, name`, params)).rows;
-      return rows;
+      if (query.storage_location) { conditions.push('fi.storage_location = $' + idx++); params.push(query.storage_location); }
+      if (query.category) { conditions.push('i.category_code = $' + idx++); params.push(query.category); }
+      const rows = (await tx.query(`
+        SELECT fi.*, i.display_name as ingredient_name, i.canonical_code
+        FROM fridge_items fi
+        LEFT JOIN ingredients i ON i.id = fi.ingredient_id
+        WHERE ${conditions.join(' AND ')}
+        ORDER BY fi.expiry_date NULLS LAST, COALESCE(fi.display_name_override, i.display_name)
+      `, params)).rows;
+      return rows.map(fridgeRow);
     });
   }
 
   async function addFridgeItem(familyId, userId, body) {
     return access(familyId, userId, null, true, async tx => {
       const id = randomUUID();
-      const item = (await tx.query(`INSERT INTO fridge_items(id,family_id,ingredient_id,name,quantity,quantity_text,unit_code,storage_location,purchase_date,expiry_date,note)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-        [id, familyId, body.ingredient_id || null, body.name, body.quantity || null, body.quantity_text || null,
+      const item = (await tx.query(`INSERT INTO fridge_items(id,family_id,ingredient_id,display_name_override,quantity,quantity_text,unit_code,storage_location,purchase_date,expiry_date,note,created_by_user_id,version)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,1) RETURNING *`,
+        [id, familyId, body.ingredient_id || null, body.display_name_override || body.name || null,
+         body.quantity != null ? body.quantity : null, body.quantity_text || null,
          body.unit_code || null, body.storage_location || 'REFRIGERATED', body.purchase_date || null,
-         body.expiry_date || null, body.note || null])).rows[0];
-      await tx.query(`INSERT INTO inventory_movements(id,family_id,fridge_item_id,ingredient_id,movement_type,quantity_delta,unit_code,reference_type,created_by_user_id)
-        VALUES($1,$2,$3,$4,'PURCHASE',$5,$6,'FRIDGE_ADD',$7)`,
-        [randomUUID(), familyId, id, body.ingredient_id || null, body.quantity || null, body.unit_code || null, userId]);
-      return item;
+         body.expiry_date || null, body.note || null, userId])).rows[0];
+      await tx.query(`INSERT INTO inventory_movements(id,family_id,fridge_item_id,ingredient_id,movement_type,quantity_delta,unit_code,performed_by_user_id)
+        VALUES($1,$2,$3,$4,'PURCHASE_IN',$5,$6,$7)`,
+        [randomUUID(), familyId, id, body.ingredient_id || null, body.quantity != null ? body.quantity : 0, body.unit_code || null, userId]);
+      return fridgeRow(item);
     });
   }
 
@@ -43,15 +65,15 @@ function createFridgeService(pool) {
     return access(familyId, userId, null, true, async tx => {
       const existing = (await tx.query('SELECT * FROM fridge_items WHERE id=$1 AND family_id=$2 FOR UPDATE', [itemId, familyId])).rows[0];
       if (!existing) throw new ApiError(404, 'NOT_FOUND', '食材不存在');
-      const fields = ['quantity', 'quantity_text', 'unit_code', 'storage_location', 'purchase_date', 'expiry_date', 'note'];
+      const fields = ['display_name_override', 'quantity', 'quantity_text', 'unit_code', 'storage_location', 'purchase_date', 'expiry_date', 'note'];
       const keys = fields.filter(k => k in body);
       const values = keys.map(k => body[k]);
       const set = keys.map((k, i) => `${k}=$${i + 1}`);
       set.push('version=version+1', 'updated_at=now()');
-      values.push(itemId, body.version || existing.version);
-      const result = await tx.query(`UPDATE fridge_items SET ${set.join(',')} WHERE id=$${values.length - 1} AND version=$${values.length} RETURNING *`, values);
+      values.push(itemId);
+      const result = await tx.query(`UPDATE fridge_items SET ${set.join(',')} WHERE id=$${values.length} RETURNING *`, values);
       if (!result.rows[0]) throw new ApiError(409, 'VERSION_CONFLICT', '版本已更新，请刷新');
-      return result.rows[0];
+      return fridgeRow(result.rows[0]);
     });
   }
 
@@ -59,33 +81,50 @@ function createFridgeService(pool) {
     return access(familyId, userId, null, true, async tx => {
       const item = (await tx.query('SELECT * FROM fridge_items WHERE id=$1 AND family_id=$2', [itemId, familyId])).rows[0];
       if (!item) throw new ApiError(404, 'NOT_FOUND', '食材不存在');
-      await tx.query('DELETE FROM fridge_items WHERE id=$1', [itemId]);
-      await tx.query(`INSERT INTO inventory_movements(id,family_id,fridge_item_id,ingredient_id,movement_type,quantity_delta,unit_code,reference_type,created_by_user_id)
-        VALUES($1,$2,$3,$4,'WASTE',$5,$6,'FRIDGE_DELETE',$7)`,
-        [randomUUID(), familyId, itemId, item.ingredient_id, -(item.quantity || 0), item.unit_code, userId]);
+      await tx.query(`INSERT INTO inventory_movements(id,family_id,fridge_item_id,ingredient_id,movement_type,quantity_delta,unit_code,performed_by_user_id)
+        VALUES($1,$2,$3,$4,'WASTE_OUT',$5,$6,$7)`,
+        [randomUUID(), familyId, itemId, item.ingredient_id, item.quantity ? -item.quantity : 0, item.unit_code, userId]);
+      await tx.query('DELETE FROM fridge_items WHERE id=$1 AND family_id=$2', [itemId, familyId]);
       return { ok: true };
     });
   }
 
+  // Pantry staples
   async function listPantry(familyId, userId) {
     return access(familyId, userId, null, false, async tx => {
-      return (await tx.query('SELECT * FROM pantry_staples WHERE family_id=$1 ORDER BY name', [familyId])).rows;
+      const rows = (await tx.query(`
+        SELECT ps.*, i.display_name as ingredient_name, i.canonical_code
+        FROM pantry_staples ps
+        LEFT JOIN ingredients i ON i.id = ps.ingredient_id
+        WHERE ps.family_id = $1
+        ORDER BY COALESCE(i.display_name, ps.id::text)
+      `, [familyId])).rows;
+      return rows;
     });
   }
 
-  async function putPantry(familyId, userId, ingredientId, body) {
+  async function putPantry(familyId, userId, body) {
     return access(familyId, userId, null, true, async tx => {
-      await tx.query(`INSERT INTO pantry_staples(family_id,ingredient_id,name,quantity,unit_code,assume_available)
-        VALUES($1,$2,$3,$4,$5,$6)
-        ON CONFLICT(family_id,ingredient_id) DO UPDATE SET name=EXCLUDED.name,quantity=EXCLUDED.quantity,unit_code=EXCLUDED.unit_code,assume_available=EXCLUDED.assume_available,updated_at=now()`,
-        [familyId, ingredientId, body.name, body.quantity || null, body.unit_code || null, body.assume_available !== false]);
-      return { ok: true };
+      const existing = (await tx.query('SELECT * FROM pantry_staples WHERE family_id=$1 AND ingredient_id=$2 FOR UPDATE', [familyId, body.ingredient_id])).rows[0];
+      if (existing) {
+        const result = await tx.query(`UPDATE pantry_staples SET quantity=$1, quantity_text=$2, unit_code=$3, assume_available=$4, updated_by_user_id=$5, updated_at=now()
+          WHERE id=$6 RETURNING *`,
+          [body.quantity != null ? body.quantity : null, body.quantity_text || null, body.unit_code || null,
+           body.assume_available != null ? body.assume_available : true, userId, existing.id]);
+        return result.rows[0];
+      }
+      const id = randomUUID();
+      const item = (await tx.query(`INSERT INTO pantry_staples(id,family_id,ingredient_id,quantity,quantity_text,unit_code,assume_available,updated_by_user_id)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+        [id, familyId, body.ingredient_id, body.quantity != null ? body.quantity : null, body.quantity_text || null,
+         body.unit_code || null, body.assume_available != null ? body.assume_available : true, userId])).rows[0];
+      return item;
     });
   }
 
-  async function deletePantry(familyId, userId, ingredientId) {
+  async function deletePantry(familyId, userId, itemId) {
     return access(familyId, userId, null, true, async tx => {
-      await tx.query('DELETE FROM pantry_staples WHERE family_id=$1 AND ingredient_id=$2', [familyId, ingredientId]);
+      await tx.query('DELETE FROM pantry_staples WHERE id=$1 AND family_id=$2', [itemId, familyId]);
       return { ok: true };
     });
   }
