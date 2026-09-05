@@ -13,8 +13,16 @@ function createShoppingService(pool) {
     });
   }
 
-  // Calculate required ingredients from meal items
-  async function calculateMealIngredients(tx, mealId, dinersCount) {
+  // Safe unit conversion: only same dimension with known factor
+  function toBaseQuantity(quantity, unitCode, unitsMap) {
+    if (quantity == null || !unitCode) return { quantity, unitCode, converted: false };
+    const unit = unitsMap.get(unitCode);
+    if (!unit || !unit.to_base_factor) return { quantity, unitCode, converted: false };
+    return { quantity: quantity * unit.to_base_factor, unitCode: unit.dimension === 'MASS' ? 'g' : unit.dimension === 'VOLUME' ? 'ml' : unitCode, converted: true };
+  }
+
+  // Calculate required ingredients from meal items with canonical merge
+  async function calculateMealIngredients(tx, mealId, dinersCount, unitsMap) {
     const items = (await tx.query(`
       SELECT mi.*, r.base_servings
       FROM meal_items mi JOIN recipes r ON r.id = mi.recipe_id
@@ -22,31 +30,45 @@ function createShoppingService(pool) {
     const ingredientMap = new Map();
     for (const item of items) {
       const ratio = item.servings / (item.base_servings || 2);
-      const ingredients = (await tx.query('SELECT * FROM recipe_ingredients WHERE recipe_id=$1 AND required=true', [item.recipe_id])).rows;
+      const ingredients = (await tx.query(`
+        SELECT ri.*, i.display_name as ingredient_name, i.canonical_code, i.default_unit_code
+        FROM recipe_ingredients ri
+        LEFT JOIN ingredients i ON i.id = ri.ingredient_id
+        WHERE ri.recipe_id=$1 AND ri.required=true`, [item.recipe_id])).rows;
       for (const ing of ingredients) {
-        const key = ing.ingredient_id || ing.name;
+        // Canonical key: ingredient_id if available, else canonical_code, else display_name
+        const key = ing.ingredient_id || ing.canonical_code || ing.display_name_override || 'unknown_' + ing.id;
         if (!ingredientMap.has(key)) {
           ingredientMap.set(key, {
-            ingredient_id: ing.ingredient_id, name: ing.name,
-            unit_code: ing.unit_code, quantity: 0, quantity_text: ing.quantity_text,
+            ingredient_id: ing.ingredient_id,
+            name: ing.ingredient_name || ing.display_name_override,
+            unit_code: ing.unit_code,
+            quantity: 0,
+            quantity_text: ing.quantity_text,
             needs_unit_confirmation: !ing.unit_code && !!ing.quantity_text,
             sources: []
           });
         }
         const entry = ingredientMap.get(key);
         if (ing.quantity) entry.quantity += ing.quantity * ratio;
-        entry.sources.push({ recipe_id: item.recipe_id, quantity: ing.quantity, quantity_text: ing.quantity_text, unit_code: ing.unit_code });
+        entry.sources.push({ recipe_id: item.recipe_id, recipe_name: null, quantity: ing.quantity, quantity_text: ing.quantity_text, unit_code: ing.unit_code });
       }
     }
     return Array.from(ingredientMap.values());
   }
 
-  // Deduct fridge inventory
-  async function deductFridge(tx, familyId, ingredients) {
-    const fridge = (await tx.query('SELECT * FROM fridge_items WHERE family_id=$1', [familyId])).rows;
+  // Deduct fridge inventory with unit-safe matching
+  async function deductFridge(tx, familyId, ingredients, unitsMap) {
+    const fridge = (await tx.query(`
+      SELECT fi.*, i.display_name as ingredient_name, i.canonical_code
+      FROM fridge_items fi LEFT JOIN ingredients i ON i.id = fi.ingredient_id
+      WHERE fi.family_id=$1`, [familyId])).rows;
     for (const ing of ingredients) {
       let remaining = ing.quantity || 0;
-      const matching = fridge.filter(f => (f.ingredient_id && f.ingredient_id === ing.ingredient_id) || f.name === ing.name);
+      const matching = fridge.filter(f =>
+        (f.ingredient_id && f.ingredient_id === ing.ingredient_id) ||
+        (f.canonical_code && f.canonical_code === ing.canonical_code)
+      );
       for (const item of matching) {
         if (remaining <= 0) break;
         if (item.quantity && item.unit_code === ing.unit_code) {
@@ -60,16 +82,29 @@ function createShoppingService(pool) {
     return ingredients;
   }
 
-  // Deduct pantry staples
+  // Deduct pantry staples: assume_available=true with null quantity means fully available
   async function deductPantry(tx, familyId, ingredients) {
-    const pantry = (await tx.query('SELECT * FROM pantry_staples WHERE family_id=$1 AND assume_available=true', [familyId])).rows;
+    const pantry = (await tx.query(`
+      SELECT ps.*, i.display_name as ingredient_name, i.canonical_code
+      FROM pantry_staples ps LEFT JOIN ingredients i ON i.id = ps.ingredient_id
+      WHERE ps.family_id=$1`, [familyId])).rows;
     for (const ing of ingredients) {
-      const matching = pantry.filter(p => (p.ingredient_id && p.ingredient_id === ing.ingredient_id) || p.name === ing.name);
-      if (matching.length > 0 && ing.missing_quantity) {
-        const pantryQty = matching.reduce((sum, p) => sum + (p.quantity || 0), 0);
-        const deduct = Math.min(ing.missing_quantity, pantryQty);
-        ing.pantry_deducted = deduct;
-        ing.missing_quantity = Math.max(0, ing.missing_quantity - deduct);
+      const matching = pantry.filter(p =>
+        (p.ingredient_id && p.ingredient_id === ing.ingredient_id) ||
+        (p.canonical_code && p.canonical_code === ing.canonical_code)
+      );
+      if (matching.length > 0 && ing.missing_quantity != null) {
+        // If any matching pantry has assume_available=true and quantity=null, fully deduct
+        const unlimited = matching.some(p => p.assume_available && p.quantity == null);
+        if (unlimited) {
+          ing.pantry_deducted = ing.missing_quantity;
+          ing.missing_quantity = 0;
+        } else {
+          const pantryQty = matching.reduce((sum, p) => sum + (p.assume_available && p.quantity ? p.quantity : 0), 0);
+          const deduct = Math.min(ing.missing_quantity, pantryQty);
+          ing.pantry_deducted = deduct;
+          ing.missing_quantity = Math.max(0, ing.missing_quantity - deduct);
+        }
       }
     }
     return ingredients;
@@ -79,8 +114,13 @@ function createShoppingService(pool) {
     return access(familyId, userId, null, false, async tx => {
       const list = (await tx.query(`SELECT * FROM shopping_lists WHERE family_id=$1 AND status='OPEN' ORDER BY created_at DESC LIMIT 1`, [familyId])).rows[0];
       if (!list) return null;
-      const items = (await tx.query('SELECT * FROM shopping_list_items WHERE list_id=$1 ORDER BY category,name', [list.id])).rows;
-      return { ...list, items };
+      const items = (await tx.query(`
+        SELECT sli.*, i.display_name as ingredient_name, i.canonical_code
+        FROM shopping_list_items sli
+        LEFT JOIN ingredients i ON i.id = sli.ingredient_id
+        WHERE sli.shopping_list_id=$1
+        ORDER BY sli.created_at`, [list.id])).rows;
+      return { ...list, items: items.map(i => ({ ...i, name: i.display_name_override || i.ingredient_name })) };
     });
   }
 
@@ -88,58 +128,61 @@ function createShoppingService(pool) {
     return access(familyId, userId, null, true, async tx => {
       const meal = (await tx.query('SELECT * FROM meals WHERE id=$1 AND family_id=$2', [body.meal_id, familyId])).rows[0];
       if (!meal) throw new ApiError(404, 'NOT_FOUND', '本餐菜单不存在');
+      const unitsRows = (await tx.query('SELECT * FROM units')).rows;
+      const unitsMap = new Map(unitsRows.map(u => [u.code, u]));
+
       let list = (await tx.query(`SELECT * FROM shopping_lists WHERE family_id=$1 AND status='OPEN' FOR UPDATE`, [familyId])).rows[0];
       if (!list) {
         list = (await tx.query(`INSERT INTO shopping_lists(id,family_id,meal_id,status,generated_at,created_by_user_id)
           VALUES($1,$2,$3,'OPEN',now(),$4) RETURNING *`, [randomUUID(), familyId, body.meal_id, userId])).rows[0];
       }
-      // Remove old GENERATED items if REPLACE_GENERATED
       if (body.mode === 'REPLACE_GENERATED') {
-        await tx.query("DELETE FROM shopping_list_items WHERE list_id=$1 AND source='GENERATED'", [list.id]);
+        await tx.query("DELETE FROM shopping_list_items WHERE shopping_list_id=$1 AND source='GENERATED'", [list.id]);
       }
-      // Calculate ingredients
-      let ingredients = await calculateMealIngredients(tx, body.meal_id, meal.diners_count);
-      ingredients = await deductFridge(tx, familyId, ingredients);
+      let ingredients = await calculateMealIngredients(tx, body.meal_id, meal.diners_count, unitsMap);
+      ingredients = await deductFridge(tx, familyId, ingredients, unitsMap);
       ingredients = await deductPantry(tx, familyId, ingredients);
-      // Insert only items with missing quantity > 0 or needs unit confirmation
-      const categoryMap = { '蔬菜': 'VEGETABLE', '肉蛋': 'MEAT', '水产': 'SEAFOOD', '乳品': 'DAIRY', '主食': 'STAPLE', '干货': 'DRY', '其他': 'OTHER' };
+
+      let added = 0;
       for (const ing of ingredients) {
-        if ((ing.missing_quantity && ing.missing_quantity > 0) || ing.needs_unit_confirmation) {
-          const missingText = ing.needs_unit_confirmation ? ing.quantity_text : (ing.missing_quantity + (ing.unit_code || ''));
-          await tx.query(`INSERT INTO shopping_list_items(id,list_id,ingredient_id,name,category,source,required_quantity,required_quantity_text,unit_code,inventory_deducted,pantry_deducted,missing_quantity,missing_quantity_text,needs_unit_confirmation,calculation_evidence)
-            VALUES($1,$2,$3,$4,'OTHER','GENERATED',$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-            [randomUUID(), list.id, ing.ingredient_id, ing.name, ing.quantity, ing.quantity_text, ing.unit_code,
-             ing.inventory_deducted || 0, ing.pantry_deducted || 0, ing.missing_quantity, missingText,
-             ing.needs_unit_confirmation, JSON.stringify({ sources: ing.sources })]);
+        // Only add if missing quantity > 0 OR needs unit confirmation
+        if ((ing.missing_quantity != null && ing.missing_quantity > 0) || ing.needs_unit_confirmation) {
+          const existing = (await tx.query('SELECT id FROM shopping_list_items WHERE shopping_list_id=$1 AND ingredient_id=$2', [list.id, ing.ingredient_id])).rows[0];
+          if (!existing) {
+            await tx.query(`INSERT INTO shopping_list_items(id,shopping_list_id,ingredient_id,display_name_override,required_quantity,required_quantity_text,unit_code,is_purchased,source,needs_unit_confirmation,created_by_user_id)
+              VALUES($1,$2,$3,$4,$5,$6,$7,false,'GENERATED',$8,$9)`,
+              [randomUUID(), list.id, ing.ingredient_id, ing.name, ing.missing_quantity, ing.quantity_text, ing.unit_code, ing.needs_unit_confirmation || false, userId]);
+            added++;
+          }
         }
       }
-      await tx.query('UPDATE shopping_lists SET generated_at=now(),updated_at=now() WHERE id=$1', [list.id]);
-      const items = (await tx.query('SELECT * FROM shopping_list_items WHERE list_id=$1 ORDER BY category,name', [list.id])).rows;
-      return { ...list, items };
+      await tx.query('UPDATE shopping_lists SET generated_at=now(), updated_at=now() WHERE id=$1', [list.id]);
+      const items = (await tx.query('SELECT * FROM shopping_list_items WHERE shopping_list_id=$1 ORDER BY created_at', [list.id])).rows;
+      return { ...list, items, generated_count: added };
     });
   }
 
   async function addManualItem(familyId, userId, listId, body) {
     return access(familyId, userId, null, true, async tx => {
       const list = (await tx.query('SELECT * FROM shopping_lists WHERE id=$1 AND family_id=$2 AND status=$3', [listId, familyId, 'OPEN'])).rows[0];
-      if (!list) throw new ApiError(404, 'NOT_FOUND', '购物清单不存在');
-      const item = (await tx.query(`INSERT INTO shopping_list_items(id,list_id,name,category,source,required_quantity,required_quantity_text,unit_code,note)
-        VALUES($1,$2,$3,$4,'MANUAL',$5,$6,$7,$8) RETURNING *`,
-        [randomUUID(), listId, body.name, body.category || 'OTHER', body.quantity || null,
-         body.quantity_text || null, body.unit_code || null, body.note || null])).rows[0];
+      if (!list) throw new ApiError(404, 'NOT_FOUND', '购物清单不存在或已关闭');
+      const item = (await tx.query(`INSERT INTO shopping_list_items(id,shopping_list_id,ingredient_id,display_name_override,required_quantity,required_quantity_text,unit_code,is_purchased,source,note,created_by_user_id)
+        VALUES($1,$2,$3,$4,$5,$6,$7,false,'MANUAL',$8,$9) RETURNING *`,
+        [randomUUID(), listId, body.ingredient_id || null, body.name, body.quantity != null ? body.quantity : null,
+         body.quantity_text || null, body.unit_code || null, body.note || null, userId])).rows[0];
       return item;
     });
   }
 
   async function updateItem(familyId, userId, listId, itemId, body) {
     return access(familyId, userId, null, true, async tx => {
-      const fields = ['required_quantity', 'required_quantity_text', 'unit_code', 'purchased_quantity', 'is_purchased', 'note'];
+      const fields = ['is_purchased', 'purchased_quantity', 'required_quantity', 'required_quantity_text', 'unit_code', 'note', 'display_name_override'];
       const keys = fields.filter(k => k in body);
       const values = keys.map(k => body[k]);
       const set = keys.map((k, i) => `${k}=$${i + 1}`);
       set.push('updated_at=now()');
       values.push(itemId, listId);
-      const result = await tx.query(`UPDATE shopping_list_items SET ${set.join(',')} WHERE id=$${values.length - 1} AND list_id=$${values.length} RETURNING *`, values);
+      const result = await tx.query(`UPDATE shopping_list_items SET ${set.join(',')} WHERE id=$${values.length - 1} AND shopping_list_id=$${values.length} RETURNING *`, values);
       if (!result.rows[0]) throw new ApiError(404, 'NOT_FOUND', '商品不存在');
       return result.rows[0];
     });
@@ -147,7 +190,7 @@ function createShoppingService(pool) {
 
   async function deleteItem(familyId, userId, listId, itemId) {
     return access(familyId, userId, null, true, async tx => {
-      await tx.query('DELETE FROM shopping_list_items WHERE id=$1 AND list_id=$2', [itemId, listId]);
+      await tx.query('DELETE FROM shopping_list_items WHERE id=$1 AND shopping_list_id=$2', [itemId, listId]);
       return { ok: true };
     });
   }
@@ -155,21 +198,41 @@ function createShoppingService(pool) {
   async function completeList(familyId, userId, listId, body) {
     return access(familyId, userId, null, true, async tx => {
       const list = (await tx.query('SELECT * FROM shopping_lists WHERE id=$1 AND family_id=$2 AND status=$3 FOR UPDATE', [listId, familyId, 'OPEN'])).rows[0];
-      if (!list) throw new ApiError(404, 'NOT_FOUND', '购物清单不存在');
-      const purchased = (await tx.query('SELECT * FROM shopping_list_items WHERE list_id=$1 AND is_purchased=true', [listId])).rows;
-      // Add purchased items to fridge
-      for (const item of purchased) {
-        const qty = item.purchased_quantity || item.missing_quantity || item.required_quantity;
-        const fridgeId = randomUUID();
-        await tx.query(`INSERT INTO fridge_items(id,family_id,ingredient_id,name,quantity,quantity_text,unit_code,storage_location,note)
-          VALUES($1,$2,$3,$4,$5,$6,$7,'REFRIGERATED','购物入库')`,
-          [fridgeId, familyId, item.ingredient_id, item.name, qty, item.required_quantity_text, item.unit_code]);
-        await tx.query(`INSERT INTO inventory_movements(id,family_id,fridge_item_id,ingredient_id,movement_type,quantity_delta,unit_code,reference_type,reference_id,created_by_user_id)
-          VALUES($1,$2,$3,$4,'SHOPPING_COMPLETE',$5,$6,'SHOPPING_LIST',$7,$8)`,
-          [randomUUID(), familyId, fridgeId, item.ingredient_id, qty, item.unit_code, listId, userId]);
+      if (!list) throw new ApiError(404, 'NOT_FOUND', '购物清单不存在或已关闭');
+      const purchasedItems = (await tx.query('SELECT * FROM shopping_list_items WHERE shopping_list_id=$1 AND is_purchased=true', [listId])).rows;
+      const purchaseDetails = body && body.items ? body.items : [];
+
+      for (const item of purchasedItems) {
+        const detail = purchaseDetails.find(d => d.item_id === item.id) || {};
+        const storageLocation = detail.storage_location || 'REFRIGERATED';
+        const expiryDate = detail.expiry_date || null;
+        const actualQty = detail.purchased_quantity != null ? detail.purchased_quantity : item.required_quantity;
+
+        // Try to merge with existing compatible fridge batch
+        const existing = (await tx.query(`
+          SELECT * FROM fridge_items
+          WHERE family_id=$1 AND ingredient_id=$2 AND unit_code=$3 AND storage_location=$4 AND (expiry_date IS NOT DISTINCT FROM $5)
+          FOR UPDATE`, [familyId, item.ingredient_id, item.unit_code, storageLocation, expiryDate])).rows[0];
+
+        let fridgeItemId;
+        if (existing) {
+          const newQty = (existing.quantity || 0) + (actualQty || 0);
+          await tx.query('UPDATE fridge_items SET quantity=$1, version=version+1, updated_at=now() WHERE id=$2', [newQty, existing.id]);
+          fridgeItemId = existing.id;
+        } else {
+          fridgeItemId = randomUUID();
+          await tx.query(`INSERT INTO fridge_items(id,family_id,ingredient_id,display_name_override,quantity,quantity_text,unit_code,storage_location,expiry_date,note,created_by_user_id,version)
+            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,1)`,
+            [fridgeItemId, familyId, item.ingredient_id, item.display_name_override, actualQty,
+             item.required_quantity_text, item.unit_code, storageLocation, expiryDate, item.note, userId]);
+        }
+        // Inventory movement
+        await tx.query(`INSERT INTO inventory_movements(id,family_id,fridge_item_id,ingredient_id,movement_type,quantity_delta,unit_code,shopping_item_id,performed_by_user_id)
+          VALUES($1,$2,$3,$4,'PURCHASE_IN',$5,$6,$7,$8)`,
+          [randomUUID(), familyId, fridgeItemId, item.ingredient_id, actualQty || 0, item.unit_code, item.id, userId]);
       }
-      await tx.query(`UPDATE shopping_lists SET status='COMPLETED',completed_at=now(),updated_at=now() WHERE id=$1`, [listId]);
-      return { ok: true, purchased_count: purchased.length };
+      await tx.query("UPDATE shopping_lists SET status='COMPLETED', updated_at=now() WHERE id=$1", [listId]);
+      return { ok: true, purchased_count: purchasedItems.length };
     });
   }
 
