@@ -6,6 +6,7 @@ const { randomUUID } = require('node:crypto');
 // Ingredients: canonical_code, display_name, category_code, default_unit_code, aliases
 const INGREDIENTS = [
   { code: 'pork_belly', name: '五花肉', category: 'MEAT', unit: 'g', aliases: [] },
+  { code: 'pork_ribs', name: '排骨', category: 'MEAT', unit: 'g', aliases: ['猪排骨'] },
   { code: 'pork_tenderloin', name: '猪里脊', category: 'MEAT', unit: 'g', aliases: ['里脊肉'] },
   { code: 'chicken_breast', name: '鸡胸肉', category: 'MEAT', unit: 'g', aliases: [] },
   { code: 'egg', name: '鸡蛋', category: 'MEAT', unit: 'piece', aliases: [] },
@@ -25,6 +26,7 @@ const INGREDIENTS = [
   { code: 'milk', name: '牛奶', category: 'DAIRY', unit: 'piece', aliases: [] },
   { code: 'toast', name: '吐司', category: 'STAPLE', unit: 'piece', aliases: ['面包'] },
   { code: 'shrimp', name: '鲜虾', category: 'SEAFOOD', unit: 'g', aliases: ['虾'] },
+  { code: 'sea_bass', name: '鲈鱼', category: 'SEAFOOD', unit: 'g', aliases: ['海鲈鱼'] },
 ];
 
 const RECIPES = [
@@ -94,7 +96,7 @@ const RECIPES = [
     ]},
   { name: '红烧排骨', category: 'HOT_DISH', cook_time: 45, spiciness: 1, base_servings: 2, meal_types: ['LUNCH','DINNER'],
     ingredients: [
-      { name: '五花肉', quantity: 400, unit: 'g', type: 'MAIN' },
+      { name: '排骨', quantity: 400, unit: 'g', type: 'MAIN' },
       { name: '生姜', quantity: 3, unit: 'piece', type: 'SEASONING' },
       { name: '大蒜', quantity: 3, unit: 'clove', type: 'SEASONING' },
       { name: '生抽', quantity: 20, unit: 'ml', type: 'SEASONING' },
@@ -102,7 +104,7 @@ const RECIPES = [
     ]},
   { name: '清蒸鲈鱼', category: 'SEAFOOD', cook_time: 20, spiciness: 0, base_servings: 2, meal_types: ['LUNCH','DINNER'],
     ingredients: [
-      { name: '鲜虾', quantity: 300, unit: 'g', type: 'MAIN' },
+      { name: '鲈鱼', quantity: 300, unit: 'g', type: 'MAIN' },
       { name: '小葱', quantity: 2, unit: 'root', type: 'SEASONING' },
       { name: '生姜', quantity: 3, unit: 'piece', type: 'SEASONING' },
       { name: '生抽', quantity: 15, unit: 'ml', type: 'SEASONING' },
