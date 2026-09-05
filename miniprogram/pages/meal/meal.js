@@ -1,4 +1,4 @@
-const { createV1Api } = require('../../utils/v1-api');
+﻿const { createV1Api } = require('../../utils/v1-api');
 const { createMealTarget } = require('../../utils/meal-target');
 
 const MEAL_LABELS = { BREAKFAST: '早餐', LUNCH: '午餐', DINNER: '晚餐' };
@@ -12,6 +12,7 @@ Page({
     meal: null,
     items: [],
     loading: true,
+    mealError: null,
     dinersCount: 2,
     pageTitle: '',
     dateLabel: '',

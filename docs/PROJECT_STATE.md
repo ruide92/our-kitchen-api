@@ -335,3 +335,42 @@ Backend core and frontend real-data wiring for Recipe/Meal/Fridge/Shopping loop.
 - \164fb86\ feat: connect menu to real recipe and meal API
 - \ee50e15\ feat: connect fridge to real v1 api with fixture fallback
 - \1d8c637\ feat: connect shopping to real v1 api with fixture fallback
+
+## FRONTEND CONTRACT CLOSEOUT (09E) — 2026-09-05
+
+**Checkpoint E1: fix: close frontend real-data contracts (98827ea)**
+- WXML event handler audit: **PASS** — 0 missing across all 6 pages (index/menu/meal/fridge/shopping/mine)
+- Homepage fixture normal path: **REMOVED** — real family/members/weekly/meal via V1 API, no _buildFromFixture on real login
+- Homepage goTodayMenu: **REAL** — navigateTo /pages/meal/meal
+- Homepage addMealToCurrent: **REAL** — ensure Meal + addMealItem API, no local mi-local-*
+- Unit UI ↔ API mapping: **PASS** — utils/unit-display.js, Chinese labels → canonical codes, custom units → null + quantity_text
+- Fridge: **PASS** — 5 missing handlers fixed, pantry view model (ingredient_name/assume_available), unit mapping in add/edit
+- Menu target picker: **WIRED** — openTargetPicker/closeTargetPicker/selectTargetMeal connected to WXML, 6 meal options
+- Shopping manual add/edit: **CONTRACT FIXED** — required_quantity/required_quantity_text unified, display_name_override, no illegal unit_code
+- Shopping complete purchase WXML: **REAL** — per-item purchased_quantity input, storage_location picker, expiry_date picker, no "演示"
+- Backend addManualItem: **BACKWARD COMPAT** — accepts required_quantity + quantity (old)
+- Unit tests: **52/52 PASS** (38 legacy + 6 meal-target + 8 unit-display)
+- Core integration: **20/20 PASS**
+- Legacy integration: **19/19 PASS**
+
+**Checkpoint E2: fix: close wxml runtime and layout regressions**
+- Meal page WXML: **FIXED** — removed illegal <text><view> nesting, added mealError + retryLoad state
+- Meal page: error ≠ empty (network error shows retry, not "这顿饭还没有菜")
+- DevTools CLI compile: **0 project error** — preview QR generated at evidence/core-real-ui/preview-qr.png
+- git diff --check: **PASS**
+
+**Remaining (NOT DONE):**
+- Global Bottom Dock visual proof: **PENDING** — needs DevTools iPhone screenshot evidence (code structure in place)
+- Local E2E real flow (点菜→本餐→购物→购买入冰箱→重启): **NOT RUN**
+- Neon cloud migration 003-006: **PENDING**
+- Render redeploy: **PENDING**
+- Public E2E: **NOT RUN**
+- Owner phone core acceptance: **NOT RUN**
+- Second user / 糖糖: **NOT DONE**
+- Recommendation Engine / Weekly real data: **NOT DONE**
+- Mine Visual Acceptance: **PENDING**
+
+**Fixture remaining in real mode:**
+- Weekly Plan tab: still fixture if no real ACTIVE weekly plan (shows real empty state when null)
+- Homepage quick entries (随机菜谱/家人喜欢/一人菜): placeholder toast (not fake data)
+- Recipe seed data: 10 base recipes in local PG (Neon not yet seeded)

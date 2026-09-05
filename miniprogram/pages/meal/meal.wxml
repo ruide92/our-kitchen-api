@@ -2,13 +2,14 @@
   <view class="header">
     <view class="header-left">
       <text class="header-title">{{pageTitle}}</text>
-      <text class="header-sub">{{dateLabel}} ·
-        <view class="diners-control" catchtap="">
+      <view class="header-sub">
+        <text class="header-date">{{dateLabel}}</text>
+        <view class="diners-control">
           <text class="diners-btn" bindtap="decreaseDiners">−</text>
           <text class="diners-count">{{dinersCount}}人</text>
           <text class="diners-btn" bindtap="increaseDiners">＋</text>
         </view>
-      </text>
+      </view>
     </view>
     <view class="header-add" bindtap="goAddRecipes">
       <text class="header-add-icon">＋</text>
@@ -17,6 +18,13 @@
   </view>
 
   <view wx:if="{{loading}}" class="loading">加载中...</view>
+
+  <view wx:elif="{{mealError}}" class="empty">
+    <text class="empty-icon">⚠️</text>
+    <text class="empty-title">加载失败</text>
+    <text class="empty-sub">{{mealError}}</text>
+    <view class="empty-btn" bindtap="retryLoad">重新加载</view>
+  </view>
 
   <view wx:elif="{{items.length === 0}}" class="empty">
     <text class="empty-icon">🍽</text>
@@ -36,7 +44,7 @@
     <view class="list-bottom-space"></view>
   </scroll-view>
 
-  <view wx:if="{{items.length > 0}}" class="action-bar">
+  <view wx:if="{{items.length > 0 && !loading && !mealError}}" class="action-bar">
     <view class="action-count">{{items.length}} 道菜</view>
     <view class="action-btn" bindtap="generateShopping">生成购物清单</view>
   </view>

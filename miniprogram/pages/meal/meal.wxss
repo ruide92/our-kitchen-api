@@ -1,4 +1,4 @@
-.page {
+﻿.page {
   padding: 0 0 calc(140rpx + env(safe-area-inset-bottom));
   min-height: 100vh;
   box-sizing: border-box;
@@ -131,3 +131,6 @@
 }
 
 .bottom-space { height: calc(130rpx + env(safe-area-inset-bottom)); }
+
+.header-sub { display: flex; align-items: center; gap: 16rpx; margin-top: 8rpx; }
+.header-date { font-size: 24rpx; color: #8D6E63; }

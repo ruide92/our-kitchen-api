@@ -352,7 +352,6 @@ Page({
       wx.showToast({ title: err.message || '加入失败', icon: 'none' })
     }
   },
-  },
 
   // ===== 快捷入口 =====
   // V4 fixture 阶段：legacy 页面（random/favorites/today-menu/detail）尚未迁移，
