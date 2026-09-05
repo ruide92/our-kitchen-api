@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 冰箱 Tab — Real V1 data mode
  *
  * REAL MODE: no fixture fallback. All CRUD via V1 API.
@@ -33,6 +33,8 @@ Page({
     expiringCount: 0,
     expiringItems: [],
     loading: false,
+    pantryLoading: false,
+    pantryError: null,
     error: null,
     // Sheets
     showAddSheet: false,
@@ -79,6 +81,8 @@ Page({
         expiringCount: expiring.length,
         expiringItems: expiring.slice(0, 3),
         loading: false,
+    pantryLoading: false,
+    pantryError: null,
       })
       this._refreshFiltered()
     } catch (e) {
@@ -134,7 +138,7 @@ Page({
 
   // ===== Tab switch =====
   switchTab(e) { this.setData({ activeTab: e.currentTarget.dataset.tab }) },
-  selectCategory(e) { this.setData({ currentCategory: e.currentTarget.dataset.code }, () => this._refreshFiltered()) },
+  selectCategory(e) { this.setData({ currentCategory: e.currentTarget.dataset.category }, () => this._refreshFiltered()) },
   onSearchInput(e) { this.setData({ searchKeyword: e.detail.value }, () => this._refreshFiltered()) },
 
   // ===== Add sheet =====

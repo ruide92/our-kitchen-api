@@ -410,3 +410,44 @@ Backend core and frontend real-data wiring for Recipe/Meal/Fridge/Shopping loop.
 - Global Bottom Dock visual evidence: PENDING
 
 **Next:** NEON MIGRATION (after remaining frontend items closed)
+
+## FINAL LOCAL GATE (09G) — 2026-09-05
+
+**Commit: fix: close final local kitchen gate**
+
+**Critical Bug Fixes:**
+- Shopping meal_summary SQL: **FIXED** — $1 malformed placeholder corrected to $1; WHERE mi.meal_id= corrected to WHERE mi.meal_id=
+- Shopping sources persistence: **REAL** — migration 007 adds sources JSONB to shopping_list_items; generateList writes ing.sources (recipe_id, recipe_name, quantity, quantity_text, unit_code); GET current returns sources
+- Migration 007: **CREATED** —  07_shopping_evidence.sql incremental ALTER TABLE; sources removed from 006 to avoid checksum drift
+- Shopping category_code: **ADDED** — getCurrentList SELECT includes i.category_code for frontend grouping
+
+**Frontend Fixes:**
+- Homepage WXML VM: **ALIGNED** — members[0].nickname/avatar_url (not .user.nickname); safe for 0/1/2+ members; second avatar shows invite placeholder
+- Homepage loading/error: **RENDERED** — loading state, loadError with retry button, error != empty
+- Homepage meal error: **NOT SWALLOWED** — catch rethrows non-404 errors to homepage loadError
+- Homepage diners: **from settings** — Promise.all loads family/members/weekly/settings; dinersLabel from settings.default_diners
+- Meal error reset: **FIXED** — loadMeal starts loading=true/mealError=null; success clears mealError
+- Menu picker overlay: **DONE** — openTargetPicker hideTabBar, closeTargetPicker showTabBar, selectTargetMeal showTabBar, onHide/onUnload restore
+- Fridge dataset: **FIXED** — dataset.code -> dataset.category unified with WXML
+- Fridge pantry states: **ADDED** — pantryLoading/pantryError
+- Shopping diners UI: **FIXED** — uses mealSummary.diners_count (not currentList.diners_count)
+- Shopping complete WXML: **REAL** — per-item purchased_quantity input, storage picker, expiry date picker; "演示" text=0
+
+**Tests:**
+- Unit: **52/52 PASS** (38 legacy + 6 meal-target + 8 unit-display)
+- Core integration: **22/22 PASS** (20 original + 2 new: GET current meal_summary, evidence persistence)
+- Legacy integration: **19/19 PASS**
+- Total integration: **41/41 PASS**
+- WXML audit: **missing=0, dynamic=0, fixture imports=0**
+- DevTools CLI compile: **0 project error**
+
+**Remaining (NOT DONE):**
+- Menu custom date picker: PENDING
+- Menu Loading/Error/Empty WXML: PENDING (JS has states)
+- Fridge purchase_date edit+save: PENDING
+- Fridge custom unit input visibility: PENDING
+- Fridge Loading/Error/Empty WXML: PENDING
+- Real frontend payload tests (mock API): PENDING (only unit-display helper tests)
+- Global Bottom Dock visual evidence: PENDING (no auto screenshot)
+
+**Next:** CODE GATE PASS / VISUAL PENDING — remaining frontend items + visual evidence before NEON MIGRATION

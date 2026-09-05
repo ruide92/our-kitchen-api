@@ -24,7 +24,7 @@ function createShoppingService(pool) {
   // Calculate required ingredients from meal items with canonical merge and safe unit conversion
   async function calculateMealIngredients(tx, mealId, dinersCount, unitsMap) {
     const items = (await tx.query(`
-      SELECT mi.*, r.base_servings
+      SELECT mi.*, r.base_servings, r.name as recipe_name
       FROM meal_items mi JOIN recipes r ON r.id = mi.recipe_id
       WHERE mi.meal_id = $1`, [mealId])).rows;
     const ingredientMap = new Map();
@@ -62,7 +62,7 @@ function createShoppingService(pool) {
         } else if (ing.unit_code) {
           entry.quantity += rawQty || 0;
         }
-        entry.sources.push({ recipe_id: item.recipe_id, quantity: ing.quantity, quantity_text: ing.quantity_text, unit_code: ing.unit_code });
+        entry.sources.push({ recipe_id: item.recipe_id, recipe_name: item.recipe_name, quantity: ing.quantity, quantity_text: ing.quantity_text, unit_code: ing.unit_code });
       }
     }
     return Array.from(ingredientMap.values());
@@ -142,7 +142,7 @@ function createShoppingService(pool) {
       const list = (await tx.query(`SELECT * FROM shopping_lists WHERE family_id=$1 AND status='OPEN' ORDER BY created_at DESC LIMIT 1`, [familyId])).rows[0];
       if (!list) return null;
       const items = (await tx.query(`
-        SELECT sli.*, i.display_name as ingredient_name, i.canonical_code
+        SELECT sli.*, i.display_name as ingredient_name, i.canonical_code, i.category_code
         FROM shopping_list_items sli
         LEFT JOIN ingredients i ON i.id = sli.ingredient_id
         WHERE sli.shopping_list_id=$1
@@ -150,9 +150,9 @@ function createShoppingService(pool) {
       // meal_summary from meal_id JOIN
       let mealSummary = null;
       if (list.meal_id) {
-        const mealRow = (await tx.query('SELECT * FROM meals WHERE id=', [list.meal_id])).rows[0];
+        const mealRow = (await tx.query('SELECT * FROM meals WHERE id=$1', [list.meal_id])).rows[0];
         if (mealRow) {
-          const mealItems = (await tx.query('SELECT mi.*, r.name as recipe_name FROM meal_items mi LEFT JOIN recipes r ON r.id = mi.recipe_id WHERE mi.meal_id= ORDER BY mi.sort_order', [list.meal_id])).rows;
+          const mealItems = (await tx.query('SELECT mi.*, r.name as recipe_name FROM meal_items mi LEFT JOIN recipes r ON r.id = mi.recipe_id WHERE mi.meal_id=$1 ORDER BY mi.sort_order', [list.meal_id])).rows;
           const mtLabel = { BREAKFAST: '早餐', LUNCH: '午餐', DINNER: '晚餐' }[mealRow.meal_type] || mealRow.meal_type;
           mealSummary = { title: mealRow.meal_date + ' ' + mtLabel, meal_date: mealRow.meal_date, meal_type: mealRow.meal_type, diners_count: mealRow.diners_count, recipes: mealItems.map(mi => mi.recipe_name || '菜谱').filter(Boolean) };
         }
@@ -191,10 +191,10 @@ function createShoppingService(pool) {
         if ((missingQty != null && missingQty > 0) || ing.needs_unit_confirmation) {
           const existing = (await tx.query('SELECT id FROM shopping_list_items WHERE shopping_list_id=$1 AND ingredient_id=$2 AND unit_code IS NOT DISTINCT FROM $3 AND source=\'GENERATED\'', [list.id, ing.ingredient_id, ing.unit_code])).rows[0];
           if (!existing) {
-            await tx.query(`INSERT INTO shopping_list_items(id,shopping_list_id,ingredient_id,display_name_override,required_quantity,required_quantity_text,unit_code,inventory_deducted,pantry_deducted,missing_quantity,is_purchased,source,needs_unit_confirmation,created_by_user_id)
-              VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,false,'GENERATED',$11,$12)`,
+            await tx.query(`INSERT INTO shopping_list_items(id,shopping_list_id,ingredient_id,display_name_override,required_quantity,required_quantity_text,unit_code,inventory_deducted,pantry_deducted,missing_quantity,sources,is_purchased,source,needs_unit_confirmation,created_by_user_id)
+              VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,false,'GENERATED',$12,$13)`,
               [randomUUID(), list.id, ing.ingredient_id, ing.name, requiredQty, ing.quantity_text, ing.unit_code,
-               invDed, panDed, missingQty, ing.needs_unit_confirmation || false, userId]);
+               invDed, panDed, missingQty, JSON.stringify(ing.sources || []), ing.needs_unit_confirmation || false, userId]);
             added++;
           }
         }

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 首页 — Real V1 Data
  * 数据来源：V1 API（family/members/weekly/meal）。
  * 正常已登录 + active family 路径不使用任何 fixture。
@@ -94,10 +94,11 @@ Page({
     }
     this.setData({ loading: true, loadError: null })
     try {
-      const [family, members, weekly] = await Promise.all([
+      const [family, members, weekly, settings] = await Promise.all([
         this._api.getFamily(this._familyId),
         this._api.getMembers(this._familyId),
         this._api.getWeeklyPlan(this._familyId, this.data.weekDays[0].fullDate),
+        this._api.getFamilySettings(this._familyId).catch(() => null),
       ])
       // Family + members view model
       const memberVM = (members || []).map(m => ({
@@ -108,7 +109,7 @@ Page({
       this.setData({
         family: { name: family?.name || '我们的小厨房' },
         members: memberVM,
-        dinersLabel: (family?.default_diners || 2) + '人',
+        dinersLabel: (settings?.default_diners || 2) + '人',
         weeklyPlan: weekly || null,
       })
       // Weekly display from real weeklyPlan
@@ -143,13 +144,15 @@ Page({
               currentMealLabel: '',
             })
           }
-        } catch (_) { /* meal not found = empty */ }
+        } catch (mealErr) { if (mealErr.status !== 404 && mealErr.code !== 'NOT_FOUND') throw mealErr; }
       }
       this.setData({ loading: false, loadError: null })
     } catch (e) {
       this.setData({ loading: false, loadError: e.message || '加载失败，请重试' })
     }
   },
+
+  goMine() { wx.switchTab({ url: '/pages/mine/mine' }) },
 
   retryLoad() {
     this._loadRealData()

@@ -1,4 +1,4 @@
-const test = require('node:test');
+﻿const test = require('node:test');
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
 const path = require('node:path');
@@ -390,5 +390,53 @@ test('Core kitchen HTTP checkpoint against real PostgreSQL', async t => {
     assert.ok(gItem, 'g unit item should exist');
     assert.equal(num(rootItem.required_quantity), 2, 'root item = 2根');
     assert.equal(num(gItem.required_quantity), 30, 'g item = 30g');
+  });
+
+  await t.test('shopping GET current returns meal_summary with real recipe names', async () => {
+    const fa = await makeFamily('B', 'GETCUR Family');
+    // Create pork ingredient
+    const ingPork = randomUUID();
+    await pool.query(`INSERT INTO ingredients(id,canonical_code,display_name,category_code,default_unit_code) VALUES ($1,'pork','猪肉','MEAT','g')`, [ingPork]);
+    // Recipe: 辣椒炒肉 with pork 300g
+    const recipe = randomUUID();
+    await pool.query(`INSERT INTO recipes(id,kind,family_id,source_type,name,base_servings,visibility,version) VALUES ($1,'BASE',NULL,'SEED','辣椒炒肉',2,'PUBLIC',1)`, [recipe]);
+    await pool.query(`INSERT INTO recipe_ingredients(id,recipe_id,ingredient_id,display_name_override,quantity,unit_code,type,required,sort_order) VALUES ($1,$2,$3,'猪肉',300,'g','MAIN',true,0)`, [randomUUID(), recipe, ingPork]);
+    // Create meal with 2 servings
+    const meal = await makeMealWithRecipes('B', fa.id, '2026-09-22', 'DINNER', [recipe]);
+    // Generate shopping list
+    await request('B', 'POST', `/families/${fa.id}/shopping-lists/generate`, { meal_id: meal.id, mode: 'REPLACE_GENERATED' });
+    // GET current
+    const res = await request('B', 'GET', `/families/${fa.id}/shopping-lists/current`);
+    assert.equal(res.status, 200, 'GET current should be 200');
+    const list = res.body.data;
+    assert.ok(list.meal_summary, 'meal_summary should not be null');
+    const md = new Date(list.meal_summary.meal_date); assert.equal(md.getUTCFullYear(), 2026, 'meal_date year'); assert.equal(md.getUTCMonth(), 8, 'meal_date month'); assert.equal(md.getUTCDate(), 21, 'meal_date day (UTC)');
+    assert.equal(list.meal_summary.meal_type, 'DINNER', 'meal_type correct');
+    assert.equal(num(list.meal_summary.diners_count), 2, 'diners_count correct');
+    assert.ok(list.meal_summary.recipes.includes('辣椒炒肉'), 'recipes should include 辣椒炒肉');
+  });
+
+  await t.test('shopping evidence persistence: sources survive GET current reload', async () => {
+    const fa = await makeFamily('C', 'EVID Family');
+    const ingPork = randomUUID();
+    await pool.query(`INSERT INTO ingredients(id,canonical_code,display_name,category_code,default_unit_code) VALUES ($1,'pork2','猪肉','MEAT','g')`, [ingPork]);
+    const recipe = randomUUID();
+    await pool.query(`INSERT INTO recipes(id,kind,family_id,source_type,name,base_servings,visibility,version) VALUES ($1,'BASE',NULL,'SEED','苦瓜炒蛋',2,'PUBLIC',1)`, [recipe]);
+    await pool.query(`INSERT INTO recipe_ingredients(id,recipe_id,ingredient_id,display_name_override,quantity,unit_code,type,required,sort_order) VALUES ($1,$2,$3,'猪肉',400,'g','MAIN',true,0)`, [randomUUID(), recipe, ingPork]);
+    const meal = await makeMealWithRecipes('C', fa.id, '2026-09-23', 'LUNCH', [recipe]);
+    await request('C', 'POST', `/families/${fa.id}/shopping-lists/generate`, { meal_id: meal.id, mode: 'REPLACE_GENERATED' });
+    // GET current and verify evidence fields + sources
+    const res = await request('C', 'GET', `/families/${fa.id}/shopping-lists/current`);
+    const list = res.body.data;
+    const porkItem = list.items.find(i => i.ingredient_id === ingPork);
+    assert.ok(porkItem, 'pork item should exist');
+    assert.ok(porkItem.required_quantity != null, 'required_quantity present');
+    assert.ok(porkItem.inventory_deducted != null, 'inventory_deducted present');
+    assert.ok(porkItem.pantry_deducted != null, 'pantry_deducted present');
+    assert.ok(porkItem.missing_quantity != null, 'missing_quantity present');
+    assert.ok(Array.isArray(porkItem.sources), 'sources should be array');
+    assert.ok(porkItem.sources.length > 0, 'sources should not be empty');
+    assert.ok(porkItem.sources[0].recipe_name, 'source should have recipe_name');
+    assert.equal(porkItem.sources[0].recipe_name, '苦瓜炒蛋', 'source recipe_name correct');
   });
 });

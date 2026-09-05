@@ -27,7 +27,6 @@ CREATE TABLE IF NOT EXISTS shopping_list_items (
   inventory_deducted DECIMAL(12,3),
   pantry_deducted DECIMAL(12,3),
   missing_quantity DECIMAL(12,3),
-  sources JSONB DEFAULT '[]'::jsonb,
   purchased_quantity DECIMAL(12,3),
   is_purchased BOOLEAN NOT NULL DEFAULT false,
   source TEXT NOT NULL DEFAULT 'GENERATED' CHECK (source IN ('GENERATED','MANUAL')),

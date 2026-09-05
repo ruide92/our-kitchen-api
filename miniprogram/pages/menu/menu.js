@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 菜单 Tab — Real V1 data mode
  *
  * REAL MODE: authenticated + active family -> no fixture fallback.
@@ -69,6 +69,10 @@ Page({
     this._loadAll()
   },
 
+  onHide() { showTabBar(this) },
+
+  onUnload() { showTabBar(this) },
+
   onShow() {
     if (this._mealTarget) {
       const target = this._mealTarget.get()
@@ -76,7 +80,7 @@ Page({
       this._refreshTargetMealText()
     }
     this._refreshMiniCart()
-    try { if (this.getTabBar()) this.getTabBar().setData({ selected: 1 }) } catch (e) {}
+    if (!this.data.showTargetPicker) { try { if (this.getTabBar()) this.getTabBar().setData({ selected: 1, hidden: false }) } catch (e) {} }
   },
 
   _buildWeekDays() {
@@ -184,11 +188,13 @@ Page({
   },
 
   openTargetPicker() {
+    hideTabBar(this)
     const options = this._mealTarget.options()
     this.setData({ targetMealOptions: options, showTargetPicker: true })
   },
 
   closeTargetPicker() {
+    showTabBar(this)
     this.setData({ showTargetPicker: false })
   },
 
@@ -197,6 +203,7 @@ Page({
     const option = this.data.targetMealOptions[idx]
     if (!option) return
     const target = this._mealTarget.update({ meal_date: option.meal_date, meal_type: option.meal_type })
+    showTabBar(this)
     this.setData({ targetMeal: target, showTargetPicker: false }, () => {
       this._refreshTargetMealText()
       this._refreshMiniCart()

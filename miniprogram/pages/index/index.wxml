@@ -1,137 +1,159 @@
 <view class="page">
 
-  <!-- ========== 1. 顶部家庭区 ========== -->
-  <view class="family-header">
-    <view class="family-avatars">
-      <view class="avatar avatar-left">
-        <text wx:if="{{!members[0].user.avatar_url}}" class="avatar-text">{{members[0].user.nickname}}</text>
-        <image wx:else src="{{members[0].user.avatar_url}}" mode="aspectFill"></image>
-      </view>
-      <view class="avatar avatar-right">
-        <text wx:if="{{!members[1].user.avatar_url}}" class="avatar-text">{{members[1].user.nickname}}</text>
-        <image wx:else src="{{members[1].user.avatar_url}}" mode="aspectFill"></image>
-      </view>
-    </view>
-    <view class="family-info">
-      <text class="kitchen-name">{{family.name}}</text>
-      <view class="family-meta">
-        <text class="meta-item">{{todayLabel}}</text>
-        <text class="meta-dot">·</text>
-        <text class="meta-item">今晚{{dinersLabel}}吃饭</text>
-      </view>
+  <!-- Loading -->
+  <view wx:if="{{loading}}" class="loading-state">
+    <text class="loading-text">加载中...</text>
+  </view>
+
+  <!-- Error -->
+  <view wx:elif="{{loadError}}" class="empty-state">
+    <text class="empty-icon">⚠️</text>
+    <text class="empty-title">首页加载失败</text>
+    <text class="empty-hint">{{loadError}}</text>
+    <view class="empty-add" bindtap="retryLoad">
+      <text>重新加载</text>
     </view>
   </view>
 
-  <!-- ========== 2. 四个快捷入口 ========== -->
-  <view class="quick-panel">
-    <view class="quick-item" bindtap="goRandom">
-      <view class="quick-icon quick-icon-orange">🎲</view>
-      <text class="quick-text">随机菜谱</text>
-    </view>
-    <view class="quick-item" bindtap="goFridgeCook">
-      <view class="quick-icon quick-icon-green">🧊</view>
-      <text class="quick-text">看冰箱做菜</text>
-    </view>
-    <view class="quick-item" bindtap="goFavorites">
-      <view class="quick-icon quick-icon-pink">❤️</view>
-      <text class="quick-text">家人喜欢的菜</text>
-    </view>
-    <view class="quick-item" bindtap="goOnePerson">
-      <view class="quick-icon quick-icon-blue">👤</view>
-      <text class="quick-text">一人菜</text>
-    </view>
-  </view>
-
-  <!-- ========== 3. 本周菜谱（首页核心） ========== -->
-  <view class="weekly-card">
-    <view class="weekly-header">
-      <text class="weekly-title">本周菜谱</text>
-      <view class="weekly-action" bindtap="goWeeklyPlan">
-        <text class="weekly-action-text">查看本周</text>
-        <text class="weekly-action-arrow">›</text>
+  <!-- Data -->
+  <block wx:else>
+    <!-- ========== 1. 顶部家庭区 ========== -->
+    <view class="family-header">
+      <view class="family-avatars">
+        <view class="avatar avatar-left">
+          <text wx:if="{{members.length > 0 && !members[0].avatar_url}}" class="avatar-text">{{members[0].nickname}}</text>
+          <image wx:elif="{{members.length > 0}}" src="{{members[0].avatar_url}}" mode="aspectFill"></image>
+          <text wx:else class="avatar-text">?</text>
+        </view>
+        <view class="avatar avatar-right">
+          <text wx:if="{{members.length > 1 && !members[1].avatar_url}}" class="avatar-text">{{members[1].nickname}}</text>
+          <image wx:elif="{{members.length > 1}}" src="{{members[1].avatar_url}}" mode="aspectFill"></image>
+          <view wx:else class="avatar-invite" bindtap="goMine">
+            <text class="avatar-invite-text">+</text>
+          </view>
+        </view>
+      </view>
+      <view class="family-info">
+        <text class="kitchen-name">{{family.name}}</text>
+        <view class="family-meta">
+          <text class="meta-item">{{todayLabel}}</text>
+          <text class="meta-dot">·</text>
+          <text class="meta-item">今晚{{dinersLabel}}吃饭</text>
+        </view>
       </view>
     </view>
 
-    <!-- 周一至周日 -->
-    <scroll-view class="week-tabs" scroll-x="true" enhanced="true" show-scrollbar="false">
-      <view
-        wx:for="{{weekDays}}"
-        wx:key="index"
-        class="week-tab {{selectedDayIndex === item.index ? 'week-tab-active' : ''}} {{item.isToday ? 'week-tab-today' : ''}}"
-        data-index="{{item.index}}"
-        bindtap="selectDay"
-      >
-        <text class="week-tab-label">{{item.label}}</text>
-        <text class="week-tab-date">{{item.date}}</text>
+    <!-- ========== 2. 四个快捷入口 ========== -->
+    <view class="quick-panel">
+      <view class="quick-item" bindtap="goRandom">
+        <view class="quick-icon quick-icon-orange">🎲</view>
+        <text class="quick-text">随机菜谱</text>
       </view>
-    </scroll-view>
+      <view class="quick-item" bindtap="goFridgeCook">
+        <view class="quick-icon quick-icon-green">🧊</view>
+        <text class="quick-text">看冰箱做菜</text>
+      </view>
+      <view class="quick-item" bindtap="goFavorites">
+        <view class="quick-icon quick-icon-pink">❤️</view>
+        <text class="quick-text">家人喜欢的菜</text>
+      </view>
+      <view class="quick-item" bindtap="goOnePerson">
+        <view class="quick-icon quick-icon-blue">👤</view>
+        <text class="quick-text">一人菜</text>
+      </view>
+    </view>
 
-    <!-- 当天三餐（纵向三行） -->
-    <view class="meals-vertical">
-      <view wx:for="{{selectedMeals}}" wx:key="key" class="meal-row">
-        <!-- 餐次标题 -->
-        <view class="meal-row-header">
-          <text class="meal-icon">{{item.icon}}</text>
-          <text class="meal-name">{{item.label}}</text>
-          <text class="meal-count">{{item.dishes.length}}道</text>
+    <!-- ========== 3. 本周菜谱（首页核心） ========== -->
+    <view class="weekly-card">
+      <view class="weekly-header">
+        <text class="weekly-title">本周菜谱</text>
+        <view class="weekly-action" bindtap="goWeeklyPlan">
+          <text class="weekly-action-text">查看本周</text>
+          <text class="weekly-action-arrow">›</text>
         </view>
+      </view>
 
-        <!-- 本餐菜品横向排列 -->
-        <view wx:if="{{item.dishes.length === 0}}" class="meal-empty">
-          <text class="meal-empty-text">暂未安排</text>
-        </view>
-        <view wx:else class="meal-dishes-row">
-          <view wx:for="{{item.dishes}}" wx:for-item="dish" wx:key="id" class="meal-dish-card">
-            <view class="meal-dish-thumb">
-              <image wx:if="{{dish.coverImageUrl}}" src="{{dish.coverImageUrl}}" mode="aspectFill" class="meal-dish-img"></image>
-              <view wx:else class="meal-dish-ph" style="background:{{dish.color}};">
-                <text class="meal-dish-ph-text">{{dish.initial}}</text>
+      <!-- Weekly empty state -->
+      <view wx:if="{{!weeklyPlan}}" class="weekly-empty">
+        <text class="weekly-empty-text">本周还没有生成计划</text>
+      </view>
+
+      <block wx:else>
+        <!-- 周一至周日 -->
+        <scroll-view class="week-tabs" scroll-x="true" enhanced="true" show-scrollbar="false">
+          <view
+            wx:for="{{weekDays}}"
+            wx:key="index"
+            class="week-tab {{selectedDayIndex === item.index ? 'week-tab-active' : ''}} {{item.isToday ? 'week-tab-today' : ''}}"
+            data-index="{{item.index}}"
+            bindtap="selectDay"
+          >
+            <text class="week-tab-label">{{item.label}}</text>
+            <text class="week-tab-date">{{item.date}}</text>
+          </view>
+        </scroll-view>
+
+        <!-- 当天三餐（纵向三行） -->
+        <view class="meals-vertical">
+          <view wx:for="{{selectedMeals}}" wx:key="key" class="meal-row">
+            <view class="meal-row-header">
+              <text class="meal-icon">{{item.icon}}</text>
+              <text class="meal-name">{{item.label}}</text>
+              <text class="meal-count">{{item.dishes.length}}道</text>
+            </view>
+            <view wx:if="{{item.dishes.length === 0}}" class="meal-empty">
+              <text class="meal-empty-text">暂未安排</text>
+            </view>
+            <view wx:else class="meal-dishes-row">
+              <view wx:for="{{item.dishes}}" wx:for-item="dish" wx:key="id" class="meal-dish-card">
+                <view class="meal-dish-thumb">
+                  <image wx:if="{{dish.coverImageUrl}}" src="{{dish.coverImageUrl}}" mode="aspectFill" class="meal-dish-img"></image>
+                  <view wx:else class="meal-dish-ph" style="background:{{dish.color}};">
+                    <text class="meal-dish-ph-text">{{dish.initial}}</text>
+                  </view>
+                </view>
+                <text class="meal-dish-name">{{dish.name}}</text>
+                <text wx:if="{{dish.locked}}" class="meal-dish-lock">🔒</text>
               </view>
             </view>
-            <text class="meal-dish-name">{{dish.name}}</text>
-            <text wx:if="{{dish.locked}}" class="meal-dish-lock">🔒</text>
+            <view class="meal-add-all" data-meal-key="{{item.key}}" catchtap="addMealToCurrent">
+              <text class="meal-add-all-text">加入本餐</text>
+            </view>
           </view>
         </view>
+      </block>
+    </view>
 
-        <!-- 一键加入本餐菜单（餐次级，幂等） -->
-        <view class="meal-add-all" data-meal-key="{{item.key}}" catchtap="addMealToCurrent">
-          <text class="meal-add-all-text">加入本餐</text>
+    <!-- ========== 4. 已点菜单 ========== -->
+    <view class="meal-card-section">
+      <view class="meal-section-header">
+        <text class="meal-section-title">已点菜单</text>
+        <view class="meal-section-action" bindtap="goTodayMenu">
+          <text class="meal-section-action-text">{{currentMealLabel}}</text>
+          <text class="meal-section-arrow">›</text>
         </view>
       </view>
-    </view>
-  </view>
-
-  <!-- ========== 4. 已点菜单 ========== -->
-  <view class="meal-card-section">
-    <view class="meal-section-header">
-      <text class="meal-section-title">已点菜单</text>
-      <view class="meal-section-action" bindtap="goTodayMenu">
-        <text class="meal-section-action-text">{{currentMealLabel}}</text>
-        <text class="meal-section-arrow">›</text>
+      <view wx:if="{{currentMeal.items.length === 0}}" class="meal-empty-state">
+        <text class="meal-empty-hint">还没有点菜，从本周菜谱加入吧</text>
       </view>
-    </view>
-
-    <view wx:if="{{currentMeal.items.length === 0}}" class="meal-empty-state">
-      <text class="meal-empty-hint">还没有点菜，从本周菜谱加入吧</text>
-    </view>
-
-    <scroll-view wx:else class="ordered-scroll" scroll-x="true" enhanced="true" show-scrollbar="false">
-      <view wx:for="{{currentMeal.items}}" wx:key="id" class="ordered-card">
-        <view class="ordered-card-thumb">
-          <image wx:if="{{item.coverImageUrl}}" src="{{item.coverImageUrl}}" mode="aspectFill" class="ordered-card-img"></image>
-          <view wx:else class="ordered-card-ph" style="background:{{item.color}};">
-            <text class="ordered-card-ph-text">{{item.initial}}</text>
+      <scroll-view wx:else class="ordered-scroll" scroll-x="true" enhanced="true" show-scrollbar="false">
+        <view wx:for="{{currentMeal.items}}" wx:key="id" class="ordered-card">
+          <view class="ordered-card-thumb">
+            <image wx:if="{{item.coverImageUrl}}" src="{{item.coverImageUrl}}" mode="aspectFill" class="ordered-card-img"></image>
+            <view wx:else class="ordered-card-ph" style="background:{{item.color}};">
+              <text class="ordered-card-ph-text">{{item.initial}}</text>
+            </view>
           </view>
+          <text class="ordered-card-name">{{item.name}}</text>
+          <text class="ordered-card-by">{{item.selected_by_nickname}}点的</text>
         </view>
-        <text class="ordered-card-name">{{item.name}}</text>
-        <text class="ordered-card-by">{{item.selected_by_nickname}}点的</text>
-      </view>
-      <view class="ordered-card ordered-card-add" bindtap="goTodayMenu">
-        <text class="ordered-card-add-icon">+</text>
-        <text class="ordered-card-add-text">继续添加</text>
-      </view>
-    </scroll-view>
-  </view>
+        <view class="ordered-card ordered-card-add" bindtap="goTodayMenu">
+          <text class="ordered-card-add-icon">+</text>
+          <text class="ordered-card-add-text">继续添加</text>
+        </view>
+      </scroll-view>
+    </view>
 
-  <view class="bottom-space"></view>
+    <view class="bottom-space"></view>
+  </block>
 </view>
