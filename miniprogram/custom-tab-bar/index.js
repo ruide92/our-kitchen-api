@@ -13,8 +13,11 @@ Component({
   },
   methods: {
     switchTab(e) {
+      if (this.data.locked) return
       const path = e.currentTarget.dataset.path
       wx.switchTab({ url: path })
     },
+    lockTabBar() { if (!this.data.locked) this.setData({ locked: true }) },
+    unlockTabBar() { if (this.data.locked) this.setData({ locked: false }) },
   },
 })

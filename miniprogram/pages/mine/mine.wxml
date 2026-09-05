@@ -85,7 +85,7 @@
       <view wx:for="{{menuGroups}}" wx:for-item="group" wx:key="title" class="menu-group">
         <text class="menu-group-title">{{group.title}}</text>
         <view class="menu-group-card">
-          <view wx:for="{{group.items}}" wx:key="name" class="menu-item" data-action="{{item.action}}" bindtap="onMenuTap">
+          <view wx:for="{{group.items}}" wx:key="name" class="menu-item {{item.disabled ? 'menu-item-disabled' : ''}}" data-action="{{item.action}}" bindtap="onMenuTap">
             <text class="menu-icon">{{item.icon}}</text><text class="menu-name">{{item.name}}</text>
             <text wx:if="{{item.badge}}" class="menu-badge">{{item.badge}}</text><text class="menu-arrow">›</text>
           </view>
@@ -95,8 +95,8 @@
   </block>
   <view class="page-bottom-space"></view>
 
-  <view wx:if="{{sheet}}" class="sheet-mask" data-surface-id="MINE-OVERLAY-01" bindtap="closeSheet">
-    <view class="sheet-panel" data-surface-id="MINE-OVERLAY-01" catchtap="noop">
+  <view wx:if="{{sheet}}" class="tab-safe-sheet-mask" data-surface-id="MINE-OVERLAY-01" bindtap="closeSheet">
+    <view class="tab-safe-sheet-panel" data-surface-id="MINE-OVERLAY-01" catchtap="noop">
       <view class="sheet-handle"></view>
       <block wx:if="{{sheet === 'create' || sheet === 'join'}}">
         <text class="sheet-title">{{sheet === 'create' ? '创建家庭' : '加入家庭'}}</text>
@@ -136,13 +136,77 @@
         <view class="sheet-note">邀请码来自当前家庭服务端；请仅分享给要加入的家人。</view>
       </block>
       <block wx:elif="{{sheet === 'kitchen'}}">
-        <text class="sheet-title">厨房设置</text><text class="sheet-subtitle">{{family.name}} · 服务端数据，只读预览</text>
-        <view wx:for="{{settingsRows}}" wx:key="label" class="setting-row"><text class="setting-label">{{item.label}}</text><text class="setting-value">{{item.value}}</text></view>
+        <text class="sheet-title">厨房设置</text>
+        <text class="sheet-subtitle">{{family.name}} · {{canEditKitchenSettings() ? '可编辑' : '只读'}}</text>
+        <view wx:if="{{kitchenForm}}">
+          <view class="form-group">
+            <text class="form-label">默认用餐人数</text>
+            <input class="form-input form-input-number" type="number" value="{{kitchenForm.default_diners}}" data-field="default_diners" bindinput="onKitchenNumber" disabled="{{!canEditKitchenSettings() || busy}}" />
+          </view>
+          <view class="form-group">
+            <text class="form-label">早餐默认菜数</text>
+            <input class="form-input form-input-number" type="number" value="{{kitchenForm.breakfast_target_count}}" data-field="breakfast_target_count" bindinput="onKitchenNumber" disabled="{{!canEditKitchenSettings() || busy}}" />
+          </view>
+          <view class="form-group">
+            <text class="form-label">午餐默认菜数</text>
+            <input class="form-input form-input-number" type="number" value="{{kitchenForm.lunch_target_count}}" data-field="lunch_target_count" bindinput="onKitchenNumber" disabled="{{!canEditKitchenSettings() || busy}}" />
+          </view>
+          <view class="form-group">
+            <text class="form-label">晚餐默认菜数</text>
+            <input class="form-input form-input-number" type="number" value="{{kitchenForm.dinner_target_count}}" data-field="dinner_target_count" bindinput="onKitchenNumber" disabled="{{!canEditKitchenSettings() || busy}}" />
+          </view>
+          <view class="form-group">
+            <text class="form-label">推荐偏好</text>
+            <view class="chip-row">
+              <view class="chip {{kitchenForm.random_default_mode === 'BALANCED' ? 'chip-active' : ''}}" data-value="BALANCED" bindtap="onKitchenMode">均衡推荐</view>
+              <view class="chip {{kitchenForm.random_default_mode === 'USE_INVENTORY' ? 'chip-active' : ''}}" data-value="USE_INVENTORY" bindtap="onKitchenMode">优先吃库存</view>
+              <view class="chip {{kitchenForm.random_default_mode === 'TRY_DIFFERENT' ? 'chip-active' : ''}}" data-value="TRY_DIFFERENT" bindtap="onKitchenMode">换换口味</view>
+            </view>
+          </view>
+          <view class="form-group">
+            <text class="form-label">常用厨具</text>
+            <view class="chip-row">
+              <view class="chip {{kitchenForm.cookware.indexOf('WOK') >= 0 ? 'chip-active' : ''}}" data-code="WOK" bindtap="onKitchenCookware">炒锅</view>
+              <view class="chip {{kitchenForm.cookware.indexOf('RICE_COOKER') >= 0 ? 'chip-active' : ''}}" data-code="RICE_COOKER" bindtap="onKitchenCookware">电饭锅</view>
+              <view class="chip {{kitchenForm.cookware.indexOf('AIR_FRYER') >= 0 ? 'chip-active' : ''}}" data-code="AIR_FRYER" bindtap="onKitchenCookware">空气炸锅</view>
+              <view class="chip {{kitchenForm.cookware.indexOf('PRESSURE_COOKER') >= 0 ? 'chip-active' : ''}}" data-code="PRESSURE_COOKER" bindtap="onKitchenCookware">高压锅</view>
+            </view>
+          </view>
+          <view class="form-group">
+            <text class="form-label">默认辣度</text>
+            <view class="chip-row">
+              <view class="chip {{kitchenForm.default_spiciness === 'NONE' ? 'chip-active' : ''}}" data-value="NONE" bindtap="onKitchenSpiciness">不辣</view>
+              <view class="chip {{kitchenForm.default_spiciness === 'MILD' ? 'chip-active' : ''}}" data-value="MILD" bindtap="onKitchenSpiciness">微辣</view>
+              <view class="chip {{kitchenForm.default_spiciness === 'MEDIUM' ? 'chip-active' : ''}}" data-value="MEDIUM" bindtap="onKitchenSpiciness">中辣</view>
+              <view class="chip {{kitchenForm.default_spiciness === 'HOT' ? 'chip-active' : ''}}" data-value="HOT" bindtap="onKitchenSpiciness">辣</view>
+            </view>
+          </view>
+          <view class="form-group form-row">
+            <text class="form-label">优先消耗临期库存</text>
+            <switch checked="{{kitchenForm.prefer_expiring_inventory}}" data-field="prefer_expiring_inventory" bindchange="onKitchenToggle" disabled="{{!canEditKitchenSettings() || busy}}" />
+          </view>
+          <view class="form-group">
+            <text class="form-label">强避重复（天）</text>
+            <input class="form-input form-input-number" type="number" value="{{kitchenForm.repeat_strong_days}}" data-field="repeat_strong_days" bindinput="onKitchenNumber" disabled="{{!canEditKitchenSettings() || busy}}" />
+          </view>
+          <view class="form-group">
+            <text class="form-label">重复惩罚（天）</text>
+            <input class="form-input form-input-number" type="number" value="{{kitchenForm.repeat_penalty_days}}" data-field="repeat_penalty_days" bindinput="onKitchenNumber" disabled="{{!canEditKitchenSettings() || busy}}" />
+          </view>
+          <view class="form-group">
+            <text class="form-label">恢复周期（天）</text>
+            <input class="form-input form-input-number" type="number" value="{{kitchenForm.repeat_recover_days}}" data-field="repeat_recover_days" bindinput="onKitchenNumber" disabled="{{!canEditKitchenSettings() || busy}}" />
+          </view>
+        </view>
+        <view wx:if="{{canEditKitchenSettings()}}" class="sheet-actions">
+          <button class="sheet-btn sheet-btn-cancel" bindtap="closeSheet" disabled="{{busy}}">取消</button>
+          <button class="sheet-btn sheet-btn-confirm" bindtap="saveKitchenSettings" loading="{{busy}}" disabled="{{busy}}">保存</button>
+        </view>
       </block>
       <block wx:elif="{{sheet === 'settings'}}">
         <text class="sheet-title">设置</text>
         <view class="setting-row" bindtap="openProfileSheet"><text class="setting-label">修改昵称</text><text class="setting-arrow">›</text></view>
-        <view class="setting-row" bindtap="openKitchenSettingsSheet"><text class="setting-label">厨房设置（只读）</text><text class="setting-arrow">›</text></view>
+        <view class="setting-row" bindtap="openKitchenSettingsSheet"><text class="setting-label">厨房设置</text><text class="setting-arrow">›</text></view>
         <view class="sheet-note">饮食偏好、数据导出等功能待接入；本页不会提交未实现的数据。</view>
       </block>
       <button wx:if="{{sheet !== 'create' && sheet !== 'join' && sheet !== 'profile'}}" class="sheet-btn sheet-btn-cancel retry-button" bindtap="closeSheet" disabled="{{busy}}">关闭</button>

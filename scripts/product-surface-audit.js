@@ -144,6 +144,20 @@ function scanCode() {
     }
   }
 
+  // Scan dock elements in WXML — tab-page-dock class
+  for (const f of wxmlFiles) {
+    const page = pageNameFromPath(f);
+    const wxml = readFile(f);
+    const dockRe = /<view[^>]*class="[^"]*tab-page-dock[^"]*"[^>]*>/g;
+    let m;
+    while ((m = dockRe.exec(wxml)) !== null) {
+      const tag = m[0];
+      const classMatch = tag.match(/class="([^"]+)"/);
+      const handler = classMatch ? classMatch[1].split(/\s+/).find(c => c !== 'tab-page-dock') || 'tab-page-dock' : 'tab-page-dock';
+      detected.push({ page, kind: 'dock', handler, file: path.relative(MP, f) });
+    }
+  }
+
   return { detected, wxmlFiles, jsFiles };
 }
 
@@ -176,7 +190,6 @@ function main() {
   const hiddenPages = new Set();
   for (const s of registry) {
     if (s.kind === 'page' && s.status === 'HIDDEN') hiddenPages.add(s.page);
-    if (s.kind === 'internal-guard') continue; // skip internal guards from mapping
     const key = buildKey(s);
     if (registryByKey.has(key)) {
       duplicates.push({ key, ids: [registryByKey.get(key).id, s.id] });

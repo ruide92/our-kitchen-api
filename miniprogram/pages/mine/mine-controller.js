@@ -15,7 +15,7 @@ function createMinePage({ app, wxAdapter }) {
         { title: '家庭与厨房', items: [
           { icon: '👨‍👩‍👧', name: '家庭管理', action: 'openFamilySheet' },
           { icon: '🍳', name: '厨房设置', action: 'openKitchenSettingsSheet' },
-          { icon: '🧂', name: '调味品 / 常备品', action: 'placeholderToast', badge: '待接入' },
+          { icon: '🧂', name: '调味品 / 常备品', action: 'goPantry' },
           { icon: '💋', name: '么么哒', action: 'placeholderToast', badge: '待接入' }
         ] },
         { title: '我的吃饭记录', items: [
@@ -26,12 +26,13 @@ function createMinePage({ app, wxAdapter }) {
         ] },
         { title: '创作与分享', items: [
           { icon: '🤖', name: 'AI 导入菜谱', action: 'placeholderToast', badge: '规划中' },
-          { icon: '🌐', name: '分享广场', action: 'placeholderToast', badge: '规划中' },
-          { icon: '📤', name: '我的分享', action: 'placeholderToast', badge: '规划中' },
+          { icon: '🌐', name: '分享广场', action: '', disabled: true, badge: '规划中' },
+          { icon: '📤', name: '我的分享', action: '', disabled: true, badge: '规划中' },
           { icon: '🗑️', name: '回收站', action: 'placeholderToast', badge: '待接入' }
         ] },
         { title: '其他', items: [{ icon: '⚙️', name: '设置', action: 'openSettingsSheet' }, { icon: 'ℹ️', name: '关于我们', action: 'placeholderToast' }] }
-      ]
+      ],
+      kitchenForm: null
     },
     onLoad() {
       this._session = app.getV1Session()
@@ -41,13 +42,13 @@ function createMinePage({ app, wxAdapter }) {
       if (typeof this.getTabBar === 'function') { const bar = this.getTabBar(); if (bar) bar.setData({ selected: 4, hidden: false }) }
       return this.refreshPage()
     },
-    onHide() { this._setTabBarHidden(false) },
-    onUnload() { this._setTabBarHidden(false); if (this._unsubscribe) this._unsubscribe(); this._unloaded = true },
-    _setTabBarHidden(hidden) {
-      if (typeof this.getTabBar === 'function') { const bar = this.getTabBar(); if (bar) bar.setData({ hidden }) }
-    },
-    _openSheet(name) { this.setData({ sheet: name }); this._setTabBarHidden(true) },
-    _closeSheet() { this.setData({ sheet: '' }); this._setTabBarHidden(false) },
+    onHide() { this._unlockTabBar() },
+    onUnload() { this._unlockTabBar(); if (this._unsubscribe) this._unsubscribe(); this._unloaded = true },
+    _getTabBar() { if (typeof this.getTabBar === 'function') { const bar = this.getTabBar(); return bar || null } return null },
+    _lockTabBar() { const bar = this._getTabBar(); if (bar && bar.lockTabBar) bar.lockTabBar() },
+    _unlockTabBar() { const bar = this._getTabBar(); if (bar && bar.unlockTabBar) bar.unlockTabBar() },
+    _openSheet(name) { this.setData({ sheet: name }); this._lockTabBar() },
+    _closeSheet() { this.setData({ sheet: '' }); this._unlockTabBar() },
     applySession(state) {
       const changed = this.data.active_family_id !== state.active_family_id
       const authenticated = state.status === 'authenticated'
@@ -76,7 +77,7 @@ function createMinePage({ app, wxAdapter }) {
         environmentBlocked: state.status === 'authFailed' && /^http:\/\/127\.0\.0\.1/.test(config.baseUrl),
         sheet: shouldClearSheet ? '' : this.data.sheet
       })
-      if (shouldClearSheet) this._setTabBarHidden(false)
+      if (shouldClearSheet) this._unlockTabBar()
     },
     refreshPage() {
       if (this._refreshPromise) return this._refreshPromise
@@ -146,11 +147,85 @@ function createMinePage({ app, wxAdapter }) {
       wxAdapter.setClipboardData({ data: code, success: () => toast('邀请码已复制'), fail: () => toast('复制失败，请重试') })
     },
     placeholderToast() { toast('此功能待接入真实数据') },
+    goPantry() {
+      if (!this.familyReady()) return
+      wxAdapter.setStorageSync('v1_fridge_target_tab', 'pantry')
+      wxAdapter.switchTab({ url: '/pages/fridge/fridge' })
+    },
+    canEditKitchenSettings() {
+      const role = this.data.family && this.data.family.role
+      return role === 'OWNER' || role === 'ADMIN'
+    },
+    openKitchenSettingsSheet() {
+      if (!this.familyReady()) return
+      const s = this.data.settings
+      if (!s) { toast('设置未加载，请刷新'); return }
+      this.setData({
+        kitchenForm: {
+          default_diners: s.default_diners != null ? s.default_diners : 2,
+          breakfast_target_count: s.breakfast_target_count != null ? s.breakfast_target_count : 2,
+          lunch_target_count: s.lunch_target_count != null ? s.lunch_target_count : 2,
+          dinner_target_count: s.dinner_target_count != null ? s.dinner_target_count : 3,
+          default_spiciness: s.default_spiciness || 'NONE',
+          cookware: Array.isArray(s.cookware) ? [...s.cookware] : [],
+          random_default_mode: s.random_default_mode || 'BALANCED',
+          prefer_expiring_inventory: s.prefer_expiring_inventory !== false,
+          repeat_strong_days: s.repeat_strong_days != null ? s.repeat_strong_days : 3,
+          repeat_penalty_days: s.repeat_penalty_days != null ? s.repeat_penalty_days : 7,
+          repeat_recover_days: s.repeat_recover_days != null ? s.repeat_recover_days : 14,
+        }
+      })
+      this._openSheet('kitchen')
+    },
+    onKitchenNumber(e) {
+      const field = e.currentTarget.dataset.field
+      const val = parseInt(e.detail.value, 10)
+      if (isNaN(val) || val < 0) return
+      this.setData({ [`kitchenForm.${field}`]: val })
+    },
+    onKitchenMode(e) {
+      if (!this.canEditKitchenSettings()) return
+      this.setData({ 'kitchenForm.random_default_mode': e.currentTarget.dataset.value })
+    },
+    onKitchenCookware(e) {
+      if (!this.canEditKitchenSettings()) return
+      const code = e.currentTarget.dataset.code
+      const current = this.data.kitchenForm.cookware || []
+      const next = current.includes(code) ? current.filter(c => c !== code) : [...current, code]
+      this.setData({ 'kitchenForm.cookware': next })
+    },
+    onKitchenSpiciness(e) {
+      if (!this.canEditKitchenSettings()) return
+      this.setData({ 'kitchenForm.default_spiciness': e.currentTarget.dataset.value })
+    },
+    onKitchenToggle(e) {
+      const field = e.currentTarget.dataset.field
+      this.setData({ [`kitchenForm.${field}`]: !this.data.kitchenForm[field] })
+    },
+    async saveKitchenSettings() {
+      if (this.data.busy || !this.canEditKitchenSettings()) return
+      this.setData({ busy: true })
+      try {
+        await this._session.updateSettings({ ...this.data.kitchenForm })
+        this._closeSheet()
+        toast('厨房设置已保存')
+      } catch (error) {
+        if (error.code === 'VERSION_CONFLICT' || error.status === 409) {
+          toast('厨房设置已被家人修改，请刷新后再试')
+          try { await this._session.refresh() } catch (_) {}
+        } else if (error.status === 403) {
+          toast('只有家庭主人或管理员可以修改设置')
+        } else {
+          toast(error.message || '保存失败，请重试')
+        }
+      } finally { this.setData({ busy: false }) }
+    },
     onMenuTap(e) {
       const action = e.currentTarget.dataset.action
-      if (['openFamilySheet','openKitchenSettingsSheet','openSettingsSheet','placeholderToast'].includes(action)) this[action]()
+      if (!action) return
+      if (['openFamilySheet','openKitchenSettingsSheet','openSettingsSheet','placeholderToast','goPantry'].includes(action)) this[action]()
     },
-    noop() {}
+    noop() {},
   }
 }
 module.exports = { createMinePage }

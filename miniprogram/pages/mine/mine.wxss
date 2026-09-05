@@ -287,26 +287,14 @@
 }
 
 /* ===== bottom sheet ===== */
-.sheet-mask {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.45);
-  z-index: 200;
-  display: flex;
-  align-items: flex-end;
-}
+/* sheet positioning moved to global .tab-safe-sheet-mask */
 
 .sheet-panel {
   width: 100%;
   background: #FFFFFF;
   border-radius: 32rpx 32rpx 0 0;
-  padding: 16rpx 32rpx calc(env(safe-area-inset-bottom) + 32rpx);
+  padding: 16rpx 32rpx 32rpx;
   box-sizing: border-box;
-  max-height: 85vh;
-  overflow-y: auto;
 }
 
 .sheet-handle {
@@ -557,3 +545,46 @@ button[disabled] { opacity: 0.6; }
 .family-choice { width: 100%; background: #fff; border-radius: 0; }
 .family-avatars { max-width: 36%; flex-wrap: wrap; row-gap: 8rpx; }
 .invite-code { word-break: break-all; letter-spacing: 3rpx; }
+
+
+/* ===== 12A: disabled menu item ===== */
+.menu-item-disabled {
+  opacity: 0.45;
+}
+
+/* ===== 12A: kitchen settings form ===== */
+.form-group {
+  margin-bottom: 24rpx;
+}
+.form-label {
+  display: block;
+  font-size: 26rpx;
+  color: #666;
+  margin-bottom: 12rpx;
+}
+.form-input-number {
+  width: 160rpx;
+}
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+.chip {
+  padding: 12rpx 24rpx;
+  border: 2rpx solid #DDD;
+  border-radius: 32rpx;
+  font-size: 26rpx;
+  color: #666;
+  background: #FFF;
+}
+.chip-active {
+  border-color: #8B5E3C;
+  color: #8B5E3C;
+  background: #F5EDE4;
+}
+.form-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}

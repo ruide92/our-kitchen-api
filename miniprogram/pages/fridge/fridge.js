@@ -62,11 +62,20 @@ Page({
 
   onShow() {
     try { if (this.getTabBar()) this.getTabBar().setData({ selected: 2, hidden: false }) } catch (e) {}
+    this._familyId = wx.getStorageSync('v1_active_family_id')
+    const targetTab = wx.getStorageSync('v1_fridge_target_tab')
+    if (targetTab) {
+      wx.removeStorageSync('v1_fridge_target_tab')
+      this.setData({ activeTab: targetTab })
+    }
     this._loadAll()
   },
 
-  onHide() { showTabBar(this) },
-  onUnload() { showTabBar(this) },
+  onHide() { this._unlockTabBar() },
+  onUnload() { this._unlockTabBar() },
+
+  _lockTabBar() { try { const bar = this.getTabBar(); if (bar && bar.lockTabBar) bar.lockTabBar() } catch (e) {} },
+  _unlockTabBar() { try { const bar = this.getTabBar(); if (bar && bar.unlockTabBar) bar.unlockTabBar() } catch (e) {} },
 
   async _loadAll() {
     this._loadFridge()
@@ -152,9 +161,9 @@ Page({
   // ===== Add sheet =====
   openAddSheet() {
     this.setData({ showAddSheet: true, addForm: { name: '', quantity: '', unit_code: 'g', custom_unit: '', storage_location: '冷藏', expiry_date: '', note: '' } })
-    hideTabBar(this)
+    this._lockTabBar()
   },
-  closeAddSheet() { this.setData({ showAddSheet: false }); showTabBar(this) },
+  closeAddSheet() { this.setData({ showAddSheet: false }); this._unlockTabBar() },
   onAddInput(e) {
     const field = e.currentTarget.dataset.field
     this.setData({ ['addForm.' + field]: e.detail.value })
@@ -218,9 +227,9 @@ Page({
         note: item.note || '',
       },
     })
-    hideTabBar(this)
+    this._lockTabBar()
   },
-  closeEditSheet() { this.setData({ showEditSheet: false, editingItem: null }); showTabBar(this) },
+  closeEditSheet() { this.setData({ showEditSheet: false, editingItem: null }); this._unlockTabBar() },
   onEditInput(e) { this.setData({ ['editForm.' + e.currentTarget.dataset.field]: e.detail.value }) },
   onEditUnitChange(e) { this.setData({ 'editForm.unit_code': this.data.unitOptions[e.detail.value] }) },
   onEditStorageChange(e) { this.setData({ 'editForm.storage_location': this.data.storageOptions[e.detail.value] }) },
@@ -287,9 +296,9 @@ Page({
   // ===== Pantry =====
   openAddStapleSheet() {
     this.setData({ showAddStapleSheet: true, newStapleName: '' })
-    hideTabBar(this)
+    this._lockTabBar()
   },
-  closeAddStapleSheet() { this.setData({ showAddStapleSheet: false }); showTabBar(this) },
+  closeAddStapleSheet() { this.setData({ showAddStapleSheet: false }); this._unlockTabBar() },
   onStapleNameInput(e) { this.setData({ newStapleName: e.detail.value }) },
 
   async saveAddStaple() {
@@ -304,26 +313,37 @@ Page({
           ingredientId = resolved.match.id
         }
       } catch (_) {}
-      if (!ingredientId) {
-        wx.hideLoading()
-        wx.showToast({ title: '未找到标准食材，暂不支持自定义常备品', icon: 'none' })
-        return
+      if (ingredientId) {
+        await this._api.putPantry(this._familyId, ingredientId, { assume_available: true, quantity: null, unit_code: null })
+      } else {
+        await this._api.putCustomPantry(this._familyId, { name, assume_available: true, quantity: null, quantity_text: null, unit_code: null })
       }
-      await this._api.putPantry(this._familyId, ingredientId, { assume_available: true, quantity: null, unit_code: null })
       wx.hideLoading()
       this.closeAddStapleSheet()
       this._loadPantry()
       wx.showToast({ title: '已添加', icon: 'success' })
     } catch (e) {
       wx.hideLoading()
-      wx.showToast({ title: e.message || '添加失败', icon: 'none' })
+      if (e.code === 'CUSTOM_PANTRY_EXISTS' || e.status === 409) {
+        wx.showToast({ title: '这个常备食材已经添加过了', icon: 'none' })
+      } else {
+        wx.showToast({ title: e.message || '添加失败', icon: 'none' })
+      }
     }
   },
 
   async removeStaple(e) {
     const ingredientId = e.currentTarget.dataset.ingredientId
+    const displayName = e.currentTarget.dataset.displayName
     try {
-      await this._api.deletePantry(this._familyId, ingredientId)
+      if (ingredientId) {
+        await this._api.deletePantry(this._familyId, ingredientId)
+      } else if (displayName) {
+        await this._api.deleteCustomPantry(this._familyId, displayName)
+      } else {
+        wx.showToast({ title: '无法识别该常备品', icon: 'none' })
+        return
+      }
       this._loadPantry()
       wx.showToast({ title: '已移除', icon: 'success' })
     } catch (e) {

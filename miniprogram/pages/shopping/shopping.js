@@ -61,8 +61,11 @@ Page({
     this._loadShopping()
   },
 
-  onHide() { showTabBar(this) },
-  onUnload() { showTabBar(this) },
+  onHide() { this._unlockTabBar() },
+  onUnload() { this._unlockTabBar() },
+
+  _lockTabBar() { try { const bar = this.getTabBar(); if (bar && bar.lockTabBar) bar.lockTabBar() } catch (e) {} },
+  _unlockTabBar() { try { const bar = this.getTabBar(); if (bar && bar.unlockTabBar) bar.unlockTabBar() } catch (e) {} },
 
   async _loadShopping() {
     if (!this._familyId) return
@@ -165,9 +168,9 @@ Page({
     const item = this.data.items.find(i => i.id === e.currentTarget.dataset.id)
     if (!item || item.source !== 'GENERATED') return
     this.setData({ showEvidenceSheet: true, evidenceItem: item })
-    hideTabBar(this)
+    this._lockTabBar()
   },
-  closeEvidence() { this.setData({ showEvidenceSheet: false, evidenceItem: null }); showTabBar(this) },
+  closeEvidence() { this.setData({ showEvidenceSheet: false, evidenceItem: null }); this._unlockTabBar() },
 
   // ===== Manual detail =====
   openManualDetail(e) {
@@ -189,9 +192,9 @@ Page({
         note: item.note || '',
       },
     })
-    hideTabBar(this)
+    this._lockTabBar()
   },
-  closeManualDetail() { this.setData({ showManualDetailSheet: false, manualItem: null, isEditingManual: false }); showTabBar(this) },
+  closeManualDetail() { this.setData({ showManualDetailSheet: false, manualItem: null, isEditingManual: false }); this._unlockTabBar() },
   startEditManual() { this.setData({ isEditingManual: true }) },
   onEditManualInput(e) { this.setData({ ['editForm.' + e.currentTarget.dataset.field]: e.detail.value }) },
   onEditManualUnitChange(e) { this.setData({ 'editForm.unit': this.data.unitOptions[e.detail.value] }) },
@@ -251,9 +254,9 @@ Page({
       return
     }
     this.setData({ showAddSheet: true, addForm: { name: '', quantity: '', unit: 'g', customUnit: '', category: '蔬菜', note: '' } })
-    hideTabBar(this)
+    this._lockTabBar()
   },
-  closeAddSheet() { this.setData({ showAddSheet: false }); showTabBar(this) },
+  closeAddSheet() { this.setData({ showAddSheet: false }); this._unlockTabBar() },
   onAddInput(e) { this.setData({ ['addForm.' + e.currentTarget.dataset.field]: e.detail.value }) },
   onAddUnitChange(e) { this.setData({ 'addForm.unit': this.data.unitOptions[e.detail.value] }) },
   onAddCategoryChange(e) { this.setData({ 'addForm.category': this.data.categoryOptions[e.detail.value] }) },
@@ -297,9 +300,9 @@ Page({
       expiry_date: '',
     }))
     this.setData({ showCompleteSheet: true, purchasedItems })
-    hideTabBar(this)
+    this._lockTabBar()
   },
-  closeCompleteSheet() { this.setData({ showCompleteSheet: false, purchasedItems: [] }); showTabBar(this) },
+  closeCompleteSheet() { this.setData({ showCompleteSheet: false, purchasedItems: [] }); this._unlockTabBar() },
   onCompleteQtyInput(e) {
     const idx = e.currentTarget.dataset.index
     this.setData({ ['purchasedItems[' + idx + '].purchased_quantity']: Number(e.detail.value) || 0 })

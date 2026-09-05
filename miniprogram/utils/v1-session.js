@@ -121,8 +121,21 @@ function createV1Session({ wxAdapter, baseUrl, timeoutMs }) {
     try { await loadFamily() } catch (error) { error.mutationSucceeded = true; throw error }
     return snapshot()
   }
+  async function updateSettings(data) {
+    await requireAuthenticated()
+    const id = state.active_family_id
+    if (!id) throw v1Error('NO_FAMILY', '请先选择家庭')
+    if (!state.settings || typeof state.settings.version !== 'number') throw v1Error('SETTINGS_NOT_LOADED', '设置未加载，请刷新后重试')
+    refreshEpoch++
+    const run = epoch
+    const updated = await api.updateSettings(id, { version: state.settings.version, ...data })
+    current(run)
+    if (!updated || updated.family_id !== id) throw v1Error('INVALID_RESPONSE', '设置响应格式异常')
+    publish({ settings: updated })
+    return snapshot()
+  }
   return { getState: snapshot, bootstrap, ensureReady, retry: () => bootstrap(true), refresh, selectFamily,
-    createFamily: name => mutateFamily(api.createFamily, name), joinFamily: code => mutateFamily(api.joinFamily, code), updateNickname,
+    createFamily: name => mutateFamily(api.createFamily, name), joinFamily: code => mutateFamily(api.joinFamily, code), updateNickname, updateSettings,
     subscribe(listener) { listeners.add(listener); listener(snapshot()); return () => listeners.delete(listener) }
   }
 }

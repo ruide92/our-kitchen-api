@@ -248,3 +248,8 @@
   border-radius: 12rpx 12rpx 0 0;
   box-sizing: border-box;
 }
+
+.tabbar-locked {
+  opacity: 0.5;
+  pointer-events: none;
+}

@@ -9,12 +9,12 @@
 
 | Status | Count |
 |---|---|
-| REAL | 107 |
-| PARTIAL | 4 |
-| BROKEN | 34 |
-| KNOWN_BROKEN | 9 |
-| HIDDEN | 14 |
-| **Total** | **168** |
+| REAL | 120 |
+| PARTIAL | 1 |
+| BROKEN | 31 |
+| PLANNED_DISABLED | 2 |
+| HIDDEN | 22 |
+| **Total** | **176** |
 
 ## Surfaces
 
@@ -89,10 +89,10 @@
 | FRIDGE-26 | wxml-handler | saveEditItem | REAL | REAL |
 | FRIDGE-27 | wxml-handler | closeAddStapleSheet | REAL | REAL |
 | FRIDGE-28 | wxml-handler | onStapleNameInput | REAL | REAL |
-| FRIDGE-29 | wxml-handler | saveAddStaple | PARTIAL | REAL |
-| FRIDGE-OVERLAY-01 | overlay | 添加食材 Sheet | KNOWN_BROKEN | REAL |
-| FRIDGE-OVERLAY-02 | overlay | 编辑食材 Sheet | KNOWN_BROKEN | REAL |
-| FRIDGE-OVERLAY-03 | overlay | 添加常备食材 Sheet | KNOWN_BROKEN | REAL |
+| FRIDGE-29 | wxml-handler | saveAddStaple | REAL | REAL |
+| FRIDGE-OVERLAY-01 | overlay | 添加食材 Sheet | REAL | REAL |
+| FRIDGE-OVERLAY-02 | overlay | 编辑食材 Sheet | REAL | REAL |
+| FRIDGE-OVERLAY-03 | overlay | 添加常备食材 Sheet | REAL | REAL |
 
 ### index
 
@@ -156,6 +156,7 @@
 | MENU-22 | wxml-handler | onCustomDateChange | REAL | REAL |
 | MENU-23 | wxml-handler | onCustomMealTypeChange | REAL | REAL |
 | MENU-24 | wxml-handler | confirmCustomDate | REAL | REAL |
+| MENU-DOCK-01 | dock | mini-cart | REAL | REAL |
 | MENU-NAV-01 | navigation | navigateTo | REAL | REAL |
 | MENU-OVERLAY-01 | overlay | 目标餐次选择器 Sheet | REAL | REAL |
 | MENU-OVERLAY-02 | overlay | 自选日期 Sheet | REAL | REAL |
@@ -172,8 +173,8 @@
 | MINE-06 | wxml-handler | refreshPage | REAL | REAL |
 | MINE-07 | wxml-handler | openFamilySheet | REAL | REAL |
 | MINE-08 | wxml-handler | openInviteSheet | REAL | REAL |
-| MINE-09 | wxml-handler | openKitchenSettingsSheet | PARTIAL | REAL |
-| MINE-10 | wxml-handler | onMenuTap | REAL | REAL |
+| MINE-09 | wxml-handler | openKitchenSettingsSheet | REAL | REAL |
+| MINE-10 | wxml-handler | onMenuTap | HIDDEN | HIDDEN |
 | MINE-11 | wxml-handler | closeSheet | REAL | REAL |
 | MINE-12 | internal-guard | noop | HIDDEN | HIDDEN |
 | MINE-13 | wxml-handler | onFieldInput | REAL | REAL |
@@ -181,21 +182,28 @@
 | MINE-15 | wxml-handler | saveProfile | REAL | REAL |
 | MINE-16 | wxml-handler | selectFamily | REAL | REAL |
 | MINE-17 | wxml-handler | copyInviteCode | REAL | REAL |
+| MINE-GUARD-01 | wxml-handler | onKitchenNumber | HIDDEN | HIDDEN |
+| MINE-GUARD-02 | wxml-handler | onKitchenMode | HIDDEN | HIDDEN |
+| MINE-GUARD-03 | wxml-handler | onKitchenCookware | HIDDEN | HIDDEN |
+| MINE-GUARD-04 | wxml-handler | onKitchenSpiciness | HIDDEN | HIDDEN |
+| MINE-GUARD-05 | wxml-handler | onKitchenToggle | HIDDEN | HIDDEN |
+| MINE-GUARD-06 | wxml-handler | saveKitchenSettings | HIDDEN | HIDDEN |
+| MINE-GUARD-07 | wxml-handler | goPantry | HIDDEN | HIDDEN |
 | MINE-MENU-01 | menu-action | 家庭管理 | REAL | REAL |
-| MINE-MENU-02 | menu-action | 厨房设置 | PARTIAL | REAL |
-| MINE-MENU-03 | menu-action | 调味品 / 常备品 | BROKEN | REAL |
+| MINE-MENU-02 | menu-action | 厨房设置 | REAL | REAL |
+| MINE-MENU-03 | menu-action | goPantry | REAL | REAL |
 | MINE-MENU-04 | menu-action | 么么哒 | BROKEN | REAL |
 | MINE-MENU-05 | menu-action | 本餐菜单 / 历史 | BROKEN | REAL |
 | MINE-MENU-06 | menu-action | 我的收藏 | BROKEN | REAL |
 | MINE-MENU-07 | menu-action | 我的评分 | BROKEN | REAL |
 | MINE-MENU-08 | menu-action | 我的菜谱 | BROKEN | REAL |
 | MINE-MENU-09 | menu-action | AI 导入菜谱 | BROKEN | REAL |
-| MINE-MENU-10 | menu-action | 分享广场 | BROKEN | PLANNED_DISABLED |
-| MINE-MENU-11 | menu-action | 我的分享 | BROKEN | PLANNED_DISABLED |
+| MINE-MENU-10 | menu-action | 分享广场 | PLANNED_DISABLED | PLANNED_DISABLED |
+| MINE-MENU-11 | menu-action | 我的分享 | PLANNED_DISABLED | PLANNED_DISABLED |
 | MINE-MENU-12 | menu-action | 回收站 | BROKEN | REAL |
 | MINE-MENU-13 | menu-action | 设置 | REAL | REAL |
 | MINE-MENU-14 | menu-action | 关于我们 | BROKEN | REAL |
-| MINE-OVERLAY-01 | overlay | 我的页面通用 Sheet | KNOWN_BROKEN | REAL |
+| MINE-OVERLAY-01 | overlay | 我的页面通用 Sheet | REAL | REAL |
 
 ### orders
 
@@ -258,12 +266,12 @@
 | SHOP-25 | wxml-handler | onCompleteStorageChange | REAL | REAL |
 | SHOP-26 | wxml-handler | onCompleteExpiryChange | REAL | REAL |
 | SHOP-27 | wxml-handler | confirmComplete | REAL | REAL |
-| SHOP-DOCK-01 | dock | complete-bar | KNOWN_BROKEN | REAL |
+| SHOP-DOCK-01 | dock | complete-bar | REAL | REAL |
 | SHOP-NAV-01 | navigation | switchTab | REAL | REAL |
-| SHOP-OVERLAY-01 | overlay | 购物证据 Sheet | KNOWN_BROKEN | REAL |
-| SHOP-OVERLAY-02 | overlay | 手动商品详情 Sheet | KNOWN_BROKEN | REAL |
-| SHOP-OVERLAY-03 | overlay | 添加手动商品 Sheet | KNOWN_BROKEN | REAL |
-| SHOP-OVERLAY-04 | overlay | 完成采购 Sheet | KNOWN_BROKEN | REAL |
+| SHOP-OVERLAY-01 | overlay | 购物证据 Sheet | REAL | REAL |
+| SHOP-OVERLAY-02 | overlay | 手动商品详情 Sheet | REAL | REAL |
+| SHOP-OVERLAY-03 | overlay | 添加手动商品 Sheet | REAL | REAL |
+| SHOP-OVERLAY-04 | overlay | 完成采购 Sheet | REAL | REAL |
 
 ### today-menu
 

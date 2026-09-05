@@ -709,7 +709,7 @@
       "kind": "wxml-handler",
       "handler": "saveAddStaple",
       "label": "保存常备",
-      "status": "PARTIAL",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -971,7 +971,7 @@
       "kind": "dock",
       "handler": "complete-bar",
       "label": "完成采购 Dock",
-      "status": "KNOWN_BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -1052,7 +1052,7 @@
       "kind": "wxml-handler",
       "handler": "openKitchenSettingsSheet",
       "label": "厨房设置",
-      "status": "PARTIAL",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -1061,8 +1061,8 @@
       "kind": "wxml-handler",
       "handler": "onMenuTap",
       "label": "菜单分发",
-      "status": "REAL",
-      "final": "REAL"
+      "status": "HIDDEN",
+      "final": "HIDDEN"
     },
     {
       "id": "MINE-11",
@@ -1142,7 +1142,7 @@
       "kind": "menu-action",
       "label": "厨房设置",
       "action": "openKitchenSettingsSheet",
-      "status": "PARTIAL",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -1150,9 +1150,10 @@
       "page": "mine",
       "kind": "menu-action",
       "label": "调味品 / 常备品",
-      "action": "placeholderToast",
-      "status": "BROKEN",
-      "final": "REAL"
+      "action": "goPantry",
+      "status": "REAL",
+      "final": "REAL",
+      "handler": "goPantry"
     },
     {
       "id": "MINE-MENU-04",
@@ -1213,18 +1214,20 @@
       "page": "mine",
       "kind": "menu-action",
       "label": "分享广场",
-      "action": "placeholderToast",
-      "status": "BROKEN",
-      "final": "PLANNED_DISABLED"
+      "action": "",
+      "status": "PLANNED_DISABLED",
+      "final": "PLANNED_DISABLED",
+      "disabled": true
     },
     {
       "id": "MINE-MENU-11",
       "page": "mine",
       "kind": "menu-action",
       "label": "我的分享",
-      "action": "placeholderToast",
-      "status": "BROKEN",
-      "final": "PLANNED_DISABLED"
+      "action": "",
+      "status": "PLANNED_DISABLED",
+      "final": "PLANNED_DISABLED",
+      "disabled": true
     },
     {
       "id": "MINE-MENU-12",
@@ -1438,7 +1441,7 @@
       "kind": "overlay",
       "surface_id": "FRIDGE-OVERLAY-01",
       "label": "添加食材 Sheet",
-      "status": "KNOWN_BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -1447,7 +1450,7 @@
       "kind": "overlay",
       "surface_id": "FRIDGE-OVERLAY-02",
       "label": "编辑食材 Sheet",
-      "status": "KNOWN_BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -1456,7 +1459,7 @@
       "kind": "overlay",
       "surface_id": "FRIDGE-OVERLAY-03",
       "label": "添加常备食材 Sheet",
-      "status": "KNOWN_BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -1465,7 +1468,7 @@
       "kind": "overlay",
       "surface_id": "SHOP-OVERLAY-01",
       "label": "购物证据 Sheet",
-      "status": "KNOWN_BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -1474,7 +1477,7 @@
       "kind": "overlay",
       "surface_id": "SHOP-OVERLAY-02",
       "label": "手动商品详情 Sheet",
-      "status": "KNOWN_BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -1483,7 +1486,7 @@
       "kind": "overlay",
       "surface_id": "SHOP-OVERLAY-03",
       "label": "添加手动商品 Sheet",
-      "status": "KNOWN_BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -1492,7 +1495,7 @@
       "kind": "overlay",
       "surface_id": "SHOP-OVERLAY-04",
       "label": "完成采购 Sheet",
-      "status": "KNOWN_BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -1501,7 +1504,7 @@
       "kind": "overlay",
       "surface_id": "MINE-OVERLAY-01",
       "label": "我的页面通用 Sheet",
-      "status": "KNOWN_BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -1511,6 +1514,78 @@
       "surface_id": "DETAIL-OVERLAY-01",
       "label": "评分弹窗",
       "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-GUARD-01",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "onKitchenNumber",
+      "label": "厨房设置数字输入",
+      "status": "HIDDEN",
+      "final": "HIDDEN"
+    },
+    {
+      "id": "MINE-GUARD-02",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "onKitchenMode",
+      "label": "厨房设置推荐模式",
+      "status": "HIDDEN",
+      "final": "HIDDEN"
+    },
+    {
+      "id": "MINE-GUARD-03",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "onKitchenCookware",
+      "label": "厨房设置厨具多选",
+      "status": "HIDDEN",
+      "final": "HIDDEN"
+    },
+    {
+      "id": "MINE-GUARD-04",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "onKitchenSpiciness",
+      "label": "厨房设置辣度",
+      "status": "HIDDEN",
+      "final": "HIDDEN"
+    },
+    {
+      "id": "MINE-GUARD-05",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "onKitchenToggle",
+      "label": "厨房设置开关",
+      "status": "HIDDEN",
+      "final": "HIDDEN"
+    },
+    {
+      "id": "MINE-GUARD-06",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "saveKitchenSettings",
+      "label": "保存厨房设置",
+      "status": "HIDDEN",
+      "final": "HIDDEN"
+    },
+    {
+      "id": "MINE-GUARD-07",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "goPantry",
+      "label": "跳转常备品",
+      "status": "HIDDEN",
+      "final": "HIDDEN"
+    },
+    {
+      "id": "MENU-DOCK-01",
+      "page": "menu",
+      "kind": "dock",
+      "handler": "mini-cart",
+      "label": "菜单 mini-cart Dock",
+      "status": "REAL",
       "final": "REAL"
     }
   ]
