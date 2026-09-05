@@ -132,12 +132,12 @@ Item:
 
 SQL 文件：`backend/v1/sql/preflight/008_preflight.sql`
 
-因为 008 尚未应用，`recipe_snapshot` 和 `display_name_override` 列不存在，禁止查询这些列。
+因为 008 尚未应用，008 新增列不存在，禁止查询任何 008 新增列。
 
 A. `legacy_frozen_meals`: `SELECT COUNT(*) FROM meals WHERE status IN ('CONFIRMED','COOKING','COMPLETED')`
    — 008 前所有 frozen meal 都没有 snapshot，全部是 legacy risk。
 B. `custom_pantry_without_name`: `SELECT COUNT(*) FROM pantry_staples WHERE ingredient_id IS NULL`
-   — 008 前没有 display_name_override 列，所有 custom pantry 都会违反新 CHECK。
+   — 008 前没有 custom name 列，所有 custom pantry 都会违反新 CHECK。
 
 任何 count > 0 → STOP，交 Reviewer 决定 backfill strategy。禁止 silent historical fake backfill。
 
