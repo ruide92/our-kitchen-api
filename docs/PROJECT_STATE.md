@@ -1,8 +1,40 @@
 # Kitchen V4 Project State
 
-Last updated: 2026-09-04 (Asia/Shanghai)
+Last updated: 2026-09-05 (Asia/Shanghai)
 
 ## Current stage
+
+### V1 LOCAL REAL AUTH/FAMILY CHECKPOINT (2026-09-05)
+
+Local V1 environment and real WeChat login verified end-to-end on this machine.
+
+- PostgreSQL 16.15 local environment: **PASS** (service running, localhost:5432)
+- Migration (`node --env-file=.env backend/v1/migrate-cli.js`): **PASS** — "Core migrations applied"
+- Unit tests: **38/38 PASS**, 0 fail
+- PostgreSQL integration tests: **19/19 PASS**, 0 fail (real PostgreSQL Family HTTP checkpoint)
+- `DATABASE_URL`: **PRESENT** (dev DB `our_kitchen_v1_dev`, owner `our_kitchen_v1`)
+- `TEST_DATABASE_URL`: **PRESENT** (test DB `our_kitchen_v1_test`)
+- `WECHAT_APP_SECRET`: **PRESENT** (32-char, written to local `.env`; not committed)
+- Local V1 server (`node --env-file=.env backend/v1/start.js`): **PASS** — listening on 3101; `GET /api/v1/me` without token returns **401 AUTH_REQUIRED** (not 404)
+- Real WeChat login (`wx.login` → `POST /api/v1/auth/wechat`): **LOGIN_ACCEPTED** — user created/upserted, JWT issued
+- Real `/api/v1/me`: **PASS** — authenticated user returned
+- Real family: first login had 0 families → created **"我们的小厨房"** → role **OWNER**
+- Real members: current user **ACTIVE**, role **OWNER**, members=1
+- Real family settings: **PASS** — `family_id` consistent, `default_diners=2`
+- v1Session runtime: **PASS** — backend request log confirms bootstrap auto-loads `/me`, `/me/families`, `/families/{id}`, `/members`, `/settings` all 200
+- Mine page:
+  - Code/Data Wiring: **PASS** — `mine.js` uses `mine-controller`; `mine-fixture.js` intentionally not imported
+  - Runtime Backend Evidence: **PASS** — real session data flows through v1Session
+  - Visual Acceptance: **PENDING** — DevTools GUI obstacle prevented capturing the Mine tab screenshot; not claimed as visual PASS
+- `.env` is gitignored; no secrets committed. No AppSecret, database password, DATABASE_URL, openid, token, or JWT secret recorded in this document.
+
+**Explicitly NOT DONE at this checkpoint:**
+
+- Public HTTPS V1 deployment: **NOT DONE** (only localhost loopback, DevTools-only)
+- Second WeChat user / 糖糖 join: **NOT DONE**
+- Two-user members=2 verification: **NOT DONE**
+- Homepage / Menu / Fridge / Shopping List: still **fixture data**; not wired to real backend
+- Recipe / weekly plan / meal / inventory / shopping / recommendation cutover: **NOT DONE**
 
 ### TASK-REAL-AUTH-FAMILY-CUTOVER-01 (2026-09-04)
 
@@ -35,6 +67,7 @@ Last updated: 2026-09-04 (Asia/Shanghai)
 - Phase 2.5 homepage UI acceptance checkpoint: `80e5c261599a34655b9c6340257b706006a39b33`
 - Phase 3 handoff gate: local and remote both verified at `27b3fcb51a13558d226b48c72d32c24ef8d94e99` after fetch/checkout/ff-only pull.
 - Phase 3 foundation implementation checkpoint: `508623ef995305fcb6021a94386a33e0e57e372c`.
+- V1 local real auth/family checkpoint: `f2f392ea837483d16e5dfc1f348d35da374cf18e`
 - Base branch: `main`
 - Remote: `https://github.com/ruide92/our-kitchen-api.git`
 - The original `main` checkout has a pre-existing modification to `database.json`. It has not been overwritten or included in this worktree.
@@ -154,18 +187,21 @@ Baseline evidence remains:
 - `npm ci`: pass (99 packages installed at Phase 1 baseline).
 - JavaScript syntax baseline: 34 project files checked, 0 failures at Phase 1.
 - Legacy `test-api.js` is not accepted as trustworthy.
-- Isolated JsonDatabase probe confirmed broken pagination/search/count/JOIN/COALESCE/update-expression behavior.
+- Isolated JsonDatabase probe confirmed broken pagination/search/count/JOIN/COALES/update-expression behavior.
 
 Phase 2 consisted only of specification documents; no business code or production deployment was modified. Normative cross-check was performed across Product ↔ Data Model ↔ API ↔ Acceptance Tests plus KRP/Recommendation/Roadmap.
 
 Phase 2.5 added homepage fixture UI only. WeChat DevTools real compile: 0 error. No backend, database, or auth code was touched.
+
+V1 local checkpoint (2026-09-05): unit 38/38 PASS, PostgreSQL integration 19/19 PASS, real wx.login LOGIN_ACCEPTED, real family created and verified.
 
 ## Deployment status
 
 - No deployment changed.
 - `main` not modified or merged.
 - Existing Render API remains legacy/non-V4.
+- Local V1 runs on localhost:3101 only (DevTools loopback). Public HTTPS deployment NOT DONE.
 
 ## Next first action
 
-Reviewer checks Auth/Family cutover code and failure-state evidence. Securely configure the real V1 environment, then test actual wx.login, create/join and two real users sharing the same family. Do not inject fixture success or proceed to other domains without a separate task.
+Complete Mine visual acceptance in DevTools (switch to "我的" tab and screenshot real data, no fixture). Then proceed to second-user join (糖糖) and members=2 verification. Do not deploy to public HTTPS or cut over recipe/menu/fridge/shopping to real backend without a separate task.
