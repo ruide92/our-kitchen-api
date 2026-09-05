@@ -10,6 +10,7 @@
  */
 
 const FIXTURE = require('./shopping-fixture.js')
+const { hideTabBar, showTabBar } = require('../../utils/tabbar-overlay.js')
 
 Page({
   data: {
@@ -68,8 +69,11 @@ Page({
   },
 
   onShow() {
-    try { if (this.getTabBar()) this.getTabBar().setData({ selected: 3 }) } catch(e) {}
+    try { if (this.getTabBar()) this.getTabBar().setData({ selected: 3, hidden: false }) } catch(e) {}
   },
+
+  onHide() { showTabBar(this) },
+  onUnload() { showTabBar(this) },
 
   // 注意：不实现 onShow 重置。运行态在 Tab 切换后保留。
 
@@ -166,10 +170,12 @@ Page({
     const item = this.data.items.find(i => i.id === id)
     if (!item || item.source !== 'GENERATED') return
     this.setData({ showEvidenceSheet: true, evidenceItem: item })
+    hideTabBar(this)
   },
 
   closeEvidence() {
     this.setData({ showEvidenceSheet: false, evidenceItem: null })
+    showTabBar(this)
   },
 
   // ===== 打开 MANUAL 详情 =====
@@ -196,10 +202,12 @@ Page({
         note: item.note || '',
       },
     })
+    hideTabBar(this)
   },
 
   closeManualDetail() {
     this.setData({ showManualDetailSheet: false, manualItem: null, isEditingManual: false })
+    showTabBar(this)
   },
 
   startEditManual() {
@@ -252,6 +260,7 @@ Page({
     })
     this._setItems(updated)
     this.setData({ showManualDetailSheet: false, manualItem: null, isEditingManual: false })
+    showTabBar(this)
     wx.showToast({ title: '已保存（fixture 运行态）', icon: 'none' })
   },
 
@@ -266,6 +275,7 @@ Page({
           const updated = items.filter(i => i.id !== editingManualId)
           this._setItems(updated)
           this.setData({ showManualDetailSheet: false, manualItem: null })
+          showTabBar(this)
           wx.showToast({ title: '已删除（fixture 运行态）', icon: 'none' })
         }
       },
@@ -278,10 +288,12 @@ Page({
       showAddSheet: true,
       addForm: { name: '', quantity: '', unit: 'g', customUnit: '', category: '蔬菜', note: '' },
     })
+    hideTabBar(this)
   },
 
   closeAddSheet() {
     this.setData({ showAddSheet: false })
+    showTabBar(this)
   },
 
   onAddInput(e) {
@@ -330,6 +342,7 @@ Page({
     }
     this._setItems([...items, newItem])
     this.setData({ showAddSheet: false })
+    showTabBar(this)
     wx.showToast({ title: '已添加（fixture 运行态）', icon: 'none' })
   },
 
@@ -338,10 +351,12 @@ Page({
     const purchased = this.data.items.filter(i => i.is_purchased)
     if (purchased.length === 0) return
     this.setData({ showCompleteSheet: true, purchasedItems: purchased })
+    hideTabBar(this)
   },
 
   closeCompleteSheet() {
     this.setData({ showCompleteSheet: false, purchasedItems: [] })
+    showTabBar(this)
   },
 
   confirmComplete() {
@@ -352,6 +367,7 @@ Page({
       duration: 2000,
     })
     this.setData({ showCompleteSheet: false, purchasedItems: [] })
+    showTabBar(this)
   },
 
   // 阻止 sheet 内容区点击冒泡

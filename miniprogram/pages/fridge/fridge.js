@@ -7,6 +7,7 @@
  */
 
 const FIXTURE = require('./fridge-fixture.js')
+const { hideTabBar, showTabBar } = require('../../utils/tabbar-overlay.js')
 
 Page({
   data: {
@@ -61,8 +62,11 @@ Page({
   },
 
   onShow() {
-    try { if (this.getTabBar()) this.getTabBar().setData({ selected: 2 }) } catch(e) {}
+    try { if (this.getTabBar()) this.getTabBar().setData({ selected: 2, hidden: false }) } catch(e) {}
   },
+
+  onHide() { showTabBar(this) },
+  onUnload() { showTabBar(this) },
 
   // 注意：不在 onShow 重置 fixture。
   // 用户运行态（添加/编辑/删除/常备食材修改）在切换 Tab 后必须保留。
@@ -191,10 +195,12 @@ Page({
       showAddSheet: true,
       addForm: { name: '', quantity: '', unit_code: 'g', storage_location: '冷藏', expiry_date: '', note: '' },
     })
+    hideTabBar(this)
   },
 
   closeAddSheet() {
     this.setData({ showAddSheet: false })
+    showTabBar(this)
   },
 
   onAddInput(e) {
@@ -242,6 +248,7 @@ Page({
       inventoryItems: [...inventoryItems, newItem],
       showAddSheet: false,
     })
+    showTabBar(this)
     this._refreshStats()
     wx.showToast({ title: '已添加（fixture 运行态）', icon: 'none' })
   },
@@ -263,10 +270,12 @@ Page({
         note: item.note || '',
       },
     })
+    hideTabBar(this)
   },
 
   closeEditSheet() {
     this.setData({ showEditSheet: false, editingItem: null })
+    showTabBar(this)
   },
 
   onEditInput(e) {
@@ -311,6 +320,7 @@ Page({
       }
     })
     this.setData({ inventoryItems: items, showEditSheet: false, editingItem: null })
+    showTabBar(this)
     this._refreshStats()
     wx.showToast({ title: '已保存（fixture 运行态）', icon: 'none' })
   },
@@ -331,6 +341,7 @@ Page({
             showEditSheet: false,
             editingItem: null,
           })
+          showTabBar(this)
           this._refreshStats()
           wx.showToast({ title: '已移出（fixture 运行态）', icon: 'none' })
         }
@@ -349,10 +360,12 @@ Page({
 
   openAddStapleSheet() {
     this.setData({ showAddStapleSheet: true, newStapleName: '' })
+    hideTabBar(this)
   },
 
   closeAddStapleSheet() {
     this.setData({ showAddStapleSheet: false })
+    showTabBar(this)
   },
 
   onStapleNameInput(e) {
@@ -375,6 +388,7 @@ Page({
       pantryStaples: [...this.data.pantryStaples, newStaple],
       showAddStapleSheet: false,
     })
+    showTabBar(this)
     wx.showToast({ title: '已添加（fixture 运行态）', icon: 'none' })
   },
 
