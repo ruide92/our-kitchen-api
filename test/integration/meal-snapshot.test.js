@@ -40,12 +40,42 @@ test('Meal snapshot historical correctness + pantry custom', async t => {
   const recipeId = randomUUID();
   await pool.query(`INSERT INTO recipes(id,kind,family_id,source_type,name,base_servings,visibility,version,cook_time_minutes,difficulty)
     VALUES ($1,'BASE',NULL,'SEED','红烧肉',2,'PUBLIC',1,40,2)`, [recipeId]);
+  await pool.query("INSERT INTO recipe_meal_types(recipe_id,meal_type) VALUES ($1,'DINNER')", [recipeId]);
+
+  // Seed rich recipe metadata for S2 completeness proof
+  const riId = randomUUID();
   await pool.query(`INSERT INTO recipe_ingredients(id,recipe_id,ingredient_id,display_name_override,quantity,unit_code,type,required,sort_order) VALUES
-    ($1,$2,$3,'五花肉',500,'g','MAIN',true,0)`, [randomUUID(), recipeId, ingPork]);
+    ($1,$2,$3,'五花肉',500,'g','MAIN',true,0)`, [riId, recipeId, ingPork]);
+  const step1Id = randomUUID();
+  const step2Id = randomUUID();
   await pool.query(`INSERT INTO recipe_steps(id,recipe_id,step_no,title,operation,sort_order) VALUES
     ($1,$2,1,'焯水','冷水下锅焯水',0),($3,$2,2,'炖煮','加糖色炖煮',1)`,
-    [randomUUID(), recipeId, randomUUID()]);
-  await pool.query("INSERT INTO recipe_meal_types(recipe_id,meal_type) VALUES ($1,'DINNER')", [recipeId]);
+    [step1Id, recipeId, step2Id]);
+  // cookware
+  await pool.query("INSERT INTO recipe_cookware(recipe_id,cookware_code) VALUES ($1,'WOK'),($1,'POT')", [recipeId]);
+  // tags
+  await pool.query("INSERT INTO recipe_tags(recipe_id,tag_code) VALUES ($1,'HOME_STYLE'),($1,'FAVORITE')", [recipeId]);
+  // allergens
+  await pool.query("INSERT INTO recipe_allergens(recipe_id,allergen_code) VALUES ($1,'SOY')", [recipeId]);
+  // ingredient alternatives
+  await pool.query(`INSERT INTO recipe_ingredient_alternatives(id,recipe_ingredient_id,alternative_ingredient_id,alternative_name,ratio,note,sort_order)
+    VALUES ($1,$2,$3,'牛腩',1.2,'可替代',0)`, [randomUUID(), riId, ingPork]);
+  // step media
+  await pool.query(`INSERT INTO recipe_step_media(id,recipe_step_id,media_type,url,sort_order)
+    VALUES ($1,$2,'IMAGE','https://img.example.com/step1.jpg',0)`, [randomUUID(), step1Id]);
+  // nutrition
+  await pool.query(`INSERT INTO recipe_nutrition(id,recipe_id,serving_size,serving_unit,calories_kcal,protein_g,fat_g,carbs_g,fiber_g,sodium_mg,source)
+    VALUES ($1,$2,100,'g',250,15,18,8,2,500,'ESTIMATED')`, [randomUUID(), recipeId]);
+  // nutrition tags
+  await pool.query("INSERT INTO recipe_nutrition_tags(recipe_id,tag_code) VALUES ($1,'HIGH_PROTEIN')", [recipeId]);
+  // traditional diet tags
+  await pool.query("INSERT INTO recipe_traditional_diet_tags(recipe_id,tag_code) VALUES ($1,'WARMING')", [recipeId]);
+  // recipe media with full fields
+  await pool.query(`INSERT INTO recipe_media(id,recipe_id,media_type,asset_url,asset_id,generation_prompt,source_url,sort_order)
+    VALUES ($1,$2,'IMAGE','https://img.example.com/dish.jpg','asset_123','prompt text','https://source.example.com',0)`,
+    [randomUUID(), recipeId]);
+  // vegetable categories
+  await pool.query("INSERT INTO recipe_vegetable_categories(recipe_id,category_code) VALUES ($1,'ROOT')", [recipeId]);
 
   const repo = createRepository(pool);
   const families = createFamilyService(pool);
@@ -102,18 +132,74 @@ test('Meal snapshot historical correctness + pantry custom', async t => {
     assert.equal(item.steps[0].title, '焯水');
   });
 
-  // ===== S2: ingredients/steps/cookware/tags captured =====
-  await t.test('S2: ingredients/steps/cookware/tags captured in snapshot', async () => {
+  // ===== S2: full snapshot completeness proof =====
+  await t.test('S2: full snapshot completeness — all fields captured', async () => {
     const mealId = await createMealWithRecipe('2026-09-11', 'DINNER');
     const confirmRes = await request('POST', `/families/${family.id}/meals/${mealId}/confirm`, {});
+    assert.equal(confirmRes.status, 200);
     const snap = confirmRes.body.data.recipe_snapshot.items[0];
-    assert.equal(snap.ingredients[0].name, '五花肉');
-    assert.equal(snap.ingredients[0].unit_code, 'g');
-    assert.equal(snap.ingredients[0].required, true);
-    assert.equal(snap.steps[1].operation, '加糖色炖煮');
-    assert.ok(snap.meal_types.includes('DINNER'));
+
+    // recipe core
+    assert.equal(snap.recipe.name, '红烧肉');
     assert.equal(snap.recipe.cook_time_minutes, 40);
     assert.equal(snap.recipe.difficulty, 2);
+    assert.equal(snap.recipe.version, 1);
+
+    // ingredients + alternatives
+    assert.equal(snap.ingredients.length, 1);
+    assert.equal(snap.ingredients[0].name, '五花肉');
+    assert.equal(snap.ingredients[0].quantity, 500);
+    assert.equal(snap.ingredients[0].unit_code, 'g');
+    assert.equal(snap.ingredients[0].required, true);
+    assert.ok(snap.ingredients[0].alternatives.length >= 1, 'ingredient alternatives captured');
+    assert.equal(snap.ingredients[0].alternatives[0].alternative_name, '牛腩');
+    assert.equal(snap.ingredients[0].alternatives[0].ratio, 1.2);
+
+    // steps + step media
+    assert.equal(snap.steps.length, 2);
+    assert.equal(snap.steps[0].title, '焯水');
+    assert.equal(snap.steps[1].operation, '加糖色炖煮');
+    assert.ok(snap.steps[0].media.length >= 1, 'step media captured');
+    assert.equal(snap.steps[0].media[0].asset_url, 'https://img.example.com/step1.jpg');
+    assert.equal(snap.steps[0].media[0].media_type, 'IMAGE');
+
+    // cookware
+    assert.ok(snap.cookware.length >= 2, 'cookware captured');
+    assert.ok(snap.cookware.some(c => c.cookware_code === 'WOK'));
+    assert.ok(snap.cookware.some(c => c.cookware_code === 'POT'));
+
+    // meal_types
+    assert.ok(snap.meal_types.includes('DINNER'));
+
+    // tags
+    assert.ok(snap.tags.includes('HOME_STYLE'));
+    assert.ok(snap.tags.includes('FAVORITE'));
+
+    // allergens
+    assert.ok(snap.allergens.includes('SOY'));
+
+    // nutrition
+    assert.ok(snap.nutrition, 'nutrition captured');
+    assert.equal(snap.nutrition.calories_kcal, 250);
+    assert.equal(snap.nutrition.protein_g, 15);
+    assert.equal(snap.nutrition.source, 'ESTIMATED');
+
+    // nutrition_tags
+    assert.ok(snap.nutrition_tags.includes('HIGH_PROTEIN'), 'nutrition_tags captured');
+
+    // traditional_diet_tags
+    assert.ok(snap.traditional_diet_tags.includes('WARMING'), 'traditional_diet_tags captured');
+
+    // recipe media — full fields
+    assert.ok(snap.media.length >= 1, 'recipe media captured');
+    assert.equal(snap.media[0].asset_url, 'https://img.example.com/dish.jpg');
+    assert.equal(snap.media[0].asset_id, 'asset_123');
+    assert.equal(snap.media[0].generation_prompt, 'prompt text');
+    assert.equal(snap.media[0].source_url, 'https://source.example.com');
+    assert.equal(snap.media[0].media_type, 'IMAGE');
+
+    // vegetable_categories
+    assert.ok(snap.vegetable_categories.includes('ROOT'), 'vegetable_categories captured');
   });
 
   // ===== S3: confirm then modify recipe, startCooking still old steps =====
@@ -286,6 +372,12 @@ test('Meal snapshot historical correctness + pantry custom', async t => {
     assert.ok(cooking, 'cooking_sessions table exists');
     const kiss = (await pool.query(`SELECT to_regclass('kiss_ledger') as t`)).rows[0].t;
     assert.ok(kiss, 'kiss_ledger table exists');
+    // preflight/ directory must NOT be executed by migration loader
+    const { loadMigrations } = require('../../backend/v1/migrations');
+    const migs = await loadMigrations(path.join(__dirname, '../../backend/v1/sql'));
+    const migNames = migs.map(m => m.name);
+    assert.ok(!migNames.some(n => n.includes('preflight')), 'preflight SQL files must not be loaded as migrations');
+    assert.equal(migNames.length, 8, 'exactly 8 migrations (001-008)');
   });
 
   // ===== S15: History CONFIRMED snapshot missing → MEAL_SNAPSHOT_MISSING =====
@@ -332,47 +424,35 @@ test('Meal snapshot historical correctness + pantry custom', async t => {
 
   // ===== S18: 008 fields/nullability/index/check 逐项匹配 DATA_MODEL 25-28 =====
   await t.test('S18: 008 schema alignment with DATA_MODEL sections 25-28', async () => {
-    // cooking_sessions.started_by_user_id NOT NULL
-    const cookingStarted = (await pool.query(`
-      SELECT is_nullable FROM information_schema.columns
-      WHERE table_schema=current_schema() AND table_name='cooking_sessions' AND column_name='started_by_user_id'
-    `)).rows[0];
-    assert.equal(cookingStarted.is_nullable, 'NO', 'cooking_sessions.started_by_user_id must be NOT NULL');
-
-    // kiss_ledger.meal_id NOT NULL
-    const kissMeal = (await pool.query(`
-      SELECT is_nullable FROM information_schema.columns
-      WHERE table_schema=current_schema() AND table_name='kiss_ledger' AND column_name='meal_id'
-    `)).rows[0];
-    assert.equal(kissMeal.is_nullable, 'NO', 'kiss_ledger.meal_id must be NOT NULL');
-
-    // recipe_imports.created_by_user_id NOT NULL
-    const importCreated = (await pool.query(`
-      SELECT is_nullable FROM information_schema.columns
-      WHERE table_schema=current_schema() AND table_name='recipe_imports' AND column_name='created_by_user_id'
-    `)).rows[0];
-    assert.equal(importCreated.is_nullable, 'NO', 'recipe_imports.created_by_user_id must be NOT NULL');
-
-    // pantry custom CHECK constraint exists
-    const pantryCheck = (await pool.query(`
-      SELECT conname FROM pg_constraint
-      WHERE conname='pantry_custom_name_required'
-    `)).rows;
-    assert.ok(pantryCheck.length > 0, 'pantry_custom_name_required CHECK constraint exists');
-
-    // pantry canonical partial unique index exists
-    const canonicalIdx = (await pool.query(`
-      SELECT indexname FROM pg_indexes
-      WHERE tablename='pantry_staples' AND indexname LIKE '%canonical%'
-    `)).rows;
-    assert.ok(canonicalIdx.length > 0, 'pantry canonical partial unique index exists');
-
-    // pantry custom normalized partial unique index exists
-    const customIdx = (await pool.query(`
-      SELECT indexname FROM pg_indexes
-      WHERE tablename='pantry_staples' AND indexname LIKE '%custom%'
-    `)).rows;
-    assert.ok(customIdx.length > 0, 'pantry custom normalized partial unique index exists');
+    const expected = {
+      cooking_sessions: { id:'NO', family_id:'NO', meal_id:'NO', status:'NO', started_by_user_id:'NO', completed_by_user_id:'YES', started_at:'NO', completed_at:'YES' },
+      wishes: { id:'NO', family_id:'NO', user_id:'NO', recipe_id:'NO', status:'NO', created_at:'NO', resolved_at:'YES' },
+      kiss_ledger: { id:'NO', family_id:'NO', from_user_id:'NO', to_user_id:'NO', meal_id:'NO', recipe_id:'YES', suggested_amount:'YES', actual_amount:'NO', rating_id:'YES', reason:'YES', created_at:'NO' },
+      recipe_imports: { id:'NO', family_id:'NO', created_by_user_id:'NO', schema_version:'NO', raw_payload:'NO', normalized_payload:'YES', status:'NO', inferred_fields:'NO', uncertain_fields:'NO', imported_recipe_id:'YES', created_at:'NO', updated_at:'NO' },
+    };
+    let drift = 0;
+    const misaligned = [];
+    for (const [table, columns] of Object.entries(expected)) {
+      const actualRows = (await pool.query(`SELECT column_name, is_nullable FROM information_schema.columns WHERE table_schema=current_schema() AND table_name=$1 ORDER BY ordinal_position`, [table])).rows;
+      const actual = Object.fromEntries(actualRows.map(r => [r.column_name, r.is_nullable]));
+      for (const [col, exp] of Object.entries(columns)) {
+        const act = actual[col];
+        if (act !== exp) { drift++; misaligned.push({table, column:col, expected:exp, actual:act}); }
+      }
+    }
+    const checks = (await pool.query(`SELECT conname FROM pg_constraint WHERE conname IN ('cooking_sessions_status_check','wishes_status_check','kiss_ledger_actual_amount_check','recipe_imports_status_check')`)).rows.map(c=>c.conname);
+    assert.ok(checks.includes('cooking_sessions_status_check'), 'cooking status CHECK');
+    assert.ok(checks.includes('wishes_status_check'), 'wishes status CHECK');
+    assert.ok(checks.includes('kiss_ledger_actual_amount_check'), 'kiss actual_amount CHECK');
+    assert.ok(checks.includes('recipe_imports_status_check'), 'imports status CHECK');
+    const jsonbCols = (await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='recipe_imports' AND data_type='jsonb'`)).rows.map(c=>c.column_name);
+    for (const c of ['raw_payload','normalized_payload','inferred_fields','uncertain_fields']) assert.ok(jsonbCols.includes(c), c+' JSONB');
+    const pantryCheck = (await pool.query(`SELECT conname FROM pg_constraint WHERE conname='pantry_custom_name_required'`)).rows;
+    assert.ok(pantryCheck.length > 0, 'pantry_custom_name_required CHECK');
+    const pantryIdx = (await pool.query(`SELECT indexname FROM pg_indexes WHERE tablename='pantry_staples'`)).rows.map(i=>i.indexname);
+    assert.ok(pantryIdx.some(n=>n.includes('canonical')), 'pantry canonical partial unique');
+    assert.ok(pantryIdx.some(n=>n.includes('custom')), 'pantry custom partial unique');
+    assert.equal(drift, 0, 'SCHEMA_ALIGNMENT_DRIFT='+drift+': '+JSON.stringify(misaligned));
   });
 
   // ===== S19: DATA_MODEL / SPEC approval consistency =====
@@ -383,12 +463,28 @@ test('Meal snapshot historical correctness + pantry custom', async t => {
     const content = fs.readFileSync(amendmentPath, 'utf8');
     const statusMatch = content.match(/^Status:\s*(\w+)/m);
     const blockedMatch = content.match(/^Blocked:\s*(.+)/m);
-    if (statusMatch && statusMatch[1] === 'APPROVED') {
+    const status = statusMatch ? statusMatch[1] : null;
+
+    if (status === 'APPROVED') {
+      // Blocked must be NO
       assert.ok(blockedMatch && blockedMatch[1].trim().startsWith('NO'),
         'APPROVED amendment must have Blocked: NO');
-    }
-    // If DRAFT, must be BLOCKED
-    if (statusMatch && statusMatch[1] === 'DRAFT') {
+      // Reviewer Decision Option A APPROVED
+      assert.ok(content.includes('Option A') && content.includes('APPROVED'),
+        'APPROVED amendment must document Reviewer Decision Option A');
+      // All checklist items checked
+      const unchecked = content.match(/^\s*-\s*\[\s\]/m);
+      assert.ok(!unchecked, 'APPROVED amendment must have all checklist items [x]');
+      // PRE-008 and POST-008 SQL files exist
+      const preflightDir = path.join(__dirname, '..', '..', 'backend', 'v1', 'sql', 'preflight');
+      assert.ok(fs.existsSync(path.join(preflightDir, '008_preflight.sql')), '008_preflight.sql must exist');
+      assert.ok(fs.existsSync(path.join(preflightDir, '008_postcheck.sql')), '008_postcheck.sql must exist');
+      // DATA_MODEL must contain recipe_snapshot and display_name_override
+      const dataModelPath = path.join(__dirname, '..', '..', 'docs', 'DATA_MODEL_V4.md');
+      const dm = fs.readFileSync(dataModelPath, 'utf8');
+      assert.ok(dm.includes('recipe_snapshot'), 'DATA_MODEL must contain recipe_snapshot');
+      assert.ok(dm.includes('display_name_override'), 'DATA_MODEL must contain display_name_override');
+    } else if (status === 'DRAFT') {
       assert.ok(blockedMatch && blockedMatch[1].includes('YES'),
         'DRAFT amendment must be Blocked: YES');
     }

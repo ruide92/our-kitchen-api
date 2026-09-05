@@ -11,17 +11,14 @@ const AMENDMENT_DIR = path.join(ROOT, 'docs');
 
 const mode = process.argv.find(a => a.startsWith('--mode='))?.split('=')[1] || 'governance';
 
-// Baseline migrations already approved and running in production (001-007).
-// Only migrations after baseline require amendment approval.
-const BASELINE_MIGRATIONS = new Set([
-  '001_identity_family.sql',
-  '002_family_cookware.sql',
-  '003_ingredients_recipes.sql',
-  '004_meals_weekly.sql',
-  '005_fridge_pantry.sql',
-  '006_shopping.sql',
-  '007_shopping_evidence.sql',
-]);
+// Known baseline drift registry — 001-007 migrations already in production.
+// Each entry documents a historical schema/model mismatch that is NOT fixed in this task.
+// UNTRACKED drift (not in registry) must FAIL.
+const BASELINE_DRIFT_REGISTRY = path.join(ROOT, 'governance', 'schema-baseline-drift.json');
+function loadBaselineDrift() {
+  try { return JSON.parse(fs.readFileSync(BASELINE_DRIFT_REGISTRY, 'utf8')); }
+  catch { return { drifts: [] }; }
+}
 
 function readFile(p) { return fs.readFileSync(p, 'utf8'); }
 
@@ -73,7 +70,6 @@ function main() {
   const allAlters = [];
 
   for (const f of sqlFiles) {
-    if (BASELINE_MIGRATIONS.has(f)) continue; // already approved in production
     const sql = readFile(path.join(SQL_DIR, f));
     extractTables(sql).forEach(t => allTables.set(t, f));
     allAlters.push(...extractAlterColumns(sql).map(a => ({ ...a, migration: f })));
@@ -83,13 +79,22 @@ function main() {
   console.log(`Total tables: ${allTables.size}`);
   console.log(`ALTER ADD COLUMN: ${allAlters.length}`);
 
+  const baselineDrift = loadBaselineDrift();
+  const knownDriftKeys = new Set((baselineDrift.drifts || []).map(d => `${d.migration}:${d.table || ''}:${d.column || ''}`));
+
   // Check each table is referenced
   const unapprovedTables = [];
+  const knownBaselineDrift = [];
   for (const [table, migration] of allTables) {
     const inDataModel = dataModel.includes(table);
     const inAmendment = amendments.some(a => a.content.includes(table));
     if (!inDataModel && !inAmendment) {
-      unapprovedTables.push({ table, migration });
+      const key = `${migration}:${table}:`;
+      if (knownDriftKeys.has(key)) {
+        knownBaselineDrift.push({ table, migration, type: 'KNOWN_BASELINE_DRIFT' });
+      } else {
+        unapprovedTables.push({ table, migration });
+      }
     }
   }
 
@@ -100,7 +105,12 @@ function main() {
       a.content.includes(alter.table) && a.content.includes(alter.column)
     );
     if (!inDataModel && !inAmendment) {
-      unapprovedAlters.push(alter);
+      const key = `${alter.migration}:${alter.table}:${alter.column}`;
+      if (knownDriftKeys.has(key)) {
+        knownBaselineDrift.push({ table: alter.table, column: alter.column, migration: alter.migration, type: 'KNOWN_BASELINE_DRIFT' });
+      } else {
+        unapprovedAlters.push(alter);
+      }
     }
   }
 
@@ -111,6 +121,10 @@ function main() {
   console.log(`\n--- ALTER columns not in DATA_MODEL or amendments ---`);
   if (unapprovedAlters.length === 0) console.log('  none');
   else unapprovedAlters.forEach(u => console.log(`  - ${u.table}.${u.column} (from ${u.migration})`));
+
+  console.log(`\n--- Known baseline drift (001-007, tracked in registry) ---`);
+  if (knownBaselineDrift.length === 0) console.log('  none');
+  else knownBaselineDrift.forEach(d => console.log(`  - ${d.table}${d.column ? '.'+d.column : ''} (from ${d.migration})`));
 
   // Check amendment approval status
   const draftAmendments = amendments.filter(a => a.status !== 'APPROVED');
@@ -142,7 +156,8 @@ function main() {
 
   const totalUnapproved = unapprovedTables.length + unapprovedAlters.length;
   console.log(`\n=== SUMMARY ===`);
-  console.log(`UNAPPROVED_SCHEMA_CHANGES: ${totalUnapproved}`);
+  console.log(`UNTRACKED_BASELINE_DRIFT: ${totalUnapproved}`);
+  console.log(`KNOWN_BASELINE_DRIFT: ${knownBaselineDrift.length}`);
   console.log(`DRAFT_AMENDMENTS: ${draftAmendments.length}`);
   console.log(`008_STATUS: ${zeroZeroEightStatus}`);
 
@@ -155,9 +170,9 @@ function main() {
     process.exit(0);
   }
 
-  // Release mode: any DRAFT or unapproved = FAIL
+  // Release mode: any DRAFT or untracked drift = FAIL
   if (draftAmendments.length > 0 || totalUnapproved > 0 || zeroZeroEightStatus.includes('BLOCKED')) {
-    console.log('\nFAIL: release requires all amendments APPROVED and no unapproved schema changes');
+    console.log('\nFAIL: release requires all amendments APPROVED and no untracked baseline drift');
     process.exit(1);
   }
 

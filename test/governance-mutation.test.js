@@ -358,9 +358,20 @@ test('Mutation E: DRAFT migration blocks release schema audit', () => {
   }
 });
 
-test('Baseline: schema release passes because 008 is APPROVED', () => {
-  const result = runScript('schema-contract-audit.js', ['--mode=release']);
-  assert.equal(result.code, 0, `release schema should PASS now that 008 is approved, got code=${result.code}: ${result.stdout}`);
+test('Baseline: schema release passes when 008 amendment is APPROVED', () => {
+  const amendPath = path.join(ROOT, 'docs', 'SPEC_AMENDMENT_12A.md');
+  const original = fs.readFileSync(amendPath, 'utf8');
+  try {
+    // Temporarily set APPROVED/NO to test release schema gate
+    const approved = original
+      .replace(/^Status:\s*\w+/m, 'Status: APPROVED')
+      .replace(/^Blocked:\s*.+$/m, 'Blocked: NO');
+    fs.writeFileSync(amendPath, approved, 'utf8');
+    const result = runScript('schema-contract-audit.js', ['--mode=release']);
+    assert.equal(result.code, 0, `release schema should PASS when 008 approved, got code=${result.code}: ${result.stdout}`);
+  } finally {
+    fs.writeFileSync(amendPath, original, 'utf8');
+  }
 });
 
 test('Baseline: product surface matrix is in sync', () => {

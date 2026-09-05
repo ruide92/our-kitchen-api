@@ -1,0 +1,41 @@
+{
+  "description": "Known baseline schema drift between 001-007 production migrations and DATA_MODEL_V4.md. These are historical, already-deployed mismatches. UNTRACKED drift (not in this registry) must FAIL schema audit.",
+  "drifts": [
+    {
+      "migration": "003_ingredients_recipes.sql",
+      "table": "recipe_favorites",
+      "column": null,
+      "normative": "Not documented in DATA_MODEL_V4",
+      "actual": "Table exists in production",
+      "reason": "Favorites table created in 003 but not added to normative model",
+      "future_resolution": "Add to DATA_MODEL_V4 in next schema amendment"
+    },
+    {
+      "migration": "003_ingredients_recipes.sql",
+      "table": "recipe_ratings",
+      "column": null,
+      "normative": "Not documented in DATA_MODEL_V4",
+      "actual": "Table exists in production",
+      "reason": "Ratings table created in 003 but not added to normative model",
+      "future_resolution": "Add to DATA_MODEL_V4 in next schema amendment"
+    },
+    {
+      "migration": "006_shopping.sql",
+      "table": "shopping_list_items",
+      "column": null,
+      "normative": "Not documented in DATA_MODEL_V4",
+      "actual": "Table exists in production",
+      "reason": "Shopping list items table created in 006 but not added to normative model",
+      "future_resolution": "Add to DATA_MODEL_V4 in next schema amendment"
+    },
+    {
+      "migration": "007_shopping_evidence.sql",
+      "table": "shopping_list_items",
+      "column": "sources",
+      "normative": "Not documented in DATA_MODEL_V4",
+      "actual": "Column added via ALTER in 007",
+      "reason": "Sources evidence column added in 007 but not added to normative model",
+      "future_resolution": "Add to DATA_MODEL_V4 in next schema amendment"
+    }
+  ]
+}

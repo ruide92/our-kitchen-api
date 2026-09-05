@@ -216,9 +216,14 @@ async function fetchStepMedia(tx, recipeStepId) {
     WHERE recipe_step_id = $1
     ORDER BY sort_order
   `, [recipeStepId])).rows;
+  // Snapshot V1 stable media vocabulary: asset_url (mapped from legacy url),
+  // asset_id/generation_prompt/source_url = null until migration adds them.
   return rows.map(m => ({
     media_type: m.media_type,
-    url: m.url,
+    asset_url: m.url,
+    asset_id: null,
+    generation_prompt: null,
+    source_url: null,
     sort_order: m.sort_order,
   }));
 }

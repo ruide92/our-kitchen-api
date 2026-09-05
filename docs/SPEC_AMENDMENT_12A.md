@@ -3,7 +3,7 @@
 Status: APPROVED
 Blocked: NO
 基线: DATA_MODEL_V4.md + API_CONTRACT_V4.md
-批准: 2026-09-06 — TASK-KITCHEN-12A-SNAPSHOT-CONTRACT-CORRECTION 完成后批准
+批准: 2026-09-06 — TASK-KITCHEN-12A-MIGRATION-READINESS-SEAL 完成后批准
 
 ## Reviewer Decision
 
@@ -114,6 +114,15 @@ Item:
 ```
 
 所有字段通过显式 mapper 构建，禁止 SELECT * 直接进入 snapshot。
+
+### Step Media V1 Compatibility
+
+当前 003 migration 中 `recipe_step_media` 表只有 `url` 字段，而 `recipe_media` 表有 `asset_url/asset_id/generation_prompt/source_url`。为统一 Snapshot V1 media vocabulary：
+
+- step media 的 `url` 映射为 `asset_url`
+- `asset_id`、`generation_prompt`、`source_url` 输出 `null`（当前 DB 尚不存在这些字段）
+- Snapshot consumer 统一使用 `asset_url`，不暴露临时的 `media.url`
+- 未来若 migration 为 recipe_step_media 增加这些字段，snapshot builder 可直接填充，不改变 v1 contract shape
 
 ## Production preflight (未来 apply 008 前必须执行)
 
