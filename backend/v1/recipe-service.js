@@ -98,14 +98,15 @@ function createRecipeService(pool) {
         SELECT r.*,
           EXISTS(SELECT 1 FROM recipes fv WHERE fv.parent_recipe_id = r.id AND fv.family_id = $1 AND fv.deleted_at IS NULL) AS has_family_variant,
           (SELECT fv.id FROM recipes fv WHERE fv.parent_recipe_id = r.id AND fv.family_id = $1 AND fv.deleted_at IS NULL LIMIT 1) AS family_variant_id,
-          EXISTS(SELECT 1 FROM recipe_favorites fav WHERE fav.user_id = $${userIdParam} AND fav.recipe_id = r.id) AS is_favorite
+          EXISTS(SELECT 1 FROM recipe_favorites fav WHERE fav.user_id = $${userIdParam} AND fav.recipe_id = r.id) AS is_favorite,
+          (SELECT rm.asset_url FROM recipe_media rm WHERE rm.recipe_id = r.id AND rm.media_type = 'COVER_IMAGE' ORDER BY rm.sort_order LIMIT 1) AS cover_image_url
         FROM recipes r
         WHERE ${conditions.join(' AND ')}
         ORDER BY r.name
         LIMIT 200
       `;
       const rows = (await tx.query(sql, params)).rows;
-      return rows.map(r => recipeRow(r, { is_favorite: r.is_favorite }));
+      return rows.map(r => recipeRow(r, { is_favorite: r.is_favorite, cover_image_url: r.cover_image_url }));
     });
   }
 
@@ -118,7 +119,8 @@ function createRecipeService(pool) {
       const extras = await loadRecipeExtras(tx, recipeId, familyId, userId);
       // Cover image from recipe_media
       const coverMedia = extras.media.find(m => m.media_type === 'COVER_IMAGE');
-      const baseRecipe = recipeRow(recipe, extras);
+      // recipe only contains its own fields + summary, NOT ingredients/steps/media
+      const baseRecipe = recipeRow(recipe, { is_favorite: extras.is_favorite });
       return {
         recipe: { ...baseRecipe, cover_image_url: coverMedia ? coverMedia.asset_url : null },
         ingredients: extras.ingredients,
@@ -129,7 +131,7 @@ function createRecipeService(pool) {
         viewer: {
           is_favorite: extras.is_favorite,
           rating: null,
-          wish_status: 'UNKNOWN'
+          wish_status: null
         }
       };
     });
@@ -138,12 +140,14 @@ function createRecipeService(pool) {
   async function createRecipe(familyId, userId, body) {
     return access(familyId, userId, null, true, async tx => {
       const id = randomUUID();
-      const r = (await tx.query(`INSERT INTO recipes(id,kind,family_id,parent_recipe_id,source_type,name,description,category_code,cuisine_code,base_servings,cook_time_minutes,difficulty,spiciness,visibility,created_by_user_id,updated_by_user_id,version)
-        VALUES($1,'FAMILY',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'FAMILY',$13,$13,1) RETURNING *`,
+      const r = (await tx.query(`INSERT INTO recipes(id,kind,family_id,parent_recipe_id,source_type,name,description,category_code,cuisine_code,base_servings,cook_time_minutes,difficulty,spiciness,sweetness,saltiness,sourness,oiliness,cooking_method_code,protein_source_code,suggested_kiss,visibility,created_by_user_id,updated_by_user_id,version)
+        VALUES($1,'FAMILY',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,'FAMILY',$20,$20,1) RETURNING *`,
         [id, familyId, body.parent_recipe_id || null, body.source_type || 'MANUAL',
          body.name, body.description || null, body.category_code || 'HOT_DISH', body.cuisine_code || null,
          body.base_servings || 2, body.cook_time_minutes || null, body.difficulty || null,
-         body.spiciness || null, userId])).rows[0];
+         body.spiciness || null, body.sweetness || null, body.saltiness || null,
+         body.sourness || null, body.oiliness || null, body.cooking_method_code || null,
+         body.protein_source_code || null, body.suggested_kiss || null, userId])).rows[0];
       // meal types
       for (const mt of body.meal_types || ['LUNCH','DINNER']) {
         await tx.query('INSERT INTO recipe_meal_types (recipe_id, meal_type) VALUES ($1,$2) ON CONFLICT DO NOTHING', [id, mt]);
@@ -153,9 +157,10 @@ function createRecipeService(pool) {
         let sortOrder = 0;
         for (const ing of body.ingredients) {
           await tx.query(`INSERT INTO recipe_ingredients (recipe_id, ingredient_id, display_name_override, quantity, quantity_text, unit_code, type, required, sort_order, note)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,true,$8,$9)`,
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
             [id, ing.ingredient_id || null, ing.display_name_override || ing.name, ing.quantity || null,
-             ing.quantity_text || null, ing.unit_code || null, ing.type || 'MAIN', sortOrder++, ing.note || null]);
+             ing.quantity_text || null, ing.unit_code || null, ing.type || 'MAIN',
+             ing.required === false ? false : true, sortOrder++, ing.note || null]);
         }
       }
       // tags

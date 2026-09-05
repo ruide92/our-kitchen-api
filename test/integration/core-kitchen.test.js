@@ -338,7 +338,7 @@ test('Core kitchen HTTP checkpoint against real PostgreSQL', async t => {
     assert.ok(Array.isArray(r.body.data.ingredients));
     assert.ok(r.body.data.steps, 'should have steps field');
     assert.ok(r.body.data.viewer, 'should have viewer field');
-    assert.equal(r.body.data.viewer.wish_status, 'UNKNOWN');
+    assert.equal(r.body.data.viewer.wish_status, null);
     assert.equal(r.body.data.nutrition, null);
   });
 
@@ -363,5 +363,32 @@ test('Core kitchen HTTP checkpoint against real PostgreSQL', async t => {
     const porkItem = list.items.find(i => i.ingredient_id === ingPork);
     assert.ok(porkItem);
     assert.equal(num(porkItem.required_quantity), 300, 'single recipe pork = 300g, not 600g');
+  });
+
+  // ===== Incompatible units: COUNT vs MASS not merged =====
+  await t.test('incompatible units: 葱 2根 + 葱 30g stay separate', async () => {
+    const fa = await makeFamily('A', 'Incompat Family');
+    // Create scallion ingredient with default unit root (COUNT)
+    const ingScallion = randomUUID();
+    await pool.query(`INSERT INTO ingredients(id,canonical_code,display_name,category_code,default_unit_code) VALUES ($1,'scallion','葱','VEGETABLE','root')`, [ingScallion]);
+    // Recipe A: 葱 2根
+    const recipeA = randomUUID();
+    await pool.query(`INSERT INTO recipes(id,kind,family_id,source_type,name,base_servings,visibility,version) VALUES ($1,'BASE',NULL,'SEED','葱菜谱A',2,'PUBLIC',1)`, [recipeA]);
+    await pool.query(`INSERT INTO recipe_ingredients(id,recipe_id,ingredient_id,display_name_override,quantity,unit_code,type,required,sort_order) VALUES ($1,$2,$3,'葱',2,'root','MAIN',true,0)`, [randomUUID(), recipeA, ingScallion]);
+    // Recipe B: 葱 30g
+    const recipeB = randomUUID();
+    await pool.query(`INSERT INTO recipes(id,kind,family_id,source_type,name,base_servings,visibility,version) VALUES ($1,'BASE',NULL,'SEED','葱菜谱B',2,'PUBLIC',1)`, [recipeB]);
+    await pool.query(`INSERT INTO recipe_ingredients(id,recipe_id,ingredient_id,display_name_override,quantity,unit_code,type,required,sort_order) VALUES ($1,$2,$3,'葱',30,'g','MAIN',true,0)`, [randomUUID(), recipeB, ingScallion]);
+
+    const meal = await makeMealWithRecipes('A', fa.id, '2026-09-21', 'DINNER', [recipeA, recipeB]);
+    const list = (await request('A', 'POST', `/families/${fa.id}/shopping-lists/generate`, { meal_id: meal.id, mode: 'REPLACE_GENERATED' })).body.data;
+    const scallionItems = list.items.filter(i => i.ingredient_id === ingScallion);
+    assert.equal(scallionItems.length, 2, 'should have 2 separate items for incompatible units');
+    const rootItem = scallionItems.find(i => i.unit_code === 'root');
+    const gItem = scallionItems.find(i => i.unit_code === 'g');
+    assert.ok(rootItem, 'root unit item should exist');
+    assert.ok(gItem, 'g unit item should exist');
+    assert.equal(num(rootItem.required_quantity), 2, 'root item = 2根');
+    assert.equal(num(gItem.required_quantity), 30, 'g item = 30g');
   });
 });

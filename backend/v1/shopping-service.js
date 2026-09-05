@@ -36,10 +36,12 @@ function createShoppingService(pool) {
         LEFT JOIN ingredients i ON i.id = ri.ingredient_id
         WHERE ri.recipe_id=$1 AND ri.required=true`, [item.recipe_id])).rows;
       for (const ing of ingredients) {
-        const key = ing.ingredient_id || ing.canonical_code || ing.display_name_override || 'unknown_' + ing.id;
         // Convert to base unit for merging
         const rawQty = ing.quantity ? ing.quantity * ratio : null;
         const converted = toBaseQuantity(rawQty, ing.unit_code, unitsMap);
+        // Key includes unit dimension so incompatible units stay as separate requirements
+        const unitDim = converted.converted ? converted.unitCode : (ing.unit_code || 'text');
+        const key = (ing.ingredient_id || ing.canonical_code || ing.display_name_override || 'unknown_' + ing.id) + '|' + unitDim;
         if (!ingredientMap.has(key)) {
           ingredientMap.set(key, {
             ingredient_id: ing.ingredient_id,
@@ -54,15 +56,11 @@ function createShoppingService(pool) {
           });
         }
         const entry = ingredientMap.get(key);
-        // Merge: only if units compatible (both converted to same base, or same original unit)
-        if (converted.converted && entry.unit_code === converted.unitCode) {
+        // Merge: same key means same unit dimension, safe to add
+        if (converted.converted) {
           entry.quantity += converted.quantity;
-        } else if (!converted.converted && entry.unit_code === ing.unit_code && ing.unit_code) {
+        } else if (ing.unit_code) {
           entry.quantity += rawQty || 0;
-        } else if (ing.unit_code && entry.unit_code !== ing.unit_code) {
-          // Units incompatible - mark for confirmation, don't merge
-          entry.unit_incompatible = true;
-          entry.needs_unit_confirmation = true;
         }
         entry.sources.push({ recipe_id: item.recipe_id, quantity: ing.quantity, quantity_text: ing.quantity_text, unit_code: ing.unit_code });
       }
@@ -181,7 +179,7 @@ function createShoppingService(pool) {
         const missingQty = ing.missing_quantity != null ? ing.missing_quantity : requiredQty;
         // Only add if missing > 0 OR needs unit confirmation
         if ((missingQty != null && missingQty > 0) || ing.needs_unit_confirmation) {
-          const existing = (await tx.query('SELECT id FROM shopping_list_items WHERE shopping_list_id=$1 AND ingredient_id=$2 AND source=\'GENERATED\'', [list.id, ing.ingredient_id])).rows[0];
+          const existing = (await tx.query('SELECT id FROM shopping_list_items WHERE shopping_list_id=$1 AND ingredient_id=$2 AND unit_code IS NOT DISTINCT FROM $3 AND source=\'GENERATED\'', [list.id, ing.ingredient_id, ing.unit_code])).rows[0];
           if (!existing) {
             await tx.query(`INSERT INTO shopping_list_items(id,shopping_list_id,ingredient_id,display_name_override,required_quantity,required_quantity_text,unit_code,inventory_deducted,pantry_deducted,missing_quantity,is_purchased,source,needs_unit_confirmation,created_by_user_id)
               VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,false,'GENERATED',$11,$12)`,
