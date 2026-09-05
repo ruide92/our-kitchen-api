@@ -4,7 +4,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const ROOT = path.resolve(__dirname, '..');
+const ROOT = process.cwd();
 const SQL_DIR = path.join(ROOT, 'backend', 'v1', 'sql');
 const DATA_MODEL = path.join(ROOT, 'docs', 'DATA_MODEL_V4.md');
 const AMENDMENT_DIR = path.join(ROOT, 'docs');

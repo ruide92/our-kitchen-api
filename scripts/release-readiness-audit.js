@@ -4,7 +4,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const ROOT = path.resolve(__dirname, '..');
+const ROOT = process.cwd();
 const MATRIX_PATH = path.join(ROOT, 'docs', 'PRODUCT_SURFACE_MATRIX.md');
 
 function readFile(p) { return fs.readFileSync(p, 'utf8'); }

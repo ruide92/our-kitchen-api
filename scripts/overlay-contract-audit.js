@@ -1,11 +1,12 @@
 #!/usr/bin/env node
-// Overlay / Dock Contract Audit — classifies all sheets/docks and enforces global contract
+// Overlay / Dock Contract Audit — uses product-surfaces.json for known-broken whitelist
 // Usage: node scripts/overlay-contract-audit.js [--mode=governance|release]
 const fs = require('node:fs');
 const path = require('node:path');
 
-const ROOT = path.resolve(__dirname, '..');
+const ROOT = process.cwd();
 const MP = path.join(ROOT, 'miniprogram');
+const REGISTRY_PATH = path.join(ROOT, 'governance', 'product-surfaces.json');
 
 const mode = process.argv.find(a => a.startsWith('--mode='))?.split('=')[1] || 'governance';
 
@@ -16,61 +17,33 @@ const GLOBAL_CONTRACT_CLASSES = [
   'sheet-mask-no-tabbar', 'sheet-panel-no-tabbar'
 ];
 
-// Known broken sheets — these are tracked in PRODUCT_SURFACE_MATRIX as BROKEN
-const KNOWN_BROKEN_PAGES = ['menu', 'fridge', 'shopping', 'mine'];
-
 function readFile(p) { return fs.readFileSync(p, 'utf8'); }
 
-function classifySheet(page, wxml, wxss) {
-  const classifications = [];
-
-  const sheetMasks = (wxml.match(/class="[^"]*sheet-mask[^"]*"/g) || []);
-  const sheetPanels = (wxml.match(/class="[^"]*sheet-panel[^"]*"/g) || []);
-  const modals = (wxml.match(/class="[^"]*modal[^"]*"/g) || []);
-  const docks = (wxml.match(/class="[^"]*(?:dock|mini-cart|complete-bar|action-bar)[^"]*"/g) || []);
-
-  const allSheetClasses = [...sheetMasks, ...sheetPanels, ...modals].join(' ');
-  const usesGlobalContract = GLOBAL_CONTRACT_CLASSES.some(c => allSheetClasses.includes(c));
-
-  if (sheetMasks.length > 0 || sheetPanels.length > 0 || modals.length > 0) {
-    if (usesGlobalContract) {
-      classifications.push({ type: 'SHEET', classification: 'GLOBAL_TAB_CONTRACT', count: sheetMasks.length + sheetPanels.length + modals.length });
-    } else if (KNOWN_BROKEN_PAGES.includes(page)) {
-      classifications.push({ type: 'SHEET', classification: 'KNOWN_BROKEN', count: sheetMasks.length + sheetPanels.length + modals.length });
-    } else {
-      classifications.push({ type: 'SHEET', classification: 'UNCLASSIFIED', count: sheetMasks.length + sheetPanels.length + modals.length });
-    }
-  }
-
-  if (docks.length > 0) {
-    const usesDockContract = wxml.includes('tab-page-dock') || wxml.includes('page-dock-no-tabbar');
-    if (usesDockContract) {
-      classifications.push({ type: 'DOCK', classification: 'GLOBAL_TAB_CONTRACT', count: docks.length });
-    } else if (KNOWN_BROKEN_PAGES.includes(page)) {
-      classifications.push({ type: 'DOCK', classification: 'KNOWN_BROKEN', count: docks.length });
-    } else {
-      classifications.push({ type: 'DOCK', classification: 'UNCLASSIFIED', count: docks.length });
-    }
-  }
-
-  // Check for unauthorized bottom:0 in tab page wxss
-  const bottomZero = (wxss.match(/bottom:\s*0[^;]*;/g) || []);
-  const hasTabBarClass = wxss.includes('.tab-bar') || wxss.includes('custom-tab-bar');
-  if (bottomZero.length > 0 && !hasTabBarClass && TAB_PAGES.includes(page)) {
-    classifications.push({ type: 'BOTTOM_ZERO', classification: 'REVIEW_REQUIRED', count: bottomZero.length });
-  }
-
-  return classifications;
+function loadRegistry() {
+  const data = JSON.parse(readFile(REGISTRY_PATH));
+  return data.surfaces || [];
 }
 
 function main() {
+  const registry = loadRegistry();
+
+  // Build known-broken overlay whitelist from registry (status=KNOWN_BROKEN or BROKEN)
+  const knownBrokenOverlays = new Set(
+    registry.filter(s => s.kind === 'overlay' && (s.status === 'KNOWN_BROKEN' || s.status === 'BROKEN')).map(s => s.page)
+  );
+  const globalContractOverlays = new Set(
+    registry.filter(s => s.kind === 'overlay' && s.status === 'REAL').map(s => s.page)
+  );
+
   let unclassified = 0;
   let knownBroken = 0;
   let globalContract = 0;
-  let reviewRequired = 0;
+  let bottomZeroViolations = 0;
 
   console.log('=== OVERLAY / DOCK CONTRACT AUDIT ===');
   console.log(`Mode: ${mode}`);
+  console.log(`Known-broken overlay pages (from registry): ${[...knownBrokenOverlays].join(', ') || 'none'}`);
+  console.log(`Global-contract overlay pages (from registry): ${[...globalContractOverlays].join(', ') || 'none'}`);
 
   for (const page of TAB_PAGES) {
     const wxmlPath = path.join(MP, 'pages', page, `${page}.wxml`);
@@ -79,15 +52,41 @@ function main() {
 
     const wxml = readFile(wxmlPath);
     const wxss = fs.existsSync(wxssPath) ? readFile(wxssPath) : '';
-    const classifications = classifySheet(page, wxml, wxss);
+
+    const hasSheet = /class="[^"]*(sheet-mask|sheet-panel|modal)[^"]*"/.test(wxml);
+    const hasDock = /class="[^"]*(dock|mini-cart|complete-bar|action-bar)[^"]*"/.test(wxml);
+    const usesGlobalContract = GLOBAL_CONTRACT_CLASSES.some(c => wxml.includes(c));
+    const bottomZero = (wxss.match(/(?:^|[\s{])bottom:\s*0[^;]*;/g) || []).length;
 
     console.log(`\n[${page}]`);
-    for (const c of classifications) {
-      console.log(`  ${c.type}: ${c.classification} (${c.count})`);
-      if (c.classification === 'UNCLASSIFIED') unclassified += c.count;
-      else if (c.classification === 'KNOWN_BROKEN') knownBroken += c.count;
-      else if (c.classification === 'GLOBAL_TAB_CONTRACT') globalContract += c.count;
-      else if (c.classification === 'REVIEW_REQUIRED') reviewRequired += c.count;
+    console.log(`  sheet: ${hasSheet ? 'yes' : 'no'}, dock: ${hasDock ? 'yes' : 'no'}`);
+    console.log(`  global contract classes: ${usesGlobalContract ? 'yes' : 'no'}`);
+    console.log(`  bottom:0 in wxss: ${bottomZero}`);
+
+    if (hasSheet || hasDock) {
+      if (usesGlobalContract) {
+        globalContract++;
+        console.log(`  -> GLOBAL_TAB_CONTRACT`);
+      } else if (knownBrokenOverlays.has(page)) {
+        knownBroken++;
+        console.log(`  -> KNOWN_BROKEN (registered in product-surfaces.json)`);
+      } else {
+        unclassified++;
+        console.log(`  -> UNCLASSIFIED (not in registry!)`);
+      }
+    }
+
+    // bottom:0 check
+    if (bottomZero > 0 && TAB_PAGES.includes(page)) {
+      const hasTabBarClass = wxss.includes('.tab-bar') || wxss.includes('custom-tab-bar');
+      if (!hasTabBarClass) {
+        if (knownBrokenOverlays.has(page)) {
+          console.log(`  -> bottom:0 on known-broken page (tracked)`);
+        } else {
+          bottomZeroViolations++;
+          console.log(`  -> bottom:0 VIOLATION (unregistered)`);
+        }
+      }
     }
   }
 
@@ -96,7 +95,7 @@ function main() {
   const missingClasses = GLOBAL_CONTRACT_CLASSES.filter(c => !appWxss.includes(`.${c}`));
   console.log(`\n[app.wxss] missing global classes: ${missingClasses.length > 0 ? missingClasses.join(', ') : 'none'}`);
 
-  // Check custom-tab-bar
+  // Check custom-tab-bar locked
   const tabBarJs = readFile(path.join(MP, 'custom-tab-bar', 'index.js'));
   const tabBarWxml = readFile(path.join(MP, 'custom-tab-bar', 'index.wxml'));
   const hasLocked = tabBarJs.includes('locked') && tabBarWxml.includes('locked');
@@ -104,17 +103,12 @@ function main() {
 
   console.log(`\n=== SUMMARY ===`);
   console.log(`GLOBAL_TAB_CONTRACT: ${globalContract}`);
-  console.log(`KNOWN_BROKEN (tracked in matrix): ${knownBroken}`);
+  console.log(`KNOWN_BROKEN (registered): ${knownBroken}`);
   console.log(`UNCLASSIFIED: ${unclassified}`);
-  console.log(`REVIEW_REQUIRED: ${reviewRequired}`);
+  console.log(`BOTTOM_ZERO_UNREGISTERED: ${bottomZeroViolations}`);
 
-  if (unclassified > 0) {
+  if (unclassified > 0 || bottomZeroViolations > 0) {
     console.log('\nFAIL: unclassified overlay elements found');
-    process.exit(1);
-  }
-
-  if (mode === 'release' && knownBroken > 0) {
-    console.log(`\nFAIL: ${knownBroken} known broken overlays must be fixed for release`);
     process.exit(1);
   }
 
@@ -124,11 +118,16 @@ function main() {
   }
 
   if (!hasLocked) {
-    console.log('\nFAIL: custom-tab-bar missing locked state support');
+    console.log('\nFAIL: custom-tab-bar missing locked state');
     process.exit(1);
   }
 
-  console.log(`\nPASS: overlay audit (${mode} mode, known_broken=${knownBroken} tracked)`);
+  if (mode === 'release' && knownBroken > 0) {
+    console.log(`\nFAIL: ${knownBroken} known-broken overlays must be fixed for release`);
+    process.exit(1);
+  }
+
+  console.log(`\nPASS: overlay audit (${mode} mode, known_broken=${knownBroken} registered)`);
   process.exit(0);
 }
 

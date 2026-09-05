@@ -1,0 +1,1463 @@
+{
+  "$schema": "product-surfaces-registry-v1",
+  "description": "Machine-readable authoritative registry of all user-visible entry points. Generated from code scan + manual status classification. PRODUCT_SURFACE_MATRIX.md is derived from this.",
+  "last_verified_commit": "75cb114",
+  "surfaces": [
+    {
+      "id": "HOME-01",
+      "page": "index",
+      "kind": "wxml-handler",
+      "handler": "retryLoad",
+      "label": "首页重试",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "HOME-02",
+      "page": "index",
+      "kind": "wxml-handler",
+      "handler": "goMine",
+      "label": "我的",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "HOME-03",
+      "page": "index",
+      "kind": "wxml-handler",
+      "handler": "goRandom",
+      "label": "随机菜谱",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "HOME-04",
+      "page": "index",
+      "kind": "wxml-handler",
+      "handler": "goFridgeCook",
+      "label": "看冰箱做菜",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "HOME-05",
+      "page": "index",
+      "kind": "wxml-handler",
+      "handler": "goFavorites",
+      "label": "家人喜欢",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "HOME-06",
+      "page": "index",
+      "kind": "wxml-handler",
+      "handler": "goOnePerson",
+      "label": "一人菜",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "HOME-07",
+      "page": "index",
+      "kind": "wxml-handler",
+      "handler": "goWeeklyPlan",
+      "label": "本周计划",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "HOME-08",
+      "page": "index",
+      "kind": "wxml-handler",
+      "handler": "selectDay",
+      "label": "切换日期",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "HOME-09",
+      "page": "index",
+      "kind": "wxml-handler",
+      "handler": "addMealToCurrent",
+      "label": "加入本餐",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "HOME-10",
+      "page": "index",
+      "kind": "wxml-handler",
+      "handler": "goTodayMenu",
+      "label": "本餐菜单",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "HOME-NAV-01",
+      "page": "index",
+      "kind": "navigation",
+      "handler": "switchTab",
+      "url": "/pages/mine/mine",
+      "label": "Tab 我的",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "HOME-NAV-02",
+      "page": "index",
+      "kind": "navigation",
+      "handler": "switchTab",
+      "url": "/pages/fridge/fridge",
+      "label": "Tab 冰箱",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "HOME-NAV-03",
+      "page": "index",
+      "kind": "navigation",
+      "handler": "switchTab",
+      "url": "/pages/menu/menu",
+      "label": "Tab 菜单",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "HOME-NAV-04",
+      "page": "index",
+      "kind": "navigation",
+      "handler": "navigateTo",
+      "url": "/pages/meal/meal",
+      "label": "本餐菜单页",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-01",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "switchTab",
+      "label": "Tab 切换",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-02",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "retryWeekly",
+      "label": "周计划重试",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-03",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "rearrangeWeek",
+      "label": "重新安排周",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-04",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "selectDay",
+      "label": "切换日期",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-05",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "rearrangeMeal",
+      "label": "重新安排餐",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-06",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "toggleLock",
+      "label": "锁定菜谱",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-07",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "swapDish",
+      "label": "交换菜品",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-08",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "removePlanItem",
+      "label": "移除计划项",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-09",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "addToMeal",
+      "label": "加入本餐",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-10",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "rearrangeDay",
+      "label": "重新安排天",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-11",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "openTargetPicker",
+      "label": "目标餐次选择",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-12",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "onSearchInput",
+      "label": "搜索",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-13",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "selectCategory",
+      "label": "分类筛选",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-14",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "retryRecipes",
+      "label": "菜谱重试",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-15",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "goDetail",
+      "label": "菜谱详情",
+      "status": "PARTIAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-16",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "addRecipeToMeal",
+      "label": "加菜",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-17",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "goTodayMenu",
+      "label": "本餐菜单",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-18",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "closeTargetPicker",
+      "label": "关闭目标选择",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-19",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "noop",
+      "label": "阻止冒泡",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-20",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "selectTargetMeal",
+      "label": "选择目标餐",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-21",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "cancelCustomDate",
+      "label": "取消自选日期",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-22",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "onCustomDateChange",
+      "label": "自选日期",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-23",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "onCustomMealTypeChange",
+      "label": "自选餐次类型",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-24",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "confirmCustomDate",
+      "label": "确认自选日期",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-NAV-01",
+      "page": "menu",
+      "kind": "navigation",
+      "handler": "navigateTo",
+      "url": "/pages/meal/meal",
+      "label": "本餐菜单页",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-OVERLAY-01",
+      "page": "menu",
+      "kind": "overlay",
+      "handler": "sheet",
+      "label": "menu sheet overlays",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MEAL-01",
+      "page": "meal",
+      "kind": "wxml-handler",
+      "handler": "decreaseDiners",
+      "label": "减少人数",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MEAL-02",
+      "page": "meal",
+      "kind": "wxml-handler",
+      "handler": "increaseDiners",
+      "label": "增加人数",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MEAL-03",
+      "page": "meal",
+      "kind": "wxml-handler",
+      "handler": "goAddRecipes",
+      "label": "继续加菜",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MEAL-04",
+      "page": "meal",
+      "kind": "wxml-handler",
+      "handler": "retryLoad",
+      "label": "重试",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MEAL-05",
+      "page": "meal",
+      "kind": "wxml-handler",
+      "handler": "removeItem",
+      "label": "删除菜品",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MEAL-06",
+      "page": "meal",
+      "kind": "wxml-handler",
+      "handler": "generateShopping",
+      "label": "生成购物清单",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MEAL-07",
+      "page": "meal",
+      "kind": "wxml-handler",
+      "handler": "confirmMenu",
+      "label": "确认菜单",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "MEAL-08",
+      "page": "meal",
+      "kind": "wxml-handler",
+      "handler": "startCooking",
+      "label": "开始做饭",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "MEAL-NAV-01",
+      "page": "meal",
+      "kind": "navigation",
+      "handler": "switchTab",
+      "url": "/pages/shopping/shopping",
+      "label": "Tab 购物",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MEAL-NAV-02",
+      "page": "meal",
+      "kind": "navigation",
+      "handler": "switchTab",
+      "url": "/pages/menu/menu",
+      "label": "Tab 菜单",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-01",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "openAddSheet",
+      "label": "添加食材",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-02",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "switchTab",
+      "label": "Tab 切换",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-03",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "retryLoad",
+      "label": "重试",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-04",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "prioritizeExpiring",
+      "label": "优先临期",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-05",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "onSearchInput",
+      "label": "搜索",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-06",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "selectCategory",
+      "label": "分类筛选",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-07",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "openEditSheet",
+      "label": "编辑食材",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-08",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "cookWithFridge",
+      "label": "用冰箱做菜",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-09",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "retryPantry",
+      "label": "常备重试",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-10",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "removeStaple",
+      "label": "删除常备",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-11",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "openAddStapleSheet",
+      "label": "添加常备",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-12",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "closeAddSheet",
+      "label": "关闭添加",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-13",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "noop",
+      "label": "阻止冒泡",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-14",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "onAddInput",
+      "label": "添加输入",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-15",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "onAddUnitChange",
+      "label": "添加单位",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-16",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "onAddStorageChange",
+      "label": "添加存放",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-17",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "onAddExpiryChange",
+      "label": "添加保质期",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-18",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "saveAddItem",
+      "label": "保存添加",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-19",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "closeEditSheet",
+      "label": "关闭编辑",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-20",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "onEditInput",
+      "label": "编辑输入",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-21",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "onEditUnitChange",
+      "label": "编辑单位",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-22",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "onEditStorageChange",
+      "label": "编辑存放",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-23",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "onEditPurchaseChange",
+      "label": "编辑购买日期",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-24",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "onEditExpiryChange",
+      "label": "编辑保质期",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-25",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "deleteItem",
+      "label": "删除食材",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-26",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "saveEditItem",
+      "label": "保存编辑",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-27",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "closeAddStapleSheet",
+      "label": "关闭常备添加",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-28",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "onStapleNameInput",
+      "label": "常备名输入",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-29",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "saveAddStaple",
+      "label": "保存常备",
+      "status": "PARTIAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-OVERLAY-01",
+      "page": "fridge",
+      "kind": "overlay",
+      "handler": "sheet",
+      "label": "fridge sheet overlays",
+      "status": "KNOWN_BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-01",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "retryLoad",
+      "label": "重试",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-02",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "goMealPage",
+      "label": "去本餐菜单",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-03",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "openAddSheet",
+      "label": "手动添加",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-04",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "updateFromMeal",
+      "label": "从本餐更新",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-05",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "setFilter",
+      "label": "筛选",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-06",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "togglePurchased",
+      "label": "勾选购买",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-07",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "openShoppingItem",
+      "label": "查看商品",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-08",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "openCompleteSheet",
+      "label": "完成采购",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-09",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "closeEvidence",
+      "label": "关闭证据",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-10",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "noop",
+      "label": "阻止冒泡",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-11",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "closeManualDetail",
+      "label": "关闭手动详情",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-12",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "deleteManual",
+      "label": "删除手动项",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-13",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "startEditManual",
+      "label": "编辑手动项",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-14",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "onEditManualInput",
+      "label": "编辑手动输入",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-15",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "onEditManualUnitChange",
+      "label": "编辑手动单位",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-16",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "onEditManualCustomUnitInput",
+      "label": "编辑自定义单位",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-17",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "saveEditManual",
+      "label": "保存手动编辑",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-18",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "closeAddSheet",
+      "label": "关闭添加",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-19",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "onAddInput",
+      "label": "添加输入",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-20",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "onAddUnitChange",
+      "label": "添加单位",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-21",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "onAddCustomUnitInput",
+      "label": "添加自定义单位",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-22",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "saveAddItem",
+      "label": "保存添加",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-23",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "closeCompleteSheet",
+      "label": "关闭完成采购",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-24",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "onCompleteQtyInput",
+      "label": "购买量输入",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-25",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "onCompleteStorageChange",
+      "label": "存放位置",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-26",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "onCompleteExpiryChange",
+      "label": "保质期",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-27",
+      "page": "shopping",
+      "kind": "wxml-handler",
+      "handler": "confirmComplete",
+      "label": "确认完成采购",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-NAV-01",
+      "page": "shopping",
+      "kind": "navigation",
+      "handler": "switchTab",
+      "url": "/pages/menu/menu",
+      "label": "Tab 菜单",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-OVERLAY-01",
+      "page": "shopping",
+      "kind": "overlay",
+      "handler": "sheet",
+      "label": "shopping sheet overlays",
+      "status": "KNOWN_BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-DOCK-01",
+      "page": "shopping",
+      "kind": "dock",
+      "handler": "complete-bar",
+      "label": "完成采购 Dock",
+      "status": "KNOWN_BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-01",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "retryLogin",
+      "label": "重试登录",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-02",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "openProfileSheet",
+      "label": "编辑资料",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-03",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "openCreateSheet",
+      "label": "创建家庭",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-04",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "openJoinSheet",
+      "label": "加入家庭",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-05",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "openSelectSheet",
+      "label": "选择家庭",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-06",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "refreshPage",
+      "label": "刷新",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-07",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "openFamilySheet",
+      "label": "家庭管理",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-08",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "openInviteSheet",
+      "label": "邀请成员",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-09",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "openKitchenSettingsSheet",
+      "label": "厨房设置",
+      "status": "PARTIAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-10",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "onMenuTap",
+      "label": "菜单分发",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-11",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "closeSheet",
+      "label": "关闭 Sheet",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-12",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "noop",
+      "label": "阻止冒泡",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-13",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "onFieldInput",
+      "label": "字段输入",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-14",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "submitFamily",
+      "label": "提交家庭",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-15",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "saveProfile",
+      "label": "保存资料",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-16",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "selectFamily",
+      "label": "选择家庭",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-17",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "copyInviteCode",
+      "label": "复制邀请码",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-MENU-01",
+      "page": "mine",
+      "kind": "menu-action",
+      "label": "家庭管理",
+      "action": "openFamilySheet",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-MENU-02",
+      "page": "mine",
+      "kind": "menu-action",
+      "label": "厨房设置",
+      "action": "openKitchenSettingsSheet",
+      "status": "PARTIAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-MENU-03",
+      "page": "mine",
+      "kind": "menu-action",
+      "label": "调味品 / 常备品",
+      "action": "placeholderToast",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-MENU-04",
+      "page": "mine",
+      "kind": "menu-action",
+      "label": "么么哒",
+      "action": "placeholderToast",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-MENU-05",
+      "page": "mine",
+      "kind": "menu-action",
+      "label": "本餐菜单 / 历史",
+      "action": "placeholderToast",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-MENU-06",
+      "page": "mine",
+      "kind": "menu-action",
+      "label": "我的收藏",
+      "action": "placeholderToast",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-MENU-07",
+      "page": "mine",
+      "kind": "menu-action",
+      "label": "我的评分",
+      "action": "placeholderToast",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-MENU-08",
+      "page": "mine",
+      "kind": "menu-action",
+      "label": "我的菜谱",
+      "action": "placeholderToast",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-MENU-09",
+      "page": "mine",
+      "kind": "menu-action",
+      "label": "AI 导入菜谱",
+      "action": "placeholderToast",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-MENU-10",
+      "page": "mine",
+      "kind": "menu-action",
+      "label": "分享广场",
+      "action": "placeholderToast",
+      "status": "PLANNED_DISABLED",
+      "final": "PLANNED_DISABLED"
+    },
+    {
+      "id": "MINE-MENU-11",
+      "page": "mine",
+      "kind": "menu-action",
+      "label": "我的分享",
+      "action": "placeholderToast",
+      "status": "PLANNED_DISABLED",
+      "final": "PLANNED_DISABLED"
+    },
+    {
+      "id": "MINE-MENU-12",
+      "page": "mine",
+      "kind": "menu-action",
+      "label": "回收站",
+      "action": "placeholderToast",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-MENU-13",
+      "page": "mine",
+      "kind": "menu-action",
+      "label": "设置",
+      "action": "openSettingsSheet",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-MENU-14",
+      "page": "mine",
+      "kind": "menu-action",
+      "label": "关于我们",
+      "action": "placeholderToast",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-OVERLAY-01",
+      "page": "mine",
+      "kind": "overlay",
+      "handler": "sheet",
+      "label": "mine sheet overlays",
+      "status": "KNOWN_BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "DETAIL-01",
+      "page": "detail",
+      "kind": "wxml-handler",
+      "handler": "toggleFavorite",
+      "label": "收藏",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "DETAIL-02",
+      "page": "detail",
+      "kind": "wxml-handler",
+      "handler": "editDish",
+      "label": "编辑菜谱",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "DETAIL-03",
+      "page": "detail",
+      "kind": "wxml-handler",
+      "handler": "showRatingPanel",
+      "label": "评分面板",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "DETAIL-04",
+      "page": "detail",
+      "kind": "wxml-handler",
+      "handler": "switchTab",
+      "label": "Tab 切换",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "DETAIL-05",
+      "page": "detail",
+      "kind": "wxml-handler",
+      "handler": "wantToEat",
+      "label": "想吃",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "DETAIL-06",
+      "page": "detail",
+      "kind": "wxml-handler",
+      "handler": "addToToday",
+      "label": "加入今天",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "DETAIL-07",
+      "page": "detail",
+      "kind": "wxml-handler",
+      "handler": "startCooking",
+      "label": "开始做饭",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "DETAIL-08",
+      "page": "detail",
+      "kind": "wxml-handler",
+      "handler": "hideRatingPanel",
+      "label": "关闭评分",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "DETAIL-09",
+      "page": "detail",
+      "kind": "wxml-handler",
+      "handler": "setRating",
+      "label": "设置评分",
+      "status": "BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "PAGE-01",
+      "page": "add-recipe",
+      "kind": "page",
+      "label": "创建菜谱页",
+      "status": "HIDDEN",
+      "final": "REAL"
+    },
+    {
+      "id": "PAGE-02",
+      "page": "ai-import",
+      "kind": "page",
+      "label": "AI导入页",
+      "status": "HIDDEN",
+      "final": "REAL"
+    },
+    {
+      "id": "PAGE-03",
+      "page": "family",
+      "kind": "page",
+      "label": "家庭管理页",
+      "status": "HIDDEN",
+      "final": "REAL"
+    },
+    {
+      "id": "PAGE-04",
+      "page": "favorites",
+      "kind": "page",
+      "label": "收藏页",
+      "status": "HIDDEN",
+      "final": "REAL"
+    },
+    {
+      "id": "PAGE-05",
+      "page": "orders",
+      "kind": "page",
+      "label": "订单页",
+      "status": "HIDDEN",
+      "final": "PLANNED_DISABLED"
+    },
+    {
+      "id": "PAGE-06",
+      "page": "random",
+      "kind": "page",
+      "label": "随机菜谱页",
+      "status": "HIDDEN",
+      "final": "REAL"
+    },
+    {
+      "id": "PAGE-07",
+      "page": "ratings",
+      "kind": "page",
+      "label": "评分页",
+      "status": "HIDDEN",
+      "final": "REAL"
+    },
+    {
+      "id": "PAGE-08",
+      "page": "recycle",
+      "kind": "page",
+      "label": "回收站页",
+      "status": "HIDDEN",
+      "final": "REAL"
+    },
+    {
+      "id": "PAGE-09",
+      "page": "seasoning",
+      "kind": "page",
+      "label": "调味品页",
+      "status": "HIDDEN",
+      "final": "REAL"
+    },
+    {
+      "id": "PAGE-10",
+      "page": "today-menu",
+      "kind": "page",
+      "label": "今日菜单页",
+      "status": "HIDDEN",
+      "final": "REAL"
+    },
+    {
+      "id": "DETAIL-OVERLAY-01",
+      "page": "detail",
+      "kind": "overlay",
+      "handler": "sheet",
+      "label": "详情页 Sheet",
+      "status": "BROKEN",
+      "final": "REAL"
+    }
+  ]
+}
