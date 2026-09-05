@@ -67,6 +67,14 @@ function createV1Api({ wxAdapter, baseUrl = config.baseUrl, timeoutMs = config.t
     updateFridgeItem: (id, itemId, data) => dataRequest(familyPath(id) + '/fridge/' + itemId, { method: 'PATCH', data }),
     deleteFridgeItem: (id, itemId) => dataRequest(familyPath(id) + '/fridge/' + itemId, { method: 'DELETE' }),
     listPantry: id => dataRequest(familyPath(id) + '/pantry-staples'),
+    putPantry: (id, ingredientId, data) => dataRequest(familyPath(id) + '/pantry-staples/' + ingredientId, { method: 'PUT', data }),
+    deletePantry: (id, ingredientId) => dataRequest(familyPath(id) + '/pantry-staples/' + ingredientId, { method: 'DELETE' }),
+    // Weekly
+    getWeeklyPlan: (id, weekStart) => dataRequest(familyPath(id) + '/weekly-plans' + (weekStart ? '?week_start=' + weekStart : '')),
+    importWeeklyPlan: (id, mealId, data) => dataRequest(familyPath(id) + '/meals/' + mealId + '/import-weekly-plan', { method: 'POST', data }),
+    // Ingredients
+    searchIngredients: keyword => dataRequest('/ingredients/search?keyword=' + encodeURIComponent(keyword)),
+    resolveIngredient: (id, name) => dataRequest(familyPath(id) + '/ingredients/resolve', { method: 'POST', data: { name } }),
     // Shopping
     getCurrentShoppingList: id => dataRequest(familyPath(id) + '/shopping-lists/current'),
     generateShoppingList: (id, data) => dataRequest(familyPath(id) + '/shopping-lists/generate', { method: 'POST', data }),
