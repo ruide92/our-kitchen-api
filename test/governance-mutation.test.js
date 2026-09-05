@@ -266,6 +266,62 @@ test('Mutation K: BROKEN final=PLANNED_DISABLED with clickable action causes rel
     `should report PLANNED_DISABLED_NOT_READY, got: ${result.stdout.slice(0, 300)}`);
 });
 
+// Case L: Same TAB page two REAL overlays — A contract correct, B has surface-id but no tab-safe contract → Governance FAIL
+test('Mutation L: REAL overlay on same page without independent contract causes Governance FAIL', () => {
+  const tmp = makeTempDir();
+  makeMinimalRepo(tmp);
+  // menu is a TAB page; overlay A has full contract, overlay B has surface-id but no tab-safe class
+  writeFile(tmp, 'miniprogram/pages/menu/menu.wxml',
+    '<view wx:if="{{showA}}" class="sheet-mask tab-safe-sheet-mask" data-surface-id="MENU-A">' +
+    '<view class="sheet-panel tab-safe-sheet-panel" data-surface-id="MENU-A"></view></view>' +
+    '<view wx:if="{{showB}}" class="sheet-mask" data-surface-id="MENU-B">' +
+    '<view class="sheet-panel" data-surface-id="MENU-B"></view></view>');
+  const registry = {
+    $schema: 'v1',
+    surfaces: [
+      { id: 'TEST-01', page: 'test', kind: 'wxml-handler', handler: 'existingHandler', label: 'e', status: 'REAL', final: 'REAL' },
+      { id: 'MENU-A', page: 'menu', kind: 'overlay', surface_id: 'MENU-A', label: 'A', status: 'REAL', final: 'REAL' },
+      { id: 'MENU-B', page: 'menu', kind: 'overlay', surface_id: 'MENU-B', label: 'B', status: 'REAL', final: 'REAL' }
+    ]
+  };
+  writeFile(tmp, 'governance/product-surfaces.json', JSON.stringify(registry));
+
+  const result = runScript('overlay-contract-audit.js', ['--mode=governance'], tmp);
+  assert.notEqual(result.code, 0, `should FAIL for overlay B missing contract, got code=0`);
+  assert.ok(result.stdout.includes('REAL_OVERLAY_CONTRACT_VIOLATION') && result.stdout.includes('MENU-B'),
+    `should report REAL_OVERLAY_CONTRACT_VIOLATION for MENU-B, got: ${result.stdout.slice(0, 400)}`);
+});
+
+// Case M: Secondary REAL overlay has surface-id but no no-tabbar contract → Governance FAIL
+test('Mutation M: secondary REAL overlay without no-tabbar contract causes Governance FAIL', () => {
+  const tmp = makeTempDir();
+  makeMinimalRepo(tmp);
+  // detail is a secondary page (not TAB, not HIDDEN in this fixture)
+  writeFile(tmp, 'miniprogram/pages/detail/detail.wxml',
+    '<view wx:if="{{showSheet}}" class="sheet-mask" data-surface-id="DETAIL-SHEET">' +
+    '<view class="sheet-panel" data-surface-id="DETAIL-SHEET"></view></view>');
+  // Add detail to app.json pages
+  const appJsonPath = path.join(tmp, 'miniprogram/app.json');
+  const appJson = JSON.parse(fs.readFileSync(appJsonPath, 'utf8'));
+  appJson.pages.push('pages/detail/detail');
+  writeFile(tmp, 'miniprogram/app.json', JSON.stringify(appJson));
+  writeFile(tmp, 'miniprogram/pages/detail/detail.js', 'Page({})');
+
+  const registry = {
+    $schema: 'v1',
+    surfaces: [
+      { id: 'TEST-01', page: 'test', kind: 'wxml-handler', handler: 'existingHandler', label: 'e', status: 'REAL', final: 'REAL' },
+      { id: 'DETAIL-SHEET', page: 'detail', kind: 'overlay', surface_id: 'DETAIL-SHEET', label: 'detail sheet', status: 'REAL', final: 'REAL' }
+    ]
+  };
+  writeFile(tmp, 'governance/product-surfaces.json', JSON.stringify(registry));
+
+  const result = runScript('overlay-contract-audit.js', ['--mode=governance'], tmp);
+  assert.notEqual(result.code, 0, `should FAIL for secondary overlay missing contract, got code=0`);
+  assert.ok(result.stdout.includes('SECONDARY_OVERLAY_CONTRACT_VIOLATION'),
+    `should report SECONDARY_OVERLAY_CONTRACT_VIOLATION, got: ${result.stdout.slice(0, 400)}`);
+});
+
 // Baseline tests on real repo
 test('Baseline: governance surface audit passes on real repo', () => {
   const result = runScript('product-surface-audit.js', ['--mode=governance']);

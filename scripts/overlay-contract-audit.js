@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Overlay / Dock Contract Audit — exact surface_id matching, no page-wide whitelist
+// Overlay / Dock Contract Audit — per-overlay independent verification
+// No page-wide whitelist, no wxml.includes() pollution
 // Usage: node scripts/overlay-contract-audit.js [--mode=governance|release]
 const fs = require('node:fs');
 const path = require('node:path');
@@ -24,146 +25,159 @@ function loadRegistry() {
   return data.surfaces || [];
 }
 
-function pageNameFromPath(filePath) {
-  const rel = path.relative(MP, filePath);
-  const match = rel.match(/pages[\\/]([^\\/]+)[\\/]/);
-  return match ? match[1] : path.basename(path.dirname(filePath));
-}
-
 function main() {
   const registry = loadRegistry();
 
   // Build overlay registry by surface_id
-  const overlayRegistry = new Map(); // surface_id -> registry entry
+  const overlayRegistry = new Map();
   for (const s of registry) {
     if (s.kind === 'overlay' && s.surface_id) {
       overlayRegistry.set(s.surface_id, s);
     }
   }
 
+  // HIDDEN pages skip
+  const hiddenPages = new Set(registry.filter(s => s.kind === 'page' && s.status === 'HIDDEN').map(s => s.page));
+
+  const appJson = JSON.parse(readFile(path.join(MP, 'app.json')));
+  const allPages = appJson.pages || [];
+
+  // Counters
   let unclassified = 0;
   let knownBroken = 0;
   let globalContract = 0;
   let missingOverlayId = 0;
   let realOverlayContractViolation = 0;
+  let secondaryContractViolation = 0;
   const unclassifiedDetails = [];
   const missingIdDetails = [];
   const contractViolationDetails = [];
+  const secondaryViolationDetails = [];
 
   console.log('=== OVERLAY / DOCK CONTRACT AUDIT ===');
   console.log(`Mode: ${mode}`);
   console.log(`Registered overlays: ${overlayRegistry.size}`);
 
-  for (const page of TAB_PAGES) {
-    const wxmlPath = path.join(MP, 'pages', page, `${page}.wxml`);
-    const wxssPath = path.join(MP, 'pages', page, `${page}.wxss`);
-    if (!fs.existsSync(wxmlPath)) continue;
-
-    const wxml = readFile(wxmlPath);
-    const wxss = fs.existsSync(wxssPath) ? readFile(wxssPath) : '';
-
-    // Find all sheet-mask / modal elements and read their data-surface-id
-    const overlayRe = /<view[^>]*class="[^"]*(sheet-mask|modal)[^"]*"[^>]*>/g;
-    let m;
-    const pageOverlays = [];
-    while ((m = overlayRe.exec(wxml)) !== null) {
-      const tag = m[0];
-      const idMatch = tag.match(/data-surface-id="([^"]+)"/);
-      const surfaceId = idMatch ? idMatch[1] : null;
-      const usesGlobal = GLOBAL_CONTRACT_CLASSES.some(c => tag.includes(c)) || wxml.includes('tab-safe-sheet');
-      pageOverlays.push({ surfaceId, usesGlobal });
-    }
-
-    if (pageOverlays.length === 0) continue;
-
-    console.log(`\n[${page}] overlays: ${pageOverlays.length}`);
-
-    for (const ov of pageOverlays) {
-      if (!ov.surfaceId) {
-        missingOverlayId++;
-        missingIdDetails.push(page);
-        console.log(`  -> MISSING data-surface-id (${page})`);
-        continue;
-      }
-
-      const reg = overlayRegistry.get(ov.surfaceId);
-      if (!reg) {
-        unclassified++;
-        unclassifiedDetails.push(`${page}:${ov.surfaceId}`);
-        console.log(`  -> UNCLASSIFIED: ${ov.surfaceId} (not in registry!)`);
-      } else if (reg.status === 'REAL') {
-        // REAL overlay on TAB page MUST use global contract classes
-        if (TAB_PAGES.includes(page) && !ov.usesGlobal) {
-          realOverlayContractViolation++;
-          contractViolationDetails.push(`${page}:${ov.surfaceId}`);
-          console.log(`  -> REAL_OVERLAY_CONTRACT_VIOLATION: ${ov.surfaceId} (REAL but no global contract class)`);
-        } else {
-          globalContract++;
-          console.log(`  -> GLOBAL_TAB_CONTRACT: ${ov.surfaceId}`);
-        }
-      } else if (reg.status === 'KNOWN_BROKEN' || reg.status === 'BROKEN') {
-        knownBroken++;
-        console.log(`  -> KNOWN_BROKEN (registered): ${ov.surfaceId}`);
-      } else {
-        unclassified++;
-        unclassifiedDetails.push(`${page}:${ov.surfaceId} [${reg.status}]`);
-        console.log(`  -> UNCLASSIFIED status: ${ov.surfaceId} [${reg.status}]`);
-      }
-    }
-  }
-
-  // Secondary pages (non-TAB): audit overlays, require sheet-mask-no-tabbar / sheet-panel-no-tabbar
-  // Skip HIDDEN pages (registered as kind=page status=HIDDEN)
-  const hiddenPages = new Set(registry.filter(s => s.kind === 'page' && s.status === 'HIDDEN').map(s => s.page));
-  const appJson = JSON.parse(readFile(path.join(MP, 'app.json')));
-  const allPages = appJson.pages || [];
-  const secondaryPages = allPages.filter(p => {
-    const name = p.split('/').pop();
-    return !TAB_PAGES.includes(name) && !hiddenPages.has(name);
-  });
-  let secondaryOverlays = 0;
-  let secondaryContractOk = 0;
-  for (const pagePath of secondaryPages) {
+  // Scan all pages (TAB + secondary non-HIDDEN)
+  for (const pagePath of allPages) {
     const page = pagePath.split('/').pop();
+    if (hiddenPages.has(page)) continue;
+
     const wxmlPath = path.join(MP, `${pagePath}.wxml`);
     if (!fs.existsSync(wxmlPath)) continue;
     const wxml = readFile(wxmlPath);
-    const overlayRe = /<view[^>]*class="[^"]*(sheet-mask|sheet-panel|modal)[^"]*"[^>]*>/g;
+
+    // Find all overlay elements: sheet-mask, sheet-panel, modal
+    // Each element: extract data-surface-id and class list
+    const overlayRe = /<view[^>]*class="([^"]*)"[^>]*>/g;
     let m;
+    // Group by surface_id: { mask: {classes}, panel: {classes} }
+    const overlaysById = new Map();
+
     while ((m = overlayRe.exec(wxml)) !== null) {
-      secondaryOverlays++;
       const tag = m[0];
-      const usesSecondaryContract = tag.includes('sheet-mask-no-tabbar') || tag.includes('sheet-panel-no-tabbar') || wxml.includes('sheet-mask-no-tabbar');
+      const classes = m[1].split(/\s+/);
+      const isMask = classes.some(c => c.includes('sheet-mask') || c.includes('modal'));
+      const isPanel = classes.some(c => c.includes('sheet-panel') || c.includes('modal-panel'));
+      if (!isMask && !isPanel) continue;
+
       const idMatch = tag.match(/data-surface-id="([^"]+)"/);
-      const sid = idMatch ? idMatch[1] : '(no-id)';
-      if (usesSecondaryContract) secondaryContractOk++;
-      console.log(`\n[secondary:${page}] overlay ${sid}: secondary-contract=${usesSecondaryContract ? 'yes' : 'no'}`);
+      const surfaceId = idMatch ? idMatch[1] : null;
+
+      if (!surfaceId) {
+        // Only count if it's on a page we audit (TAB or secondary non-HIDDEN)
+        missingOverlayId++;
+        missingIdDetails.push(`${page}:${isMask ? 'mask' : 'panel'}`);
+        console.log(`  [${page}] MISSING data-surface-id on ${isMask ? 'mask' : 'panel'}`);
+        continue;
+      }
+
+      if (!overlaysById.has(surfaceId)) {
+        overlaysById.set(surfaceId, { mask: null, panel: null, page });
+      }
+      const entry = overlaysById.get(surfaceId);
+      if (isMask) entry.mask = { classes };
+      if (isPanel) entry.panel = { classes };
+    }
+
+    if (overlaysById.size === 0) continue;
+
+    const isTabPage = TAB_PAGES.includes(page);
+
+    for (const [surfaceId, ov] of overlaysById) {
+      const reg = overlayRegistry.get(surfaceId);
+
+      if (!reg) {
+        unclassified++;
+        unclassifiedDetails.push(`${page}:${surfaceId}`);
+        console.log(`  [${page}] UNCLASSIFIED: ${surfaceId} (not in registry)`);
+        continue;
+      }
+
+      const status = reg.status;
+
+      if (status === 'BROKEN' || status === 'KNOWN_BROKEN') {
+        knownBroken++;
+        console.log(`  [${page}] KNOWN_BROKEN (registered): ${surfaceId}`);
+        continue;
+      }
+
+      // REAL or PARTIAL: must verify contract independently
+      if (isTabPage) {
+        // TAB page: mask must have tab-safe-sheet-mask, panel must have tab-safe-sheet-panel
+        const maskOk = ov.mask && ov.mask.classes.includes('tab-safe-sheet-mask');
+        const panelOk = ov.panel && ov.panel.classes.includes('tab-safe-sheet-panel');
+        if (!maskOk || !panelOk) {
+          realOverlayContractViolation++;
+          const reasons = [];
+          if (!maskOk) reasons.push('mask missing tab-safe-sheet-mask');
+          if (!panelOk) reasons.push('panel missing tab-safe-sheet-panel');
+          contractViolationDetails.push(`${page}:${surfaceId} (${reasons.join(', ')})`);
+          console.log(`  [${page}] REAL_OVERLAY_CONTRACT_VIOLATION: ${surfaceId} (${reasons.join(', ')})`);
+        } else {
+          globalContract++;
+          console.log(`  [${page}] GLOBAL_TAB_CONTRACT: ${surfaceId}`);
+        }
+      } else {
+        // Secondary page: mask must have sheet-mask-no-tabbar, panel must have sheet-panel-no-tabbar
+        // modal without panel is acceptable (centered modal)
+        const maskOk = ov.mask && (ov.mask.classes.includes('sheet-mask-no-tabbar') || ov.mask.classes.some(c => c.endsWith('-modal')));
+        const panelOk = !ov.panel || ov.panel.classes.includes('sheet-panel-no-tabbar') || ov.panel.classes.includes('modal-panel');
+        if (!maskOk || !panelOk) {
+          secondaryContractViolation++;
+          const reasons = [];
+          if (!maskOk) reasons.push('mask missing sheet-mask-no-tabbar');
+          if (!panelOk) reasons.push('panel missing sheet-panel-no-tabbar');
+          secondaryViolationDetails.push(`${page}:${surfaceId} (${reasons.join(', ')})`);
+          console.log(`  [${page}] SECONDARY_OVERLAY_CONTRACT_VIOLATION: ${surfaceId} (${reasons.join(', ')})`);
+        } else {
+          console.log(`  [${page}] SECONDARY_CONTRACT_OK: ${surfaceId}`);
+        }
+      }
     }
   }
 
-  // Registry -> Code: check registered REAL overlays exist in code (all pages)
-  const registeredOverlayIds = new Set();
-  const allPageDirs = allPages.map(p => path.join(MP, `${p}.wxml`));
-  for (const wxmlPath of allPageDirs) {
+  // Registry -> Code: REAL/PARTIAL overlays must exist
+  const foundIds = new Set();
+  for (const pagePath of allPages) {
+    const page = pagePath.split('/').pop();
+    if (hiddenPages.has(page)) continue;
+    const wxmlPath = path.join(MP, `${pagePath}.wxml`);
     if (!fs.existsSync(wxmlPath)) continue;
     const wxml = readFile(wxmlPath);
     const idRe = /data-surface-id="([^"]+)"/g;
     let m;
-    while ((m = idRe.exec(wxml)) !== null) {
-      registeredOverlayIds.add(m[1]);
-    }
+    while ((m = idRe.exec(wxml)) !== null) foundIds.add(m[1]);
   }
 
   const missingRegistered = [];
   for (const [id, reg] of overlayRegistry) {
-    if (reg.status === 'REAL' || reg.status === 'PARTIAL') {
-      if (!registeredOverlayIds.has(id)) {
-        missingRegistered.push(id);
-      }
+    if ((reg.status === 'REAL' || reg.status === 'PARTIAL') && !foundIds.has(id)) {
+      missingRegistered.push(id);
     }
   }
 
-  // Check app.wxss
+  // Check app.wxss global classes
   const appWxss = readFile(path.join(MP, 'app.wxss'));
   const missingClasses = GLOBAL_CONTRACT_CLASSES.filter(c => !appWxss.includes(`.${c}`));
   console.log(`\n[app.wxss] missing global classes: ${missingClasses.length > 0 ? missingClasses.join(', ') : 'none'}`);
@@ -181,14 +195,17 @@ function main() {
   console.log(`MISSING_SURFACE_ID: ${missingOverlayId}`);
   console.log(`MISSING_REGISTERED_OVERLAY: ${missingRegistered.length}`);
   console.log(`REAL_OVERLAY_CONTRACT_VIOLATION: ${realOverlayContractViolation}`);
-  console.log(`SECONDARY_OVERLAYS: ${secondaryOverlays} (contract ok: ${secondaryContractOk})`);
+  console.log(`SECONDARY_OVERLAY_CONTRACT_VIOLATION: ${secondaryContractViolation}`);
 
-  const hardFail = unclassified + missingOverlayId + realOverlayContractViolation;
-  if (hardFail > 0) {
+  // Governance FAIL: unclassified, missing-id, real-contract-violation, secondary-contract-violation, missing-registered
+  const governanceFail = unclassified + missingOverlayId + realOverlayContractViolation + secondaryContractViolation + missingRegistered.length;
+  if (governanceFail > 0) {
     if (unclassifiedDetails.length > 0) console.log(`\nUnclassified: ${unclassifiedDetails.join(', ')}`);
     if (missingIdDetails.length > 0) console.log(`Missing surface_id: ${missingIdDetails.join(', ')}`);
-    if (contractViolationDetails.length > 0) console.log(`REAL overlay contract violations: ${contractViolationDetails.join(', ')}`);
-    console.log('\nFAIL: unclassified/missing-id/real-contract-violation overlay elements found');
+    if (contractViolationDetails.length > 0) console.log(`REAL overlay violations: ${contractViolationDetails.join(', ')}`);
+    if (secondaryViolationDetails.length > 0) console.log(`Secondary overlay violations: ${secondaryViolationDetails.join(', ')}`);
+    if (missingRegistered.length > 0) console.log(`Missing registered REAL overlays: ${missingRegistered.join(', ')}`);
+    console.log('\nFAIL: governance overlay violations found');
     process.exit(1);
   }
 
@@ -202,11 +219,7 @@ function main() {
     process.exit(1);
   }
 
-  if (missingRegistered.length > 0) {
-    console.log(`\nFAIL: registered REAL overlays not found in code: ${missingRegistered.join(', ')}`);
-    process.exit(1);
-  }
-
+  // Release mode: known-broken overlays also fail
   if (mode === 'release' && knownBroken > 0) {
     console.log(`\nFAIL: ${knownBroken} known-broken overlays must be fixed for release`);
     process.exit(1);

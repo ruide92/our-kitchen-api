@@ -96,7 +96,7 @@
   <view class="page-bottom-space"></view>
 
   <view wx:if="{{sheet}}" class="sheet-mask" data-surface-id="MINE-OVERLAY-01" bindtap="closeSheet">
-    <view class="sheet-panel" catchtap="noop">
+    <view class="sheet-panel" data-surface-id="MINE-OVERLAY-01" catchtap="noop">
       <view class="sheet-handle"></view>
       <block wx:if="{{sheet === 'create' || sheet === 'join'}}">
         <text class="sheet-title">{{sheet === 'create' ? '创建家庭' : '加入家庭'}}</text>
