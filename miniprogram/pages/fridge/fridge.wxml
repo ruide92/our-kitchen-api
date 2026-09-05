@@ -154,7 +154,7 @@
   </block>
 
   <!-- ===== 添加食材 bottom sheet ===== -->
-  <view wx:if="{{showAddSheet}}" class="sheet-mask" bindtap="closeAddSheet">
+  <view wx:if="{{showAddSheet}}" class="sheet-mask" data-surface-id="FRIDGE-OVERLAY-01" bindtap="closeAddSheet">
     <view class="sheet-panel" catchtap="noop">
       <view class="sheet-handle"></view>
       <text class="sheet-title">添加食材</text>
@@ -209,7 +209,7 @@
   </view>
 
   <!-- ===== 编辑食材 bottom sheet ===== -->
-  <view wx:if="{{showEditSheet}}" class="sheet-mask" bindtap="closeEditSheet">
+  <view wx:if="{{showEditSheet}}" class="sheet-mask" data-surface-id="FRIDGE-OVERLAY-02" bindtap="closeEditSheet">
     <view class="sheet-panel" catchtap="noop">
       <view class="sheet-handle"></view>
       <text class="sheet-title">编辑 {{editingItem.name}}</text>
@@ -267,7 +267,7 @@
   </view>
 
   <!-- ===== 添加常备食材 bottom sheet ===== -->
-  <view wx:if="{{showAddStapleSheet}}" class="sheet-mask" bindtap="closeAddStapleSheet">
+  <view wx:if="{{showAddStapleSheet}}" class="sheet-mask" data-surface-id="FRIDGE-OVERLAY-03" bindtap="closeAddStapleSheet">
     <view class="sheet-panel sheet-panel-sm" catchtap="noop">
       <view class="sheet-handle"></view>
       <text class="sheet-title">添加常备食材</text>

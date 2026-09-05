@@ -298,11 +298,11 @@
     {
       "id": "MENU-19",
       "page": "menu",
-      "kind": "wxml-handler",
+      "kind": "internal-guard",
       "handler": "noop",
-      "label": "阻止冒泡",
-      "status": "REAL",
-      "final": "REAL"
+      "label": "catchtap 防冒泡（UI infrastructure）",
+      "status": "HIDDEN",
+      "final": "HIDDEN"
     },
     {
       "id": "MENU-20",
@@ -356,15 +356,6 @@
       "handler": "navigateTo",
       "url": "/pages/meal/meal",
       "label": "本餐菜单页",
-      "status": "REAL",
-      "final": "REAL"
-    },
-    {
-      "id": "MENU-OVERLAY-01",
-      "page": "menu",
-      "kind": "overlay",
-      "handler": "sheet",
-      "label": "menu sheet overlays",
       "status": "REAL",
       "final": "REAL"
     },
@@ -571,11 +562,11 @@
     {
       "id": "FRIDGE-13",
       "page": "fridge",
-      "kind": "wxml-handler",
+      "kind": "internal-guard",
       "handler": "noop",
-      "label": "阻止冒泡",
-      "status": "REAL",
-      "final": "REAL"
+      "label": "catchtap 防冒泡（UI infrastructure）",
+      "status": "HIDDEN",
+      "final": "HIDDEN"
     },
     {
       "id": "FRIDGE-14",
@@ -722,15 +713,6 @@
       "final": "REAL"
     },
     {
-      "id": "FRIDGE-OVERLAY-01",
-      "page": "fridge",
-      "kind": "overlay",
-      "handler": "sheet",
-      "label": "fridge sheet overlays",
-      "status": "KNOWN_BROKEN",
-      "final": "REAL"
-    },
-    {
       "id": "SHOP-01",
       "page": "shopping",
       "kind": "wxml-handler",
@@ -814,11 +796,11 @@
     {
       "id": "SHOP-10",
       "page": "shopping",
-      "kind": "wxml-handler",
+      "kind": "internal-guard",
       "handler": "noop",
-      "label": "阻止冒泡",
-      "status": "REAL",
-      "final": "REAL"
+      "label": "catchtap 防冒泡（UI infrastructure）",
+      "status": "HIDDEN",
+      "final": "HIDDEN"
     },
     {
       "id": "SHOP-11",
@@ -984,15 +966,6 @@
       "final": "REAL"
     },
     {
-      "id": "SHOP-OVERLAY-01",
-      "page": "shopping",
-      "kind": "overlay",
-      "handler": "sheet",
-      "label": "shopping sheet overlays",
-      "status": "KNOWN_BROKEN",
-      "final": "REAL"
-    },
-    {
       "id": "SHOP-DOCK-01",
       "page": "shopping",
       "kind": "dock",
@@ -1103,11 +1076,11 @@
     {
       "id": "MINE-12",
       "page": "mine",
-      "kind": "wxml-handler",
+      "kind": "internal-guard",
       "handler": "noop",
-      "label": "阻止冒泡",
-      "status": "REAL",
-      "final": "REAL"
+      "label": "catchtap 防冒泡（UI infrastructure）",
+      "status": "HIDDEN",
+      "final": "HIDDEN"
     },
     {
       "id": "MINE-13",
@@ -1241,7 +1214,7 @@
       "kind": "menu-action",
       "label": "分享广场",
       "action": "placeholderToast",
-      "status": "PLANNED_DISABLED",
+      "status": "BROKEN",
       "final": "PLANNED_DISABLED"
     },
     {
@@ -1250,7 +1223,7 @@
       "kind": "menu-action",
       "label": "我的分享",
       "action": "placeholderToast",
-      "status": "PLANNED_DISABLED",
+      "status": "BROKEN",
       "final": "PLANNED_DISABLED"
     },
     {
@@ -1278,15 +1251,6 @@
       "label": "关于我们",
       "action": "placeholderToast",
       "status": "BROKEN",
-      "final": "REAL"
-    },
-    {
-      "id": "MINE-OVERLAY-01",
-      "page": "mine",
-      "kind": "overlay",
-      "handler": "sheet",
-      "label": "mine sheet overlays",
-      "status": "KNOWN_BROKEN",
       "final": "REAL"
     },
     {
@@ -1451,11 +1415,101 @@
       "final": "REAL"
     },
     {
+      "id": "MENU-OVERLAY-01",
+      "page": "menu",
+      "kind": "overlay",
+      "surface_id": "MENU-OVERLAY-01",
+      "label": "目标餐次选择器 Sheet",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-OVERLAY-02",
+      "page": "menu",
+      "kind": "overlay",
+      "surface_id": "MENU-OVERLAY-02",
+      "label": "自选日期 Sheet",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-OVERLAY-01",
+      "page": "fridge",
+      "kind": "overlay",
+      "surface_id": "FRIDGE-OVERLAY-01",
+      "label": "添加食材 Sheet",
+      "status": "KNOWN_BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-OVERLAY-02",
+      "page": "fridge",
+      "kind": "overlay",
+      "surface_id": "FRIDGE-OVERLAY-02",
+      "label": "编辑食材 Sheet",
+      "status": "KNOWN_BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-OVERLAY-03",
+      "page": "fridge",
+      "kind": "overlay",
+      "surface_id": "FRIDGE-OVERLAY-03",
+      "label": "添加常备食材 Sheet",
+      "status": "KNOWN_BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-OVERLAY-01",
+      "page": "shopping",
+      "kind": "overlay",
+      "surface_id": "SHOP-OVERLAY-01",
+      "label": "购物证据 Sheet",
+      "status": "KNOWN_BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-OVERLAY-02",
+      "page": "shopping",
+      "kind": "overlay",
+      "surface_id": "SHOP-OVERLAY-02",
+      "label": "手动商品详情 Sheet",
+      "status": "KNOWN_BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-OVERLAY-03",
+      "page": "shopping",
+      "kind": "overlay",
+      "surface_id": "SHOP-OVERLAY-03",
+      "label": "添加手动商品 Sheet",
+      "status": "KNOWN_BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "SHOP-OVERLAY-04",
+      "page": "shopping",
+      "kind": "overlay",
+      "surface_id": "SHOP-OVERLAY-04",
+      "label": "完成采购 Sheet",
+      "status": "KNOWN_BROKEN",
+      "final": "REAL"
+    },
+    {
+      "id": "MINE-OVERLAY-01",
+      "page": "mine",
+      "kind": "overlay",
+      "surface_id": "MINE-OVERLAY-01",
+      "label": "我的页面通用 Sheet",
+      "status": "KNOWN_BROKEN",
+      "final": "REAL"
+    },
+    {
       "id": "DETAIL-OVERLAY-01",
       "page": "detail",
       "kind": "overlay",
-      "handler": "sheet",
-      "label": "详情页 Sheet",
+      "surface_id": "DETAIL-OVERLAY-01",
+      "label": "评分弹窗",
       "status": "BROKEN",
       "final": "REAL"
     }

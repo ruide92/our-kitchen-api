@@ -31,11 +31,13 @@ function writeFile(dir, rel, content) {
 }
 
 function makeMinimalRepo(dir, extraRegistry = []) {
-  writeFile(dir, 'miniprogram/app.json', JSON.stringify({ pages: ['pages/test/test', 'pages/index/index'] }));
+  writeFile(dir, 'miniprogram/app.json', JSON.stringify({ pages: ['pages/test/test', 'pages/index/index', 'pages/fridge/fridge'] }));
   writeFile(dir, 'miniprogram/pages/test/test.wxml', '<view bindtap="existingHandler">ok</view>');
   writeFile(dir, 'miniprogram/pages/test/test.js', 'Page({ existingHandler(){} })');
   writeFile(dir, 'miniprogram/pages/index/index.wxml', '<view>home</view>');
   writeFile(dir, 'miniprogram/pages/index/index.js', 'Page({})');
+  writeFile(dir, 'miniprogram/pages/fridge/fridge.wxml', '<view>fridge</view>');
+  writeFile(dir, 'miniprogram/pages/fridge/fridge.js', 'Page({})');
   writeFile(dir, 'miniprogram/app.wxss', '.tab-safe-sheet-mask{}.tab-safe-sheet-panel{}.tab-page-dock{}.tab-page-scroll-spacer{}.sheet-mask-no-tabbar{}.sheet-panel-no-tabbar{}');
   writeFile(dir, 'miniprogram/custom-tab-bar/index.js', 'Component({data:{locked:false}})');
   writeFile(dir, 'miniprogram/custom-tab-bar/index.wxml', '<view class="{{locked?\'tabbar-locked\':\'\'}}"></view>');
@@ -55,7 +57,6 @@ function makeMinimalRepo(dir, extraRegistry = []) {
 test('Mutation A: unregistered real handler causes UNCLASSIFIED FAIL', () => {
   const tmp = makeTempDir();
   makeMinimalRepo(tmp);
-  // Add a new handler that's implemented in JS but NOT in registry
   writeFile(tmp, 'miniprogram/pages/test/test.wxml', '<view bindtap="existingHandler">ok</view><view bindtap="realNewFeature">new</view>');
   writeFile(tmp, 'miniprogram/pages/test/test.js', 'Page({ existingHandler(){}, realNewFeature(){ console.log("real impl") } })');
 
@@ -65,25 +66,25 @@ test('Mutation A: unregistered real handler causes UNCLASSIFIED FAIL', () => {
     `should report UNCLASSIFIED for realNewFeature, got: ${result.stdout.slice(0, 300)}`);
 });
 
-// Case B: Registry says REAL but handler is placeholderToast → release FAIL
-test('Mutation B: REAL surface with placeholderToast causes release FAIL', () => {
+// Case B: Registry says REAL but handler is placeholderToast → GOVERNANCE FAIL (fake REAL)
+test('Mutation B: REAL surface with placeholderToast causes GOVERNANCE FAIL', () => {
   const tmp = makeTempDir();
   makeMinimalRepo(tmp);
-  // Override: registry says REAL but code uses placeholderToast
   writeFile(tmp, 'miniprogram/pages/test/test.wxml', '<view bindtap="placeholderToast">click</view>');
   writeFile(tmp, 'miniprogram/pages/test/test.js', 'Page({ placeholderToast(){ wx.showToast({title:"待接入"}) } })');
   const registry = {
-    $schema: 'product-surfaces-registry-v1',
+    $schema: 'v1',
     surfaces: [
       { id: 'TEST-01', page: 'test', kind: 'wxml-handler', handler: 'placeholderToast', label: 'fake real', status: 'REAL', final: 'REAL' }
     ]
   };
   writeFile(tmp, 'governance/product-surfaces.json', JSON.stringify(registry));
 
-  const result = runScript('product-surface-audit.js', ['--mode=release'], tmp);
-  assert.notEqual(result.code, 0, `release should FAIL for REAL+placeholder, got code=0`);
-  assert.ok(result.stdout.includes('REAL violations') || result.stdout.includes('placeholder'),
-    `should report REAL violation, got: ${result.stdout.slice(0, 300)}`);
+  // Governance must catch fake REAL
+  const govResult = runScript('product-surface-audit.js', ['--mode=governance'], tmp);
+  assert.notEqual(govResult.code, 0, `governance should FAIL for REAL+placeholder, got code=0`);
+  assert.ok(govResult.stdout.includes('REAL_VIOLATION') || govResult.stdout.includes('placeholder'),
+    `should report REAL_VIOLATION, got: ${govResult.stdout.slice(0, 300)}`);
 });
 
 // Case C: navigateTo non-existent page → FAIL
@@ -98,42 +99,42 @@ test('Mutation C: invalid navigation target is detected', () => {
     `should report invalid nav, got: ${result.stdout.slice(0, 300)}`);
 });
 
-// Case D: unclassified tab sheet → overlay audit FAIL
+// Case D: unclassified tab sheet (no data-surface-id) → overlay audit FAIL
 test('Mutation D: unclassified tab sheet causes overlay FAIL', () => {
   const tmp = makeTempDir();
   makeMinimalRepo(tmp);
-  // index is a TAB page, add a sheet without registry entry
-  writeFile(tmp, 'miniprogram/pages/index/index.wxml', '<view class="unknown-sheet-mask"></view><view class="unknown-sheet-panel"></view>');
-  writeFile(tmp, 'miniprogram/pages/index/index.wxss', '.unknown-sheet-panel { bottom: 0; }');
+  writeFile(tmp, 'miniprogram/pages/index/index.wxml', '<view class="unknown-sheet-mask"></view>');
+  writeFile(tmp, 'miniprogram/pages/index/index.wxss', '');
 
   const result = runScript('overlay-contract-audit.js', ['--mode=governance'], tmp);
   assert.notEqual(result.code, 0, `should FAIL for unclassified sheet on index, got code=0`);
-  assert.ok(result.stdout.includes('UNCLASSIFIED'),
-    `should report UNCLASSIFIED, got: ${result.stdout.slice(0, 300)}`);
+  assert.ok(result.stdout.includes('MISSING_SURFACE_ID') || result.stdout.includes('UNCLASSIFIED'),
+    `should report missing/unclassified, got: ${result.stdout.slice(0, 300)}`);
 });
 
-// Case D2: known-broken page gets a NEW unregistered sheet → still UNCLASSIFIED (not auto-known-broken)
+// Case D2: known-broken page has registered overlay + NEW unregistered overlay → UNCLASSIFIED
+// This proves surface_id whitelist, not page-wide whitelist
 test('Mutation D2: new sheet on known-broken page is UNCLASSIFIED not auto-whitelisted', () => {
   const tmp = makeTempDir();
-  // fridge is in registry as known-broken overlay, but we add a completely new sheet type
-  writeFile(tmp, 'miniprogram/app.json', JSON.stringify({ pages: ['pages/fridge/fridge'] }));
-  writeFile(tmp, 'miniprogram/pages/fridge/fridge.wxml', '<view class="brand-new-unknown-sheet-mask"></view>');
-  writeFile(tmp, 'miniprogram/pages/fridge/fridge.wxss', '');
-  writeFile(tmp, 'miniprogram/pages/fridge/fridge.js', 'Page({})');
-  // Registry has fridge overlay as KNOWN_BROKEN — but the audit should still detect
-  // Wait — with page-level overlay registration, any sheet on fridge maps to the registry entry.
-  // This test verifies that a page NOT in registry with a sheet fails.
-  // Let's use a page not in registry: 'shopping' with a sheet
-  writeFile(tmp, 'miniprogram/app.json', JSON.stringify({ pages: ['pages/shopping/shopping'] }));
-  writeFile(tmp, 'miniprogram/pages/shopping/shopping.wxml', '<view class="unknown-new-sheet-mask"></view>');
-  writeFile(tmp, 'miniprogram/pages/shopping/shopping.wxss', '');
-  writeFile(tmp, 'miniprogram/pages/shopping/shopping.js', 'Page({})');
-  // Registry does NOT have shopping overlay
-  const registry = { $schema: 'v1', surfaces: [] };
+  makeMinimalRepo(tmp);
+  // fridge has FRIDGE-OVERLAY-01 registered as KNOWN_BROKEN
+  // plus a NEW sheet FRIDGE-OVERLAY-NEW that is NOT registered
+  writeFile(tmp, 'miniprogram/pages/fridge/fridge.wxml',
+    '<view wx:if="{{showAdd}}" class="sheet-mask" data-surface-id="FRIDGE-OVERLAY-01"></view>' +
+    '<view wx:if="{{showNew}}" class="sheet-mask" data-surface-id="FRIDGE-OVERLAY-NEW"></view>');
+  const registry = {
+    $schema: 'v1',
+    surfaces: [
+      { id: 'TEST-01', page: 'test', kind: 'wxml-handler', handler: 'existingHandler', label: 'e', status: 'REAL', final: 'REAL' },
+      { id: 'FRIDGE-OVERLAY-01', page: 'fridge', kind: 'overlay', surface_id: 'FRIDGE-OVERLAY-01', label: 'add sheet', status: 'KNOWN_BROKEN', final: 'REAL' }
+    ]
+  };
   writeFile(tmp, 'governance/product-surfaces.json', JSON.stringify(registry));
 
   const result = runScript('overlay-contract-audit.js', ['--mode=governance'], tmp);
-  assert.notEqual(result.code, 0, `should FAIL for unclassified sheet, got code=0`);
+  assert.notEqual(result.code, 0, `should FAIL for unregistered NEW overlay, got code=0`);
+  assert.ok(result.stdout.includes('UNCLASSIFIED') && result.stdout.includes('FRIDGE-OVERLAY-NEW'),
+    `should report UNCLASSIFIED for FRIDGE-OVERLAY-NEW, got: ${result.stdout.slice(0, 400)}`);
 });
 
 // Case E: DRAFT migration → release schema audit FAIL
@@ -148,26 +149,28 @@ test('Mutation E: DRAFT amendment blocks release schema audit', () => {
   assert.notEqual(result.code, 0, `release schema should FAIL with DRAFT, got code=0`);
 });
 
-// Case F: BROKEN Final=REAL → release readiness FAIL
+// Case F: BROKEN Final=REAL → release readiness FAIL (reads JSON now)
 test('Mutation F: BROKEN required surface blocks release readiness', () => {
   const tmp = makeTempDir();
-  writeFile(tmp, 'docs/PRODUCT_SURFACE_MATRIX.md',
-    '| ID | Label | Trigger | Page | Status | Phase | Final | Frontend | API | Backend | DB | Journey | Evidence |\n' +
-    '|---|---|---|---|---|---|---|---|---|---|---|---|---|\n' +
-    '| TEST-01 | broken required | tap | test | BROKEN | 12A | REAL | t.js | GET /x | svc | tbl | UJ-01 | none |\n' +
-    '| TEST-02 | real ok | tap | test | REAL | 12A | REAL | t.js | GET /y | svc | tbl | UJ-01 | test |\n');
+  const registry = {
+    $schema: 'v1',
+    surfaces: [
+      { id: 'TEST-01', page: 'test', kind: 'wxml-handler', handler: 'brokenHandler', label: 'broken required', status: 'BROKEN', final: 'REAL' },
+      { id: 'TEST-02', page: 'test', kind: 'wxml-handler', handler: 'okHandler', label: 'real ok', status: 'REAL', final: 'REAL' }
+    ]
+  };
+  writeFile(tmp, 'governance/product-surfaces.json', JSON.stringify(registry));
 
   const result = runScript('release-readiness-audit.js', [], tmp);
   assert.notEqual(result.code, 0, `release readiness should FAIL with BROKEN Final=REAL, got code=0`);
-  assert.ok(result.stdout.includes('BROKEN_REQUIRED_NOW'),
-    `should list BROKEN_REQUIRED_NOW, got: ${result.stdout.slice(0, 300)}`);
+  assert.ok(result.stdout.includes('BROKEN_REQUIRED_NOW') || result.stdout.includes('BROKEN'),
+    `should list BROKEN required, got: ${result.stdout.slice(0, 300)}`);
 });
 
-// Case G: release gate total path FAILs when REAL+placeholder exists
-test('Mutation G: full release gate path FAILs on REAL+placeholder fixture', () => {
+// Case G: release surface mode catches REAL+placeholder
+test('Mutation G: surface release mode catches REAL+placeholder', () => {
   const tmp = makeTempDir();
   makeMinimalRepo(tmp);
-  // Override with REAL+placeholder
   writeFile(tmp, 'miniprogram/pages/test/test.wxml', '<view bindtap="placeholderToast">click</view>');
   writeFile(tmp, 'miniprogram/pages/test/test.js', 'Page({ placeholderToast(){ wx.showToast({title:"待接入"}) } })');
   const registry = {
@@ -182,10 +185,35 @@ test('Mutation G: full release gate path FAILs on REAL+placeholder fixture', () 
   assert.notEqual(result.code, 0, `surface:release should FAIL, got code=0`);
 });
 
+// Case H: Registry REAL, WXML bindtap=realAction, but JS has no realAction → MISSING_HANDLER FAIL
+test('Mutation H: REAL wxml-handler missing from JS causes MISSING_HANDLER FAIL', () => {
+  const tmp = makeTempDir();
+  makeMinimalRepo(tmp);
+  writeFile(tmp, 'miniprogram/pages/test/test.wxml', '<view bindtap="realAction">click</view>');
+  writeFile(tmp, 'miniprogram/pages/test/test.js', 'Page({ otherMethod(){} })');
+  const registry = {
+    $schema: 'v1',
+    surfaces: [
+      { id: 'TEST-01', page: 'test', kind: 'wxml-handler', handler: 'realAction', label: 'real action', status: 'REAL', final: 'REAL' }
+    ]
+  };
+  writeFile(tmp, 'governance/product-surfaces.json', JSON.stringify(registry));
+
+  const result = runScript('product-surface-audit.js', ['--mode=governance'], tmp);
+  assert.notEqual(result.code, 0, `should FAIL for missing handler, got code=0`);
+  assert.ok(result.stdout.includes('MISSING_HANDLER') && result.stdout.includes('realAction'),
+    `should report MISSING_HANDLER for realAction, got: ${result.stdout.slice(0, 300)}`);
+});
+
 // Baseline tests on real repo
 test('Baseline: governance surface audit passes on real repo', () => {
   const result = runScript('product-surface-audit.js', ['--mode=governance']);
   assert.equal(result.code, 0, `governance surface audit should pass, got code=${result.code}: ${result.stderr}`);
+});
+
+test('Baseline: governance overlay audit passes on real repo', () => {
+  const result = runScript('overlay-contract-audit.js', ['--mode=governance']);
+  assert.equal(result.code, 0, `governance overlay audit should pass, got code=${result.code}: ${result.stderr}`);
 });
 
 test('Baseline: release readiness fails on real repo (known BROKEN)', () => {
@@ -204,8 +232,12 @@ test('Baseline: schema release fails due to 008 DRAFT', () => {
   assert.notEqual(result.code, 0, `release schema should FAIL due to 008, got code=0`);
 });
 
+test('Baseline: product surface matrix is in sync', () => {
+  const result = runScript('generate-product-surface-matrix.js', ['--check']);
+  assert.equal(result.code, 0, `matrix sync should pass, got code=${result.code}: ${result.stdout}`);
+});
+
 test('Baseline: UNCLASSIFIED detector is not hardcoded to 0', () => {
-  // Prove that adding an unregistered handler actually changes UNCLASSIFIED count
   const tmp = makeTempDir();
   makeMinimalRepo(tmp);
   writeFile(tmp, 'miniprogram/pages/test/test.wxml', '<view bindtap="existingHandler">ok</view><view bindtap="unregHandler">x</view>');

@@ -15,6 +15,7 @@
     "test:audit": "node scripts/wxml-handler-audit.js && node scripts/static-api-audit.js && node scripts/wxss-sanity-audit.js",
     "audit:surface": "node scripts/product-surface-audit.js",
     "audit:surface:release": "node scripts/product-surface-audit.js --mode=release",
+    "audit:surface-matrix-sync": "node scripts/generate-product-surface-matrix.js --check",
     "audit:overlay": "node scripts/overlay-contract-audit.js",
     "audit:overlay:release": "node scripts/overlay-contract-audit.js --mode=release",
     "audit:schema": "node scripts/schema-contract-audit.js",
@@ -22,7 +23,7 @@
     "audit:release-readiness": "node scripts/release-readiness-audit.js",
     "test:user-journey": "node --env-file=.env --test test/user-journey.test.js",
     "test:governance-mutation": "node --test test/governance-mutation.test.js",
-    "test:governance-gate": "npm run test:unit && npm run test:frontend && npm run test:audit && npm run audit:surface && npm run audit:overlay && npm run audit:schema && npm run test:governance-mutation && npm run test:integration",
+    "test:governance-gate": "npm run test:unit && npm run test:frontend && npm run test:audit && npm run audit:surface && npm run audit:surface-matrix-sync && npm run audit:overlay && npm run audit:schema && npm run test:governance-mutation && npm run test:integration",
     "test:release-gate": "npm run test:governance-gate && npm run audit:surface:release && npm run audit:overlay:release && npm run audit:schema:release && npm run audit:release-readiness && npm run test:user-journey",
     "test:gate": "npm run test:unit && npm run test:frontend && npm run test:audit && npm run test:integration"
   },

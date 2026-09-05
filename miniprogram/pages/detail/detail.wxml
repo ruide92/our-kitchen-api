@@ -151,7 +151,7 @@
   </view>
 
   <!-- 评分弹窗 -->
-  <view wx:if="{{showRating}}" class="rating-modal" bindtap="hideRatingPanel">
+  <view wx:if="{{showRating}}" class="rating-modal" data-surface-id="DETAIL-OVERLAY-01" bindtap="hideRatingPanel">
     <view class="rating-panel" catchtap="">
       <text class="rating-panel-title">给这道菜评分</text>
       <view class="rating-panel-stars">

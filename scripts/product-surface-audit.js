@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Product Surface Audit — bidirectional mapping between code and governance/product-surfaces.json
+// Product Surface Audit — bidirectional mapping + handler existence + REAL truth enforcement
+// Single source of truth: governance/product-surfaces.json
 // Usage: node scripts/product-surface-audit.js [--mode=governance|release]
 const fs = require('node:fs');
 const path = require('node:path');
@@ -35,15 +36,62 @@ function loadRegistry() {
   return data.surfaces || [];
 }
 
+// Collect all JS source for a page (page.js + *-controller.js + other modules in same dir)
+function collectPageJs(page) {
+  const pageDir = path.join(MP, 'pages', page);
+  let js = '';
+  if (fs.existsSync(pageDir)) {
+    for (const f of fs.readdirSync(pageDir)) {
+      if (f.endsWith('.js')) {
+        js += '\n' + readFile(path.join(pageDir, f));
+      }
+    }
+  }
+  // Also check utils if handler is imported from there
+  const utilsDir = path.join(MP, 'utils');
+  if (fs.existsSync(utilsDir)) {
+    for (const f of fs.readdirSync(utilsDir)) {
+      if (f.endsWith('.js')) {
+        js += '\n' + readFile(path.join(utilsDir, f));
+      }
+    }
+  }
+  return js;
+}
+
+function handlerExistsInJs(js, handler) {
+  // Match: handlerName( or handlerName: function or handlerName() { or "handlerName"
+  const patterns = [
+    new RegExp(`${handler}\\s*\\(`),
+    new RegExp(`${handler}\\s*:\\s*function`),
+    new RegExp(`${handler}\\s*:\\s*\\(`),
+    new RegExp(`${handler}\\s*\\(\\s*\\)`),
+  ];
+  return patterns.some(p => p.test(js));
+}
+
+function isPlaceholderImplementation(js, handler) {
+  if (handler === 'placeholderToast') return true;
+  // Check if handler body is just showToast with 待接入/规划中/未实现
+  const re = new RegExp(`${handler}\\s*[(:][\\s\\S]{0,300}?(showToast|wx\\.showToast)[\\s\\S]{0,150}?(待接入|规划中|未实现|coming soon)`, 'i');
+  return re.test(js);
+}
+
+function isEmptyImplementation(js, handler) {
+  // Handler exists but body is empty or just return
+  const re = new RegExp(`${handler}\\s*[(:][\\s\\S]{0,100}?\\{[\\s\\S]{0,50}?\\}`);
+  const match = js.match(re);
+  if (!match) return false;
+  const body = match[0];
+  // Empty body or only comments/whitespace
+  return /\{\s*(\/\/[^\n]*\n|\s)*\}/.test(body) || /\{\s*return;\s*\}/.test(body);
+}
+
 function scanCode() {
   const wxmlFiles = walk(path.join(MP, 'pages'), '.wxml');
   const jsFiles = walk(path.join(MP, 'pages'), '.js');
 
-  // Also include custom-tab-bar (but its handlers are infrastructure, not user entry points)
-  const tabBarDir = path.join(MP, 'custom-tab-bar');
-  // custom-tab-bar handlers are infrastructure — skip from surface detection
-
-  const detected = []; // {page, kind, handler, url, label, file}
+  const detected = [];
 
   // Scan WXML handlers
   for (const f of wxmlFiles) {
@@ -79,15 +127,19 @@ function scanCode() {
     }
   }
 
-  // Scan overlay/sheet elements in WXML (dedup by page+type)
-  const overlayPages = new Set();
+  // Scan overlay/sheet elements in WXML — read data-surface-id for exact matching
   for (const f of wxmlFiles) {
     const page = pageNameFromPath(f);
     const wxml = readFile(f);
-    if (/class="[^"]*(sheet-mask|sheet-panel|modal)[^"]*"/.test(wxml)) {
-      if (!overlayPages.has(page)) {
-        overlayPages.add(page);
-        detected.push({ page, kind: 'overlay', handler: 'sheet', file: path.relative(MP, f) });
+    const overlayRe = /<view[^>]*class="[^"]*(sheet-mask|sheet-panel|modal)[^"]*"[^>]*>/g;
+    let m;
+    while ((m = overlayRe.exec(wxml)) !== null) {
+      const tag = m[0];
+      const idMatch = tag.match(/data-surface-id="([^"]+)"/);
+      const surfaceId = idMatch ? idMatch[1] : null;
+      // Only count sheet-mask as the overlay root (avoid double-counting mask+panel)
+      if (tag.includes('sheet-mask') || tag.includes('modal')) {
+        detected.push({ page, kind: 'overlay', handler: 'sheet', surface_id: surfaceId, file: path.relative(MP, f) });
       }
     }
   }
@@ -99,9 +151,10 @@ function buildKey(surface) {
   if (surface.kind === 'wxml-handler') return `${surface.page}:wxml-handler:${surface.handler}`;
   if (surface.kind === 'navigation') return `${surface.page}:navigation:${surface.handler}:${surface.url}`;
   if (surface.kind === 'menu-action') return `${surface.page}:menu-action:${surface.label}`;
-  if (surface.kind === 'overlay') return `${surface.page}:overlay:${surface.handler}`;
+  if (surface.kind === 'overlay') return `${surface.page}:overlay:${surface.surface_id || surface.handler}`;
   if (surface.kind === 'dock') return `${surface.page}:dock:${surface.handler}`;
   if (surface.kind === 'page') return `page:${surface.page}`;
+  if (surface.kind === 'internal-guard') return `internal:${surface.page}:${surface.handler}`;
   return `${surface.page}:${surface.kind}:${surface.handler || surface.id}`;
 }
 
@@ -109,16 +162,8 @@ function buildDetectedKey(d) {
   if (d.kind === 'wxml-handler') return `${d.page}:wxml-handler:${d.handler}`;
   if (d.kind === 'navigation') return `${d.page}:navigation:${d.handler}:${d.url}`;
   if (d.kind === 'menu-action') return `${d.page}:menu-action:${d.label}`;
-  if (d.kind === 'overlay') return `${d.page}:overlay:${d.handler}`;
+  if (d.kind === 'overlay') return `${d.page}:overlay:${d.surface_id || d.handler}`;
   return `${d.page}:${d.kind}:${d.handler || ''}`;
-}
-
-function isPlaceholderImplementation(js, handler) {
-  if (handler === 'noop') return false; // noop is intentional for catchtap
-  if (handler === 'placeholderToast') return true;
-  // Check if handler body is just showToast with 待接入/规划中
-  const re = new RegExp(`${handler}\\s*[(:][\\s\\S]{0,200}?(showToast|wx\\.showToast)[\\s\\S]{0,100}?(待接入|规划中|未实现|coming soon)`, 'i');
-  return re.test(js);
 }
 
 function main() {
@@ -131,6 +176,7 @@ function main() {
   const hiddenPages = new Set();
   for (const s of registry) {
     if (s.kind === 'page' && s.status === 'HIDDEN') hiddenPages.add(s.page);
+    if (s.kind === 'internal-guard') continue; // skip internal guards from mapping
     const key = buildKey(s);
     if (registryByKey.has(key)) {
       duplicates.push({ key, ids: [registryByKey.get(key).id, s.id] });
@@ -140,11 +186,12 @@ function main() {
   }
 
   // Code -> Registry: detect unclassified
-  // HIDDEN pages' handlers are auto-classified as HIDDEN (page-level registration covers them)
   const unclassified = [];
   const detectedKeys = new Set();
   for (const d of detected) {
-    if (hiddenPages.has(d.page)) continue; // HIDDEN page handlers covered by page-level registration
+    if (hiddenPages.has(d.page)) continue;
+    // internal-guard handlers (noop) are not user surfaces
+    if (d.handler === 'noop' && d.kind === 'wxml-handler') continue;
     const key = buildDetectedKey(d);
     detectedKeys.add(key);
     if (!registryByKey.has(key)) {
@@ -152,12 +199,11 @@ function main() {
     }
   }
 
-  // Registry -> Code: detect missing surfaces
-  // Only REAL and PARTIAL must exist in code. BROKEN/KNOWN_BROKEN means functionality is missing by definition.
+  // Registry -> Code: detect missing surfaces (REAL/PARTIAL only)
   const missingSurfaces = [];
   for (const s of registry) {
+    if (s.kind === 'internal-guard' || s.kind === 'page') continue;
     if (s.status !== 'REAL' && s.status !== 'PARTIAL') continue;
-    if (s.kind === 'page') continue;
     if (hiddenPages.has(s.page)) continue;
     const key = buildKey(s);
     if (!detectedKeys.has(key)) {
@@ -165,19 +211,28 @@ function main() {
     }
   }
 
-  // REAL check: handler must not be placeholder
-  const realViolations = [];
-  const jsByPage = new Map();
-  for (const f of jsFiles) {
-    const page = pageNameFromPath(f);
-    jsByPage.set(page, (jsByPage.get(page) || '') + '\n' + readFile(f));
+  // Handler existence check for REAL/PARTIAL wxml-handler
+  const missingHandlers = [];
+  for (const s of registry) {
+    if (s.kind !== 'wxml-handler') continue;
+    if (s.status !== 'REAL' && s.status !== 'PARTIAL') continue;
+    if (hiddenPages.has(s.page)) continue;
+    const js = collectPageJs(s.page);
+    if (!handlerExistsInJs(js, s.handler)) {
+      missingHandlers.push({ id: s.id, page: s.page, handler: s.handler });
+    }
   }
+
+  // REAL truth check: placeholder / empty implementation -> Governance FAIL
+  const realViolations = [];
   for (const s of registry) {
     if (s.status !== 'REAL') continue;
     if (s.kind === 'wxml-handler' && s.handler) {
-      const js = jsByPage.get(s.page) || '';
+      const js = collectPageJs(s.page);
       if (isPlaceholderImplementation(js, s.handler)) {
         realViolations.push({ id: s.id, handler: s.handler, reason: 'REAL surface uses placeholder implementation' });
+      } else if (isEmptyImplementation(js, s.handler)) {
+        realViolations.push({ id: s.id, handler: s.handler, reason: 'REAL surface has empty implementation' });
       }
     }
     if (s.kind === 'menu-action' && s.action === 'placeholderToast') {
@@ -185,12 +240,15 @@ function main() {
     }
   }
 
-  // PLANNED_DISABLED check: must not be clickable
+  // PLANNED_DISABLED check: any executable action (including placeholderToast) = clickable
   const plannedClickable = [];
   for (const s of registry) {
     if (s.status !== 'PLANNED_DISABLED') continue;
-    if (s.kind === 'menu-action' && s.action && s.action !== 'placeholderToast') {
-      plannedClickable.push({ id: s.id, label: s.label, action: s.action });
+    if (s.kind === 'menu-action' && s.action) {
+      plannedClickable.push({ id: s.id, label: s.label, action: s.action, reason: 'PLANNED_DISABLED menu action is clickable' });
+    }
+    if (s.kind === 'wxml-handler' && s.handler) {
+      plannedClickable.push({ id: s.id, handler: s.handler, reason: 'PLANNED_DISABLED handler is bound' });
     }
   }
 
@@ -204,6 +262,7 @@ function main() {
 
   console.log('=== PRODUCT SURFACE AUDIT ===');
   console.log(`Mode: ${mode}`);
+  console.log(`Source: governance/product-surfaces.json (single authority)`);
   console.log(`Registry surfaces: ${registry.length}`);
   console.log(`WXML files: ${wxmlFiles.length}`);
   console.log(`JS files: ${jsFiles.length}`);
@@ -212,40 +271,51 @@ function main() {
   console.log(`REGISTERED_SURFACES: ${registry.length}`);
   console.log(`UNCLASSIFIED: ${unclassified.length}`);
   console.log(`MISSING_SURFACE: ${missingSurfaces.length}`);
+  console.log(`MISSING_HANDLER: ${missingHandlers.length}`);
   console.log(`DUPLICATE_MAPPING: ${duplicates.length}`);
-  console.log(`REAL violations: ${realViolations.length}`);
-  console.log(`PLANNED clickable: ${plannedClickable.length}`);
+  console.log(`REAL_VIOLATION: ${realViolations.length}`);
+  console.log(`PLANNED_CLICKABLE: ${plannedClickable.length}`);
   console.log(`Dynamic handlers: ${dynamicHandlers.length}`);
   console.log(`Invalid nav targets: ${invalidNavs.length}`);
 
   if (unclassified.length > 0) {
     console.log('\n--- UNCLASSIFIED (code has entry, registry missing) ---');
-    unclassified.slice(0, 20).forEach(d => console.log(`  ${d.file}: ${d.kind} ${d.handler || d.label || d.url}`));
+    unclassified.slice(0, 20).forEach(d => console.log(`  ${d.file}: ${d.kind} ${d.handler || d.label || d.url || d.surface_id}`));
   }
   if (missingSurfaces.length > 0) {
-    console.log('\n--- MISSING_SURFACE (registry says REAL/PARTIAL/BROKEN, code not found) ---');
-    missingSurfaces.slice(0, 20).forEach(s => console.log(`  ${s.id}: ${s.page} ${s.kind} ${s.handler || s.label}`));
+    console.log('\n--- MISSING_SURFACE (registry REAL/PARTIAL, code not found) ---');
+    missingSurfaces.slice(0, 20).forEach(s => console.log(`  ${s.id}: ${s.page} ${s.kind} ${s.handler || s.label || s.surface_id}`));
+  }
+  if (missingHandlers.length > 0) {
+    console.log('\n--- MISSING_HANDLER (REAL/PARTIAL wxml-handler not found in JS) ---');
+    missingHandlers.forEach(h => console.log(`  ${h.id}: ${h.page}.${h.handler}`));
   }
   if (duplicates.length > 0) {
     console.log('\n--- DUPLICATE_MAPPING ---');
     duplicates.forEach(d => console.log(`  ${d.key}: ${d.ids.join(', ')}`));
   }
   if (realViolations.length > 0) {
-    console.log('\n--- REAL VIOLATIONS ---');
+    console.log('\n--- REAL_VIOLATION (fake REAL) ---');
     realViolations.forEach(v => console.log(`  ${v.id}: ${v.reason}`));
   }
+  if (plannedClickable.length > 0) {
+    console.log('\n--- PLANNED_CLICKABLE (PLANNED_DISABLED but executable) ---');
+    plannedClickable.forEach(p => console.log(`  ${p.id}: ${p.reason}`));
+  }
 
-  const hardFailures = unclassified.length + duplicates.length + dynamicHandlers.length + invalidNavs.length;
+  // Governance FAIL: unclassified, duplicates, dynamic, invalid-nav, missing-handler, real-violation
+  // These are truth violations — governance must catch fake REAL
+  const governanceFailures = unclassified.length + duplicates.length + dynamicHandlers.length + invalidNavs.length + missingHandlers.length + realViolations.length;
 
-  if (hardFailures > 0) {
-    console.log(`\nFAIL: ${hardFailures} hard failures (unclassified/duplicates/dynamic/invalid-nav)`);
+  if (governanceFailures > 0) {
+    console.log(`\nFAIL: ${governanceFailures} governance failures (unclassified/duplicates/dynamic/invalid-nav/missing-handler/real-violation)`);
     process.exit(1);
   }
 
   if (mode === 'release') {
-    const releaseFailures = missingSurfaces.length + realViolations.length + plannedClickable.length;
+    const releaseFailures = missingSurfaces.length + plannedClickable.length;
     if (releaseFailures > 0) {
-      console.log(`\nFAIL: ${releaseFailures} release failures (missing/real-violations/planned-clickable)`);
+      console.log(`\nFAIL: ${releaseFailures} release failures (missing-surface/planned-clickable)`);
       process.exit(1);
     }
   }
