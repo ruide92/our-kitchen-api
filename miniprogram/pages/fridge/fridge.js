@@ -8,6 +8,7 @@
 
 const FIXTURE = require('./fridge-fixture.js')
 const { hideTabBar, showTabBar } = require('../../utils/tabbar-overlay.js')
+const { createV1Api } = require('../../utils/v1-api')
 
 Page({
   data: {
@@ -59,6 +60,33 @@ Page({
 
   onLoad() {
     this.initFromFixture()
+    this._familyId = wx.getStorageSync('v1_active_family_id')
+    this._api = createV1Api({ wxAdapter: wx })
+    this._loadRealFridge()
+  },
+
+  async _loadRealFridge() {
+    if (!this._familyId || !this._api) return
+    try {
+      const items = await this._api.listFridge(this._familyId, {})
+      if (items && items.length > 0) {
+        const enriched = items.map(i => ({
+          ...i,
+          freshness_status: this._computeFreshness(i.expiry_date).status,
+          expiry_label: this._computeFreshness(i.expiry_date).label
+        }))
+        const expiring = enriched.filter(i => i.freshness_status === 'EXPIRING')
+        this.setData({
+          inventoryItems: enriched,
+          totalCount: enriched.length,
+          expiringCount: expiring.length,
+          expiringItems: expiring.slice(0, 3),
+          filteredItems: enriched
+        })
+      }
+    } catch (e) {
+      // fallback to fixture
+    }
   },
 
   onShow() {
@@ -219,16 +247,38 @@ Page({
     this.setData({ 'addForm.expiry_date': e.detail.value })
   },
 
-  saveAddItem() {
+  async saveAddItem() {
     const { addForm, inventoryItems } = this.data
     if (!addForm.name || !addForm.name.trim()) {
       wx.showToast({ title: '请输入食材名称', icon: 'none' })
       return
     }
-    // 数量校验：空 → 0；NaN/负数 → 拒绝
     const qty = this._parseQuantity(addForm.quantity, 0)
     if (qty === null) return
     const fresh = this._computeFreshness(addForm.expiry_date || null)
+
+    // 如果有真实 V1 环境，调用真实 API
+    if (this._familyId && this._api) {
+      try {
+        await this._api.addFridgeItem(this._familyId, {
+          name: addForm.name.trim(),
+          quantity: qty,
+          unit_code: addForm.unit_code,
+          storage_location: addForm.storage_location,
+          purchase_date: FIXTURE.reference_date,
+          expiry_date: addForm.expiry_date || null,
+          note: addForm.note || ''
+        })
+        this.setData({ showAddSheet: false })
+        showTabBar(this)
+        await this._loadRealFridge()
+        wx.showToast({ title: '已添加', icon: 'success' })
+        return
+      } catch (e) {
+        // fallback to fixture
+      }
+    }
+
     const newItem = {
       id: 'inv-runtime-' + Date.now(),
       ingredient_id: 'ing-runtime-' + Date.now(),
@@ -333,8 +383,21 @@ Page({
       title: '移出冰箱',
       content: `确定将「${editingItem.name}」移出冰箱吗？`,
       confirmColor: '#E57373',
-      success: (res) => {
+      success: async (res) => {
         if (res.confirm) {
+          // 如果有真实 V1 环境，调用真实 API
+          if (this._familyId && this._api) {
+            try {
+              await this._api.deleteFridgeItem(this._familyId, editingItem.id)
+              this.setData({ showEditSheet: false, editingItem: null })
+              showTabBar(this)
+              await this._loadRealFridge()
+              wx.showToast({ title: '已移出', icon: 'success' })
+              return
+            } catch (e) {
+              // fallback to fixture
+            }
+          }
           const items = inventoryItems.filter(i => i.id !== editingItem.id)
           this.setData({
             inventoryItems: items,
