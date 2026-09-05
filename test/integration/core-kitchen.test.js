@@ -440,4 +440,26 @@ test('Core kitchen HTTP checkpoint against real PostgreSQL', async t => {
     assert.ok(porkItem.sources[0].recipe_name, 'source should have recipe_name');
     assert.equal(porkItem.sources[0].recipe_name, '苦瓜炒蛋', 'source recipe_name correct');
   });
+
+  await t.test('fridge API returns name, category_code, canonical_code from canonical ingredient', async () => {
+    const fa = await makeFamily('A', 'FRIDGEDTO Family');
+    // Add fridge item via API using canonical pork_loin ingredient (category_code=MEAT)
+    const addRes = await request('A', 'POST', `/families/${fa.id}/fridge`, {
+      ingredient_id: ingPork, quantity: 100, unit_code: 'g', storage_location: 'REFRIGERATED'
+    });
+    assert.equal(addRes.status, 201, 'POST fridge should be 201');
+    // GET fridge
+    const getRes = await request('A', 'GET', `/families/${fa.id}/fridge`);
+    assert.equal(getRes.status, 200, 'GET fridge should be 200');
+    const items = getRes.body.data;
+    assert.ok(Array.isArray(items), 'fridge data should be array');
+    assert.equal(items.length, 1, 'should have 1 fridge item');
+    const item = items[0];
+    assert.equal(item.name, '猪里脊', 'name should be canonical ingredient display_name');
+    assert.notEqual(item.name, '食材', 'name should NOT fall back to 食材');
+    assert.equal(item.category_code, 'MEAT', 'category_code should be MEAT');
+    assert.equal(item.canonical_code, 'pork_loin', 'canonical_code should be pork_loin');
+    assert.equal(num(item.quantity), 100, 'quantity should be 100');
+    assert.equal(item.unit_code, 'g', 'unit_code should be g');
+  });
 });

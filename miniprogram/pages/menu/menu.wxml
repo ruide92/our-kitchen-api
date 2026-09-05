@@ -170,6 +170,7 @@
           </view>
         </view>
         <view class="recipe-list-bottom">共 {{filteredRecipes.length}} 道菜</view>
+        <view class="tab-page-scroll-spacer"></view>
         </block>
       </scroll-view>
     </view>

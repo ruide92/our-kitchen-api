@@ -244,3 +244,7 @@ page {
   bottom: calc(env(safe-area-inset-bottom) + 16rpx);
   z-index: 50;
 }
+
+.tab-page-scroll-spacer {
+  height: calc(100rpx + env(safe-area-inset-bottom) + 140rpx + 32rpx);
+}

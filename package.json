@@ -12,7 +12,7 @@
     "test:unit": "node --test test/unit/*.test.js",
     "test:integration": "node --env-file=.env --test test/integration/*.test.js",
     "test:frontend": "node --test test/frontend-payload.test.js",
-    "test:audit": "node scripts/wxml-handler-audit.js && node scripts/static-api-audit.js",
+    "test:audit": "node scripts/wxml-handler-audit.js && node scripts/static-api-audit.js && node scripts/wxss-sanity-audit.js",
     "test:gate": "npm run test:unit && npm run test:frontend && npm run test:audit && npm run test:integration"
   },
   "dependencies": {

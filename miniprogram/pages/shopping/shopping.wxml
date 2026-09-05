@@ -31,7 +31,7 @@
       <view class="header">
         <view class="header-left">
           <text class="header-title">购物清单</text>
-          <text class="header-summary">{{mealSummary.title}} · {{currentList.diners_count}}人 · 还缺 {{totalCount - purchasedCount}} 样</text>
+          <text class="header-summary">{{mealSummary.title}} · {{mealSummary.diners_count}}人 · 还缺 {{totalCount - purchasedCount}} 样</text>
         </view>
         <view class="header-add" bindtap="openAddSheet">
           <text class="header-add-icon">＋</text>
@@ -46,7 +46,7 @@
         <view class="source-recipes">
           <text wx:for="{{mealSummary.recipes}}" wx:key="*this" class="source-recipe">{{item}}</text>
         </view>
-        <view class="source-diners">{{currentList.diners_count}}人份</view>
+        <view class="source-diners">{{mealSummary.diners_count}}人份</view>
         <view class="source-action" bindtap="updateFromMeal">
           <text>从本餐更新</text>
         </view>
@@ -107,6 +107,7 @@
           <text>手动添加</text>
         </view>
       </view>
+      <view class="tab-page-scroll-spacer"></view>
     </scroll-view>
 
     <!-- 完成采购 dock -->
