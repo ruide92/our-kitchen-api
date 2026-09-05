@@ -523,3 +523,65 @@ Backend core and frontend real-data wiring for Recipe/Meal/Fridge/Shopping loop.
 **VISUAL GATE: PENDING** (no auto screenshot evidence for Global Bottom Dock)
 
 **Next:** NEON MIGRATION (code gate fully sealed; visual gate remains for final phone acceptance)
+
+## CLOUD CUTOVER (10) — 2026-09-05
+
+**Commit: fix: correct kitchen seed recipe ingredients** (0b2790e)
+
+**Seed Sanity:**
+- 红烧排骨主料: 五花肉 → **排骨** (pork_ribs, MEAT, g)
+- 清蒸鲈鱼主料: 鲜虾 → **鲈鱼** (sea_bass, SEAFOOD, g)
+- 10 seed recipes verified
+
+**Neon Production Migration:**
+- Production DB identified: `our-kitchen-v1` on Neon (ep-dry-paper-ael6cis1-pooler)
+- Pre-state: only 001/002 applied; **no recipes table** (this caused initial GET /recipes 500)
+- Applied 003-007 via `migrate-cli.js`: **PASS**
+- Final: 001-007 all applied, checksums match
+- Existing Auth/Family data preserved: user bbff6075, family 804b2b5f "我们的小厨房", OWNER ACTIVE
+
+**Seed Production:**
+- 22 canonical ingredients + 10 BASE recipes inserted
+- 辣椒炒肉: ingredients non-empty (猪里脊200g/青椒2piece/大蒜3clove/生抽15ml/食用油15ml/盐2g)
+- 红烧排骨 → 排骨, 清蒸鲈鱼 → 鲈鱼
+- 番茄/西红柿 alias mapping verified
+
+**Render Deploy:**
+- Auto-deployed commit 0b2790e
+- "Kitchen v1 listening on 10000" confirmed
+- Public health: GET /api/v1/me no token → 401 AUTH_REQUIRED
+
+**Public Core E2E (41 assertions, ALL PASSED):**
+- Real wx.login token: user bbff6075 "张锐"
+- GET /me: 200
+- GET /me/families: 200, family "我们的小厨房", role OWNER
+- GET /recipes: 200, 10 seed recipes (辣椒炒肉, 苦瓜炒蛋 present)
+- GET recipe detail: 200, ingredients non-empty, contract shape correct (recipe/ingredients/steps/media/viewer)
+- PUT /meals/current: 200, meal_date=2026-09-06, meal_type=DINNER, DATE contract YYYY-MM-DD
+- POST meal items: 辣椒炒肉 + 苦瓜炒蛋 (409 ALREADY_IN_MEAL accepted as idempotent)
+- GET meal/current: 200, 2 items, selected_by_user_id from token
+- GET weekly-plans: 200, data=null (not auto-generated) — Weekly/Meal separation confirmed
+- POST ingredients/resolve: 200, 猪里脊 → pork_tenderloin canonical
+- POST /fridge: 200, 猪里脊 100g REFRIGERATED
+- GET /fridge: 200, pork 100g present
+- POST /shopping-lists/generate: 200, 7 items, required/inventory/pantry/missing/sources all present
+- GET /shopping-lists/current (reload): 200, meal_summary + sources + evidence persist after reload
+- PATCH item is_purchased: 200
+- POST /shopping-lists/:id/complete: 200, purchased item enters fridge
+- GET /fridge after purchase: 2 items, purchased ingredient confirmed in fridge
+- Final persistence: meal still has 2 items after re-GET
+
+**DATE Contract:** meal_date, expiry_date all return YYYY-MM-DD, no T/Z drift
+
+**Public Config:** miniprogram/config/v1.js → https://our-kitchen-v1.onrender.com
+
+**PUBLIC CORE E2E: PASS**
+**VISUAL GATE: PENDING** (Global Bottom Dock visual evidence not yet captured; owner phone final acceptance pending)
+
+**Test Data Remaining (in production DB):**
+- Meal: 2026-09-06 DINNER with 辣椒炒肉 + 苦瓜炒蛋 (test meal, not today)
+- Fridge: 猪里脊 100g + 1 purchased shopping item
+- Shopping list: COMPLETED (test list)
+- These are clearly test data; not user/家庭/OWNER (preserved)
+
+**Next:** OWNER PHONE FINAL ACCEPTANCE (visual gate + real device verification of all tabs and bottom dock)
