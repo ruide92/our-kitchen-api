@@ -46,7 +46,7 @@ function createShoppingService(pool) {
             canonical_code: ing.canonical_code,
             name: ing.ingredient_name || ing.display_name_override,
             unit_code: converted.converted ? converted.unitCode : ing.unit_code,
-            quantity: converted.converted ? converted.quantity : (rawQty || 0),
+            quantity: 0,
             quantity_text: ing.quantity_text,
             needs_unit_confirmation: !converted.converted && !ing.unit_code && !!ing.quantity_text,
             unit_incompatible: false,
@@ -241,7 +241,16 @@ function createShoppingService(pool) {
         const detail = purchaseDetails.find(d => d.item_id === item.id) || {};
         const storageLocation = detail.storage_location || 'REFRIGERATED';
         const expiryDate = detail.expiry_date || null;
-        const actualQty = detail.purchased_quantity != null ? detail.purchased_quantity : item.required_quantity;
+        // Default purchase quantity: explicit detail > item.purchased_quantity > missing (GENERATED) > required (MANUAL fallback)
+        const actualQty = Number(
+          detail.purchased_quantity != null
+            ? detail.purchased_quantity
+            : item.purchased_quantity != null
+              ? item.purchased_quantity
+              : item.missing_quantity != null
+                ? item.missing_quantity
+                : item.required_quantity
+        );
 
         // Try to merge with existing compatible fridge batch
         const existing = (await tx.query(`
@@ -251,7 +260,7 @@ function createShoppingService(pool) {
 
         let fridgeItemId;
         if (existing) {
-          const newQty = (existing.quantity || 0) + (actualQty || 0);
+          const newQty = Number(existing.quantity || 0) + (actualQty || 0);
           await tx.query('UPDATE fridge_items SET quantity=$1, version=version+1, updated_at=now() WHERE id=$2', [newQty, existing.id]);
           fridgeItemId = existing.id;
         } else {

@@ -153,20 +153,17 @@ function createMealService(pool) {
 
   async function getWeeklyPlans(familyId, userId, weekStart) {
     return access(familyId, userId, null, false, async tx => {
-      const conditions = ['family_id = $1'];
+      const conditions = ['family_id = $1', "status = 'ACTIVE'"];
       const params = [familyId];
       if (weekStart) { conditions.push('week_start_date = $2'); params.push(weekStart); }
-      const plans = (await tx.query(`SELECT * FROM weekly_plans WHERE ${conditions.join(' AND ')} ORDER BY week_start_date DESC`, params)).rows;
-      if (plans.length === 0) return null;
-      // Load items for each plan
-      for (const plan of plans) {
-        plan.items = (await tx.query(`
-          SELECT wpi.*, r.name as recipe_name
-          FROM weekly_plan_items wpi
-          LEFT JOIN recipes r ON r.id = wpi.recipe_id
-          WHERE wpi.weekly_plan_id = $1 ORDER BY wpi.plan_date, wpi.meal_type`, [plan.id])).rows;
-      }
-      return plans;
+      const plan = (await tx.query(`SELECT * FROM weekly_plans WHERE ${conditions.join(' AND ')} ORDER BY week_start_date DESC LIMIT 1`, params)).rows[0];
+      if (!plan) return null;
+      plan.items = (await tx.query(`
+        SELECT wpi.*, r.name as recipe_name
+        FROM weekly_plan_items wpi
+        LEFT JOIN recipes r ON r.id = wpi.recipe_id
+        WHERE wpi.weekly_plan_id = $1 ORDER BY wpi.plan_date, wpi.meal_type`, [plan.id])).rows;
+      return plan;
     });
   }
 

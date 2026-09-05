@@ -14,13 +14,14 @@ function createRecipeService(pool) {
   }
 
   async function loadRecipeExtras(tx, recipeId, familyId, userId) {
-    const [mealTypes, tags, cookware, allergens, ingredients, steps, fav] = await Promise.all([
+    const [mealTypes, tags, cookware, allergens, ingredients, steps, media, fav] = await Promise.all([
       tx.query('SELECT meal_type FROM recipe_meal_types WHERE recipe_id=$1', [recipeId]),
       tx.query('SELECT tag_code FROM recipe_tags WHERE recipe_id=$1', [recipeId]),
       tx.query('SELECT cookware_code FROM recipe_cookware WHERE recipe_id=$1', [recipeId]),
       tx.query('SELECT allergen_code FROM recipe_allergens WHERE recipe_id=$1', [recipeId]),
       tx.query('SELECT ri.*, i.display_name as ingredient_name, i.canonical_code FROM recipe_ingredients ri LEFT JOIN ingredients i ON i.id=ri.ingredient_id WHERE ri.recipe_id=$1 ORDER BY ri.sort_order, ri.id', [recipeId]),
       tx.query('SELECT * FROM recipe_steps WHERE recipe_id=$1 ORDER BY step_no', [recipeId]),
+      tx.query('SELECT * FROM recipe_media WHERE recipe_id=$1 ORDER BY sort_order', [recipeId]),
       tx.query('SELECT 1 FROM recipe_favorites WHERE user_id=$1 AND recipe_id=$2', [userId, recipeId])
     ]);
     return {
@@ -30,6 +31,7 @@ function createRecipeService(pool) {
       allergens: allergens.rows.map(r => r.allergen_code),
       ingredients: ingredients.rows,
       steps: steps.rows,
+      media: media.rows,
       is_favorite: fav.rows.length > 0
     };
   }
@@ -118,7 +120,7 @@ function createRecipeService(pool) {
       const coverMedia = extras.media.find(m => m.media_type === 'COVER_IMAGE');
       const baseRecipe = recipeRow(recipe, extras);
       return {
-        recipe: { ...baseRecipe, cover_image_url: coverMedia ? coverMedia.url : null },
+        recipe: { ...baseRecipe, cover_image_url: coverMedia ? coverMedia.asset_url : null },
         ingredients: extras.ingredients,
         steps: extras.steps,
         media: extras.media,
@@ -178,17 +180,17 @@ function createRecipeService(pool) {
       if (body.steps && Array.isArray(body.steps)) {
         let stepOrder = 0;
         for (const step of body.steps) {
-          await tx.query(`INSERT INTO recipe_steps (id, recipe_id, step_order, instruction, duration_minutes)
+          await tx.query(`INSERT INTO recipe_steps (id, recipe_id, step_no, operation, duration_seconds)
             VALUES ($1,$2,$3,$4,$5)`,
-            [randomUUID(), id, stepOrder++, step.instruction || '', step.duration_minutes || null]);
+            [randomUUID(), id, stepOrder++, step.instruction || step.operation || '', step.duration_seconds || (step.duration_minutes ? step.duration_minutes * 60 : null)]);
         }
       }
       // media
       if (body.media && Array.isArray(body.media)) {
         for (const m of body.media) {
-          await tx.query(`INSERT INTO recipe_media (id, recipe_id, media_type, url, sort_order)
+          await tx.query(`INSERT INTO recipe_media (id, recipe_id, media_type, asset_url, sort_order)
             VALUES ($1,$2,$3,$4,$5)`,
-            [randomUUID(), id, m.media_type || 'IMAGE', m.url, m.sort_order || 0]);
+            [randomUUID(), id, m.media_type || 'IMAGE', m.url || m.asset_url, m.sort_order || 0]);
         }
       }
       const extras = await loadRecipeExtras(tx, id, familyId, userId);
