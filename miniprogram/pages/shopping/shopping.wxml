@@ -1,161 +1,170 @@
-﻿<view class="page">
-  <scroll-view class="page-scroll" scroll-y>
+<view class="page">
+  <!-- Loading -->
+  <view wx:if="{{loading}}" class="loading-state">
+    <text class="loading-text">加载中...</text>
+  </view>
 
-  <!-- ===== 顶部标题区 ===== -->
-  <view class="header">
-    <view class="header-left">
-      <text class="header-title">购物清单</text>
-      <text class="header-summary">{{mealSummary.title}} · {{currentList.diners_count}}人 · 还缺 {{totalCount - purchasedCount}} 样</text>
-    </view>
-    <view class="header-add" bindtap="openAddSheet">
-      <text class="header-add-icon">＋</text>
-      <text class="header-add-text">手动添加</text>
+  <!-- Error -->
+  <view wx:elif="{{loadError}}" class="empty-state">
+    <text class="empty-icon">⚠️</text>
+    <text class="empty-title">加载失败</text>
+    <text class="empty-hint">{{loadError}}</text>
+    <view class="empty-add" bindtap="retryLoad">
+      <text>重新加载</text>
     </view>
   </view>
 
-  <!-- ===== 本餐来源卡 ===== -->
-  <view class="source-card">
-    <view class="source-label">来自本餐</view>
-    <view class="source-meal">{{mealSummary.title}}</view>
-    <view class="source-recipes">
-      <text wx:for="{{mealSummary.recipes}}" wx:key="*this" class="source-recipe">{{item}}</text>
-    </view>
-    <view class="source-diners">{{currentList.diners_count}}人份</view>
-    <view class="source-action" bindtap="updateFromMeal">
-      <text>从本餐更新</text>
-    </view>
-    <view class="source-note">只更新自动生成项，手动添加的商品会保留。</view>
-  </view>
-
-  <!-- ===== 购买进度 ===== -->
-  <view class="progress-section">
-    <view class="progress-header">
-      <text class="progress-label">购物进度</text>
-      <text class="progress-count">已买 {{purchasedCount}} / {{totalCount}}</text>
-    </view>
-    <view class="progress-bar">
-      <view class="progress-fill" style="width:{{progressPercent}}%"></view>
-    </view>
-    <view class="filter-chips">
-      <view class="filter-chip {{filterMode === 'all' ? 'filter-active' : ''}}" data-mode="all" bindtap="setFilter">全部</view>
-      <view class="filter-chip {{filterMode === 'pending' ? 'filter-active' : ''}}" data-mode="pending" bindtap="setFilter">待购买</view>
-      <view class="filter-chip {{filterMode === 'purchased' ? 'filter-active' : ''}}" data-mode="purchased" bindtap="setFilter">已购买</view>
-    </view>
-  </view>
-
-  <!-- ===== 购物列表 ===== -->
-  <view class="shopping-list" wx:if="{{items.length > 0}}">
-    <block wx:for="{{groupedItems}}" wx:for-item="group" wx:key="category">
-      <view class="cat-title">{{group.category}}</view>
-      <view
-        wx:for="{{group.items}}"
-        wx:for-item="item"
-        wx:key="id"
-        class="shop-item {{item.is_purchased ? 'shop-item-purchased' : ''}}"
-      >
-        <!-- checkbox -->
-        <view class="item-checkbox {{item.is_purchased ? 'checkbox-checked' : ''}}" data-id="{{item.id}}" catchtap="togglePurchased">
-          <text wx:if="{{item.is_purchased}}">✓</text>
-        </view>
-
-        <!-- 信息 -->
-        <view class="item-info" data-id="{{item.id}}" bindtap="{{item.source === 'GENERATED' ? 'openEvidence' : 'openManualDetail'}}">
-          <text class="item-name">{{item.name}}</text>
-          <view class="item-meta-row">
-            <text class="item-qty">{{item.missing_quantity_text || item.required_quantity_text}}</text>
-            <text class="item-badge {{item.source === 'GENERATED' ? 'badge-generated' : 'badge-manual'}}">
-              {{item.source === 'GENERATED' ? '本餐生成' : '手动'}}
-            </text>
-            <text wx:if="{{item.needs_unit_confirmation}}" class="item-badge badge-unit">单位待确认</text>
-          </view>
-        </view>
-
-        <!-- 箭头 -->
-        <view class="item-arrow" data-id="{{item.id}}" bindtap="{{item.source === 'GENERATED' ? 'openEvidence' : 'openManualDetail'}}">›</view>
-      </view>
-    </block>
-  </view>
-
-  <!-- ===== 空状态 ===== -->
-  <view wx:else class="empty-state">
+  <!-- Null list (no shopping list) -->
+  <view wx:elif="{{!currentList}}" class="empty-state">
     <text class="empty-icon">🛒</text>
-    <text class="empty-title">这顿饭暂时没有需要买的东西</text>
-    <text class="empty-hint">可以手动添加，或以后从本餐重新计算</text>
-    <view class="empty-add" bindtap="openAddSheet">
-      <text class="empty-add-icon">＋</text>
-      <text>手动添加</text>
+    <text class="empty-title">购物清单还是空的</text>
+    <text class="empty-hint">去本餐菜单生成购物清单</text>
+    <view class="empty-add" bindtap="goMealPage">
+      <text>去本餐菜单</text>
     </view>
   </view>
 
-  </scroll-view>
+  <!-- Data -->
+  <block wx:else>
+    <scroll-view class="page-scroll" scroll-y>
+      <!-- 顶部标题区 -->
+      <view class="header">
+        <view class="header-left">
+          <text class="header-title">购物清单</text>
+          <text class="header-summary">{{mealSummary.title}} · {{currentList.diners_count}}人 · 还缺 {{totalCount - purchasedCount}} 样</text>
+        </view>
+        <view class="header-add" bindtap="openAddSheet">
+          <text class="header-add-icon">＋</text>
+          <text class="header-add-text">手动添加</text>
+        </view>
+      </view>
 
-  <!-- ===== 完成采购 dock ===== -->
-  <view class="complete-bar" wx:if="{{items.length > 0}}">
-    <view class="complete-left">
-      <text class="complete-count">已买 {{purchasedCount}} / {{totalCount}}</text>
-    </view>
-    <view class="complete-btn {{purchasedCount > 0 ? 'complete-btn-active' : ''}}" bindtap="openCompleteSheet">
-      完成采购
-    </view>
-  </view>
+      <!-- 本餐来源卡 -->
+      <view class="source-card" wx:if="{{mealSummary.title}}">
+        <view class="source-label">来自本餐</view>
+        <view class="source-meal">{{mealSummary.title}}</view>
+        <view class="source-recipes">
+          <text wx:for="{{mealSummary.recipes}}" wx:key="*this" class="source-recipe">{{item}}</text>
+        </view>
+        <view class="source-diners">{{currentList.diners_count}}人份</view>
+        <view class="source-action" bindtap="updateFromMeal">
+          <text>从本餐更新</text>
+        </view>
+        <view class="source-note">只更新自动生成项，手动添加的商品会保留。</view>
+      </view>
 
-  <!-- ===== GENERATED 证据详情 sheet ===== -->
+      <!-- 购买进度 -->
+      <view class="progress-section">
+        <view class="progress-header">
+          <text class="progress-label">购物进度</text>
+          <text class="progress-count">已买 {{purchasedCount}} / {{totalCount}}</text>
+        </view>
+        <view class="progress-bar">
+          <view class="progress-fill" style="width:{{progressPercent}}%"></view>
+        </view>
+        <view class="filter-chips">
+          <view class="filter-chip {{filterMode === 'all' ? 'filter-active' : ''}}" data-mode="all" bindtap="setFilter">全部</view>
+          <view class="filter-chip {{filterMode === 'pending' ? 'filter-active' : ''}}" data-mode="pending" bindtap="setFilter">待购买</view>
+          <view class="filter-chip {{filterMode === 'purchased' ? 'filter-active' : ''}}" data-mode="purchased" bindtap="setFilter">已购买</view>
+        </view>
+      </view>
+
+      <!-- 购物列表 -->
+      <view class="shopping-list" wx:if="{{items.length > 0}}">
+        <block wx:for="{{groupedItems}}" wx:for-item="group" wx:key="category">
+          <view class="cat-title">{{group.category}}</view>
+          <view
+            wx:for="{{group.items}}"
+            wx:for-item="item"
+            wx:key="id"
+            class="shop-item {{item.is_purchased ? 'shop-item-purchased' : ''}}"
+          >
+            <view class="item-checkbox {{item.is_purchased ? 'checkbox-checked' : ''}}" data-id="{{item.id}}" catchtap="togglePurchased">
+              <text wx:if="{{item.is_purchased}}">✓</text>
+            </view>
+            <view class="item-info" data-id="{{item.id}}" bindtap="openShoppingItem">
+              <text class="item-name">{{item.name}}</text>
+              <view class="item-meta-row">
+                <text class="item-qty">{{item.missing_label || item.quantity_label}}</text>
+                <text class="item-badge {{item.source === 'GENERATED' ? 'badge-generated' : 'badge-manual'}}">
+                  {{item.source === 'GENERATED' ? '本餐生成' : '手动'}}
+                </text>
+                <text wx:if="{{item.needs_unit_confirmation}}" class="item-badge badge-unit">单位待确认</text>
+              </view>
+            </view>
+            <view class="item-arrow" data-id="{{item.id}}" bindtap="openShoppingItem">›</view>
+          </view>
+        </block>
+      </view>
+
+      <!-- 空列表 -->
+      <view wx:else class="empty-state">
+        <text class="empty-icon">🛒</text>
+        <text class="empty-title">这顿饭暂时没有需要买的东西</text>
+        <text class="empty-hint">可以手动添加，或以后从本餐重新计算</text>
+        <view class="empty-add" bindtap="openAddSheet">
+          <text class="empty-add-icon">＋</text>
+          <text>手动添加</text>
+        </view>
+      </view>
+    </scroll-view>
+
+    <!-- 完成采购 dock -->
+    <view class="complete-bar" wx:if="{{items.length > 0}}">
+      <view class="complete-left">
+        <text class="complete-count">已买 {{purchasedCount}} / {{totalCount}}</text>
+      </view>
+      <view class="complete-btn {{purchasedCount > 0 ? 'complete-btn-active' : ''}}" bindtap="openCompleteSheet">
+        完成采购
+      </view>
+    </view>
+  </block>
+
+  <!-- GENERATED 证据详情 sheet -->
   <view wx:if="{{showEvidenceSheet}}" class="sheet-mask" bindtap="closeEvidence">
     <view class="sheet-panel" catchtap="noop">
       <view class="sheet-handle"></view>
       <text class="sheet-title">{{evidenceItem.name}}</text>
       <text class="sheet-subtitle">为什么要买？</text>
-
       <view class="evidence-row">
         <text class="evidence-label">本餐需要</text>
-        <text class="evidence-value">{{evidenceItem.required_quantity_text}}</text>
+        <text class="evidence-value">{{evidenceItem.quantity_label}}</text>
       </view>
       <view class="evidence-row">
         <text class="evidence-label">冰箱已有</text>
-        <text class="evidence-value">{{evidenceItem.inventory_deducted}}{{evidenceItem.unit_code || ''}}</text>
+        <text class="evidence-value">{{evidenceItem.inventory_label}}</text>
       </view>
       <view class="evidence-row">
         <text class="evidence-label">常备食材</text>
-        <text class="evidence-value">{{evidenceItem.pantry_deducted}}{{evidenceItem.unit_code || ''}}</text>
+        <text class="evidence-value">{{evidenceItem.pantry_label}}</text>
       </view>
       <view class="evidence-row evidence-highlight">
         <text class="evidence-label">还缺</text>
-        <text class="evidence-value evidence-missing">{{evidenceItem.missing_quantity_text}}</text>
+        <text class="evidence-value evidence-missing">{{evidenceItem.missing_label}}</text>
       </view>
-
-      <view class="evidence-sources">
+      <view class="evidence-sources" wx:if="{{evidenceItem.sources && evidenceItem.sources.length > 0}}">
         <text class="evidence-sources-title">来源菜谱</text>
         <view wx:for="{{evidenceItem.sources}}" wx:key="recipe_id" class="evidence-source-item">
           <text class="evidence-source-name">{{item.recipe_name}}</text>
           <text class="evidence-source-qty">{{item.quantity_text}}</text>
         </view>
       </view>
-
-      <view wx:if="{{evidenceItem.needs_unit_confirmation}}" class="unit-warning">
-        <text>⚠️ {{evidenceItem.unit_confirmation_note}}</text>
-      </view>
-
       <view class="sheet-actions">
         <view class="sheet-btn sheet-btn-cancel" bindtap="closeEvidence">关闭</view>
       </view>
     </view>
   </view>
 
-  <!-- ===== MANUAL 详情 sheet ===== -->
+  <!-- MANUAL 详情 sheet -->
   <view wx:if="{{showManualDetailSheet}}" class="sheet-mask" bindtap="closeManualDetail">
     <view class="sheet-panel" catchtap="noop">
       <view class="sheet-handle"></view>
       <text class="sheet-title">{{manualItem.name}}</text>
       <text class="sheet-subtitle">手动添加</text>
-
       <block wx:if="{{!isEditingManual}}">
         <view class="evidence-row">
           <text class="evidence-label">数量</text>
-          <text class="evidence-value">{{manualItem.required_quantity_text}}</text>
-        </view>
-        <view class="evidence-row">
-          <text class="evidence-label">分类</text>
-          <text class="evidence-value">{{manualItem.category}}</text>
+          <text class="evidence-value">{{manualItem.quantity_label}}</text>
         </view>
         <view class="evidence-row" wx:if="{{manualItem.note}}">
           <text class="evidence-label">备注</text>
@@ -166,7 +175,6 @@
           <view class="sheet-btn sheet-btn-confirm" bindtap="startEditManual">编辑</view>
         </view>
       </block>
-
       <block wx:else>
         <view class="form-item">
           <text class="form-label">商品名称</text>
@@ -189,12 +197,6 @@
           <input class="form-input" placeholder="如：箱、根、瓶" bindinput="onEditManualCustomUnitInput" value="{{editForm.customUnit}}" />
         </view>
         <view class="form-item">
-          <text class="form-label">分类</text>
-          <picker class="form-picker" range="{{categoryOptions}}" bindchange="onEditManualCategoryChange">
-            <view class="picker-text">{{editForm.category}} ▾</view>
-          </picker>
-        </view>
-        <view class="form-item">
           <text class="form-label">备注</text>
           <input class="form-input" data-field="note" bindinput="onEditManualInput" value="{{editForm.note}}" />
         </view>
@@ -206,12 +208,11 @@
     </view>
   </view>
 
-  <!-- ===== 手动添加 sheet ===== -->
+  <!-- 手动添加 sheet -->
   <view wx:if="{{showAddSheet}}" class="sheet-mask" bindtap="closeAddSheet">
     <view class="sheet-panel" catchtap="noop">
       <view class="sheet-handle"></view>
       <text class="sheet-title">手动添加</text>
-
       <view class="form-item">
         <text class="form-label">商品名称</text>
         <input class="form-input" placeholder="如：酸奶" data-field="name" bindinput="onAddInput" value="{{addForm.name}}" />
@@ -233,16 +234,9 @@
         <input class="form-input" placeholder="如：箱、根、瓶" bindinput="onAddCustomUnitInput" value="{{addForm.customUnit}}" />
       </view>
       <view class="form-item">
-        <text class="form-label">分类</text>
-        <picker class="form-picker" range="{{categoryOptions}}" bindchange="onAddCategoryChange">
-          <view class="picker-text">{{addForm.category}} ▾</view>
-        </picker>
-      </view>
-      <view class="form-item">
         <text class="form-label">备注</text>
         <input class="form-input" placeholder="可选" data-field="note" bindinput="onAddInput" value="{{addForm.note}}" />
       </view>
-
       <view class="sheet-actions">
         <view class="sheet-btn sheet-btn-cancel" bindtap="closeAddSheet">取消</view>
         <view class="sheet-btn sheet-btn-confirm" bindtap="saveAddItem">保存</view>
@@ -250,27 +244,38 @@
     </view>
   </view>
 
-  <!-- ===== 完成采购 preview sheet ===== -->
+  <!-- 完成采购 sheet -->
   <view wx:if="{{showCompleteSheet}}" class="sheet-mask" bindtap="closeCompleteSheet">
     <view class="sheet-panel" catchtap="noop">
       <view class="sheet-handle"></view>
-      <text class="sheet-title">购买完成</text>
+      <text class="sheet-title">完成采购</text>
       <text class="sheet-subtitle">以下已勾选商品将加入冰箱</text>
-
-      <view class="complete-list">
+      <scroll-view class="complete-list" scroll-y>
         <view wx:for="{{purchasedItems}}" wx:key="id" class="complete-item">
           <text class="complete-item-name">{{item.name}}</text>
-          <text class="complete-item-qty">{{item.missing_quantity_text || item.required_quantity_text}}</text>
+          <view class="complete-item-fields">
+            <view class="form-item form-half">
+              <text class="form-label">购买量</text>
+              <input class="form-input" type="digit" value="{{item.purchased_quantity}}" data-index="{{index}}" bindinput="onCompleteQtyInput" />
+            </view>
+            <view class="form-item form-half">
+              <text class="form-label">存放</text>
+              <picker class="form-picker" range="{{storageOptions}}" data-index="{{index}}" bindchange="onCompleteStorageChange">
+                <view class="picker-text">{{item.storage_location}} ▾</view>
+              </picker>
+            </view>
+          </view>
+          <view class="form-item">
+            <text class="form-label">保质期</text>
+            <picker class="form-picker" mode="date" value="{{item.expiry_date}}" data-index="{{index}}" bindchange="onCompleteExpiryChange">
+              <view class="picker-text">{{item.expiry_date || '选择日期'}} ▾</view>
+            </picker>
+          </view>
         </view>
-      </view>
-
-      <view class="complete-note">
-        <text>真实版本完成后，只有这些已购买商品会加入冰箱。</text>
-      </view>
-
+      </scroll-view>
       <view class="sheet-actions">
         <view class="sheet-btn sheet-btn-cancel" bindtap="closeCompleteSheet">取消</view>
-        <view class="sheet-btn sheet-btn-confirm" bindtap="confirmComplete">确认（演示）</view>
+        <view class="sheet-btn sheet-btn-confirm" bindtap="confirmComplete">完成采购并入冰箱</view>
       </view>
     </view>
   </view>

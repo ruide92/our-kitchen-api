@@ -70,8 +70,13 @@ Page({
       }));
       this.setData({ meal, items, loading: false, dinersCount: meal?.diners_count || 2 });
     } catch (e) {
-      this.setData({ meal: null, items: [], loading: false });
+      this.setData({ meal: null, items: [], loading: false, mealError: e.message || '加载失败，请重试' });
     }
+  },
+
+  retryLoad() {
+    this.setData({ loading: true, mealError: null, items: [] });
+    this.loadMeal();
   },
 
   async ensureMeal() {

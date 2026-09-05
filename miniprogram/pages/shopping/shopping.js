@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 购物清单 Tab — Real V1 data mode
  *
  * REAL MODE: no fixture fallback. All CRUD via V1 API.
@@ -25,8 +25,8 @@ Page({
     purchasedCount: 0,
     progressPercent: 0,
     filterMode: 'all',
-    loading: false,
-    error: null,
+    loading: true,
+    loadError: null,
     // Sheets
     showEvidenceSheet: false,
     evidenceItem: null,
@@ -61,7 +61,7 @@ Page({
 
   async _loadShopping() {
     if (!this._familyId) return
-    this.setData({ loading: true, error: null })
+    this.setData({ loading: true, loadError: null })
     try {
       const list = await this._api.getCurrentShoppingList(this._familyId)
       if (list && list.id) {
@@ -71,7 +71,7 @@ Page({
         this.setData({ currentList: null, items: [], groupedItems: [], totalCount: 0, purchasedCount: 0, progressPercent: 0, loading: false })
       }
     } catch (e) {
-      this.setData({ loading: false, error: e.message || '加载失败', currentList: null, items: [], groupedItems: [] })
+      this.setData({ loading: false, loadError: e.message || '加载失败', currentList: null, items: [], groupedItems: [] })
     }
   },
 
@@ -81,6 +81,8 @@ Page({
       name: i.display_name_override || i.ingredient_name || '商品',
       quantity_label: formatQuantity(i.required_quantity, i.unit_code, i.required_quantity_text),
       missing_label: formatQuantity(i.missing_quantity, i.unit_code, null),
+      inventory_label: formatQuantity(i.inventory_deducted, i.unit_code, null),
+      pantry_label: formatQuantity(i.pantry_deducted, i.unit_code, null),
     }))
     const purchased = enriched.filter(i => i.is_purchased).length
     const total = enriched.length
@@ -146,6 +148,13 @@ Page({
   },
 
   // ===== Evidence sheet =====
+  openShoppingItem(e) {
+    const id = e.currentTarget.dataset.id
+    const item = this.data.items.find(i => i.id === id)
+    if (!item) return
+    if (item.source === 'GENERATED') { this.openEvidence(e) } else { this.openManualDetail(e) }
+  },
+
   openEvidence(e) {
     const item = this.data.items.find(i => i.id === e.currentTarget.dataset.id)
     if (!item || item.source !== 'GENERATED') return
@@ -320,6 +329,10 @@ Page({
   },
 
   goToMeal() { wx.switchTab({ url: '/pages/menu/menu' }) },
+
+  retryLoad() { this._loadShopping() },
+
+  goMealPage() { wx.switchTab({ url: '/pages/menu/menu' }) },
 
   noop() {},
 })

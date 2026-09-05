@@ -374,3 +374,39 @@ Backend core and frontend real-data wiring for Recipe/Meal/Fridge/Shopping loop.
 - Weekly Plan tab: still fixture if no real ACTIVE weekly plan (shows real empty state when null)
 - Homepage quick entries (随机菜谱/家人喜欢/一人菜): placeholder toast (not fake data)
 - Recipe seed data: 10 base recipes in local PG (Neon not yet seeded)
+
+## FRONTEND TRUTH CLOSEOUT (09F) — 2026-09-05
+
+**Commit: fix: finish frontend truth closeout**
+
+**Completed:**
+- Homepage fixture import: **0** — index.js completely removed homepage-fixture require, _buildFromFixture, selectDay reads real weeklyPlan state
+- Homepage day switch: **REAL** — selectDay rebuilds selectedMeals from this.data.weeklyPlan, not fixture
+- Homepage member VM: **{nickname, avatar_url, role}** — WXML uses members[0].nickname, safe for 0/1/2+ members
+- Homepage meal VM: **SAFE** — currentMeal always {meal_date, meal_type, items:[]}, no null deref; onShow refreshes real data
+- Homepage error: **NOT SWALLOWED** — loadError state, retry button; network error != empty
+- Meal error: **FIXED** — catch sets mealError, retryLoad() exists and calls loadMeal
+- Dynamic WXML handlers: **0** — shopping openShoppingItem static dispatcher replaces {{item.source ? ...}}
+- Shopping complete WXML: **REAL** — per-item purchased_quantity input, storage picker, expiry date picker; "演示" text = 0
+- Shopping states: **loading/error/null-list/data** — null list shows "去本餐菜单", not source card
+- Shopping quantity labels: **unified** — quantity_label, missing_label, inventory_label, pantry_label in view model
+- Shopping manual category: **REMOVED** — no fake-saved category field; grouping from ingredient.category_code
+- Backend meal_summary: **REAL** — getCurrentList JOINs meals/meal_items/recipes, returns {title, meal_date, meal_type, diners_count, recipes}
+- Migration 006: **sources JSONB** field added to shopping_list_items (Neon not yet migrated)
+- WXML audit: **missing=0, dynamic=0, fixture imports=0** across all 6 pages
+- DevTools CLI compile: **0 project error**
+- Unit 52/52, Core integration 20/20, Legacy 19/19 PASS
+
+**Remaining (NOT DONE):**
+- Menu target picker overlay contract (hideTabBar/showTabBar on open/close): PENDING
+- Menu custom date picker: PENDING
+- Menu Loading/Error/Empty WXML rendering: PENDING (JS has states, WXML partial)
+- Fridge dataset.category contract: PENDING
+- Fridge purchase_date edit+save: PENDING
+- Fridge custom unit input visibility: PENDING
+- Fridge Loading/Error/Empty WXML: PENDING
+- Shopping sources actually written in generateList INSERT: PENDING (schema field added, service INSERT not yet updated)
+- Real frontend payload tests (mock API): PENDING (only unit-display helper tests exist)
+- Global Bottom Dock visual evidence: PENDING
+
+**Next:** NEON MIGRATION (after remaining frontend items closed)

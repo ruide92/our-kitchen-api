@@ -1,4 +1,4 @@
-const { randomUUID } = require('node:crypto');
+﻿const { randomUUID } = require('node:crypto');
 const { withTransaction } = require('./db');
 const { ApiError } = require('./errors');
 const { authorize, forbidden } = require('./family-access');
@@ -147,7 +147,17 @@ function createShoppingService(pool) {
         LEFT JOIN ingredients i ON i.id = sli.ingredient_id
         WHERE sli.shopping_list_id=$1
         ORDER BY sli.created_at`, [list.id])).rows;
-      return { ...list, items: items.map(i => ({ ...i, name: i.display_name_override || i.ingredient_name })) };
+      // meal_summary from meal_id JOIN
+      let mealSummary = null;
+      if (list.meal_id) {
+        const mealRow = (await tx.query('SELECT * FROM meals WHERE id=', [list.meal_id])).rows[0];
+        if (mealRow) {
+          const mealItems = (await tx.query('SELECT mi.*, r.name as recipe_name FROM meal_items mi LEFT JOIN recipes r ON r.id = mi.recipe_id WHERE mi.meal_id= ORDER BY mi.sort_order', [list.meal_id])).rows;
+          const mtLabel = { BREAKFAST: '早餐', LUNCH: '午餐', DINNER: '晚餐' }[mealRow.meal_type] || mealRow.meal_type;
+          mealSummary = { title: mealRow.meal_date + ' ' + mtLabel, meal_date: mealRow.meal_date, meal_type: mealRow.meal_type, diners_count: mealRow.diners_count, recipes: mealItems.map(mi => mi.recipe_name || '菜谱').filter(Boolean) };
+        }
+      }
+      return { ...list, meal_summary: mealSummary, items: items.map(i => ({ ...i, name: i.display_name_override || i.ingredient_name })) };
     });
   }
 
