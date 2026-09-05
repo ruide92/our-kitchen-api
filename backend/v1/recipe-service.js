@@ -114,7 +114,22 @@ function createRecipeService(pool) {
       // Family isolation: BASE accessible, FAMILY only if same family
       if (recipe.kind === 'FAMILY' && recipe.family_id !== familyId) throw forbidden();
       const extras = await loadRecipeExtras(tx, recipeId, familyId, userId);
-      return recipeRow(recipe, extras);
+      // Cover image from recipe_media
+      const coverMedia = extras.media.find(m => m.media_type === 'COVER_IMAGE');
+      const baseRecipe = recipeRow(recipe, extras);
+      return {
+        recipe: { ...baseRecipe, cover_image_url: coverMedia ? coverMedia.url : null },
+        ingredients: extras.ingredients,
+        steps: extras.steps,
+        media: extras.media,
+        nutrition: null,
+        inventory_summary: null,
+        viewer: {
+          is_favorite: extras.is_favorite,
+          rating: null,
+          wish_status: 'UNKNOWN'
+        }
+      };
     });
   }
 
@@ -139,6 +154,41 @@ function createRecipeService(pool) {
             VALUES ($1,$2,$3,$4,$5,$6,$7,true,$8,$9)`,
             [id, ing.ingredient_id || null, ing.display_name_override || ing.name, ing.quantity || null,
              ing.quantity_text || null, ing.unit_code || null, ing.type || 'MAIN', sortOrder++, ing.note || null]);
+        }
+      }
+      // tags
+      if (body.tags && Array.isArray(body.tags)) {
+        for (const tag of body.tags) {
+          await tx.query('INSERT INTO recipe_tags (recipe_id, tag_code) VALUES ($1,$2) ON CONFLICT DO NOTHING', [id, tag]);
+        }
+      }
+      // cookware
+      if (body.cookware && Array.isArray(body.cookware)) {
+        for (const cw of body.cookware) {
+          await tx.query('INSERT INTO recipe_cookware (recipe_id, cookware_code) VALUES ($1,$2) ON CONFLICT DO NOTHING', [id, cw]);
+        }
+      }
+      // allergens
+      if (body.allergens && Array.isArray(body.allergens)) {
+        for (const al of body.allergens) {
+          await tx.query('INSERT INTO recipe_allergens (recipe_id, allergen_code) VALUES ($1,$2) ON CONFLICT DO NOTHING', [id, al]);
+        }
+      }
+      // steps
+      if (body.steps && Array.isArray(body.steps)) {
+        let stepOrder = 0;
+        for (const step of body.steps) {
+          await tx.query(`INSERT INTO recipe_steps (id, recipe_id, step_order, instruction, duration_minutes)
+            VALUES ($1,$2,$3,$4,$5)`,
+            [randomUUID(), id, stepOrder++, step.instruction || '', step.duration_minutes || null]);
+        }
+      }
+      // media
+      if (body.media && Array.isArray(body.media)) {
+        for (const m of body.media) {
+          await tx.query(`INSERT INTO recipe_media (id, recipe_id, media_type, url, sort_order)
+            VALUES ($1,$2,$3,$4,$5)`,
+            [randomUUID(), id, m.media_type || 'IMAGE', m.url, m.sort_order || 0]);
         }
       }
       const extras = await loadRecipeExtras(tx, id, familyId, userId);

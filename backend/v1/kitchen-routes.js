@@ -2,8 +2,16 @@ const { ApiError } = require('./errors');
 const asyncRoute = handler => (req, res, next) => Promise.resolve(handler(req, res)).catch(next);
 
 function installKitchenRoutes(app, services) {
-  const { recipes, meals, fridge, shopping } = services;
+  const { recipes, meals, fridge, shopping, ingredients } = services;
   const familyId = req => req.params.family_id;
+
+  // ===== Ingredients =====
+  app.get('/api/v1/ingredients/search', asyncRoute(async (req, res) => {
+    res.json({ data: await ingredients.searchIngredients(req.query.keyword), meta: {} });
+  }));
+  app.post('/api/v1/families/:family_id/ingredients/resolve', asyncRoute(async (req, res) => {
+    res.json({ data: await ingredients.resolveIngredient(familyId(req), req.user.id, req.body), meta: {} });
+  }));
 
   // ===== Recipes =====
   app.get('/api/v1/families/:family_id/recipes', asyncRoute(async (req, res) => {
@@ -42,6 +50,14 @@ function installKitchenRoutes(app, services) {
   }));
   app.post('/api/v1/families/:family_id/meals/:meal_id/confirm', asyncRoute(async (req, res) => {
     res.json({ data: await meals.confirmMeal(familyId(req), req.user.id, req.params.meal_id), meta: {} });
+  }));
+  app.post('/api/v1/families/:family_id/meals/:meal_id/import-weekly-plan', asyncRoute(async (req, res) => {
+    res.json({ data: await meals.importWeeklyPlan(familyId(req), req.user.id, req.params.meal_id, req.body.weekly_plan_id), meta: {} });
+  }));
+
+  // ===== Weekly Plans =====
+  app.get('/api/v1/families/:family_id/weekly-plans', asyncRoute(async (req, res) => {
+    res.json({ data: await meals.getWeeklyPlans(familyId(req), req.user.id, req.query.week_start), meta: {} });
   }));
 
   // ===== Fridge =====

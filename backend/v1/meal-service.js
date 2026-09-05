@@ -101,6 +101,30 @@ function createMealService(pool) {
       const result = await tx.query(`UPDATE meals SET status='CONFIRMED',updated_at=now()
         WHERE id=$1 AND family_id=$2 AND status='PLANNING' RETURNING *`, [mealId, familyId]);
       if (!result.rows[0]) throw new ApiError(409, 'MEAL_NOT_EDITABLE', '当前餐次状态不可确认');
+      // Freeze recipe snapshot for each meal item
+      const items = (await tx.query('SELECT * FROM meal_items WHERE meal_id=$1', [mealId])).rows;
+      for (const item of items) {
+        const recipe = (await tx.query('SELECT * FROM recipes WHERE id=$1', [item.recipe_id])).rows[0];
+        if (recipe) {
+          const ingredients = (await tx.query('SELECT * FROM recipe_ingredients WHERE recipe_id=$1 ORDER BY sort_order', [item.recipe_id])).rows;
+          const snapshot = {
+            recipe_id: recipe.id,
+            name: recipe.name,
+            version: recipe.version,
+            base_servings: recipe.base_servings,
+            ingredients: ingredients.map(i => ({
+              ingredient_id: i.ingredient_id,
+              display_name_override: i.display_name_override,
+              quantity: i.quantity,
+              quantity_text: i.quantity_text,
+              unit_code: i.unit_code,
+              type: i.type,
+              required: i.required
+            }))
+          };
+          await tx.query('UPDATE meal_items SET recipe_snapshot=$1 WHERE id=$2', [JSON.stringify(snapshot), item.id]);
+        }
+      }
       return result.rows[0];
     });
   }
@@ -127,7 +151,26 @@ function createMealService(pool) {
     });
   }
 
-  return { getCurrentMeal, ensureCurrentMeal, getMeal, addMealItem, removeMealItem, confirmMeal, importWeeklyPlan };
+  async function getWeeklyPlans(familyId, userId, weekStart) {
+    return access(familyId, userId, null, false, async tx => {
+      const conditions = ['family_id = $1'];
+      const params = [familyId];
+      if (weekStart) { conditions.push('week_start_date = $2'); params.push(weekStart); }
+      const plans = (await tx.query(`SELECT * FROM weekly_plans WHERE ${conditions.join(' AND ')} ORDER BY week_start_date DESC`, params)).rows;
+      if (plans.length === 0) return null;
+      // Load items for each plan
+      for (const plan of plans) {
+        plan.items = (await tx.query(`
+          SELECT wpi.*, r.name as recipe_name
+          FROM weekly_plan_items wpi
+          LEFT JOIN recipes r ON r.id = wpi.recipe_id
+          WHERE wpi.weekly_plan_id = $1 ORDER BY wpi.plan_date, wpi.meal_type`, [plan.id])).rows;
+      }
+      return plans;
+    });
+  }
+
+  return { getCurrentMeal, ensureCurrentMeal, getMeal, addMealItem, removeMealItem, confirmMeal, importWeeklyPlan, getWeeklyPlans };
 }
 
 module.exports = { createMealService };

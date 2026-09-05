@@ -174,3 +174,64 @@ CREATE TABLE IF NOT EXISTS recipe_ratings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_recipe_ratings_user_recipe ON recipe_ratings(user_id, recipe_id);
+
+-- Deferred normative schema (business logic in later phase)
+CREATE TABLE IF NOT EXISTS recipe_nutrition (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  recipe_id UUID NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+  serving_size DECIMAL(10,3),
+  serving_unit TEXT,
+  calories_kcal DECIMAL(10,2),
+  protein_g DECIMAL(10,2),
+  fat_g DECIMAL(10,2),
+  carbs_g DECIMAL(10,2),
+  fiber_g DECIMAL(10,2),
+  sodium_mg DECIMAL(10,2),
+  source TEXT DEFAULT 'ESTIMATED',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (recipe_id)
+);
+
+CREATE TABLE IF NOT EXISTS recipe_nutrition_tags (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  recipe_id UUID NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+  tag_code TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (recipe_id, tag_code)
+);
+
+CREATE TABLE IF NOT EXISTS recipe_traditional_diet_tags (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  recipe_id UUID NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+  tag_code TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (recipe_id, tag_code)
+);
+
+CREATE TABLE IF NOT EXISTS recipe_ingredient_alternatives (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  recipe_ingredient_id UUID NOT NULL REFERENCES recipe_ingredients(id) ON DELETE CASCADE,
+  alternative_ingredient_id UUID REFERENCES ingredients(id),
+  alternative_name TEXT,
+  ratio DECIMAL(10,3),
+  note TEXT,
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS recipe_step_media (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  recipe_step_id UUID NOT NULL REFERENCES recipe_steps(id) ON DELETE CASCADE,
+  media_type TEXT NOT NULL DEFAULT 'IMAGE',
+  url TEXT NOT NULL,
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS recipe_vegetable_categories (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  recipe_id UUID NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+  category_code TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (recipe_id, category_code)
+);

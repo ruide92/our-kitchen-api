@@ -21,7 +21,7 @@ function createShoppingService(pool) {
     return { quantity: quantity * unit.to_base_factor, unitCode: unit.dimension === 'MASS' ? 'g' : unit.dimension === 'VOLUME' ? 'ml' : unitCode, converted: true };
   }
 
-  // Calculate required ingredients from meal items with canonical merge
+  // Calculate required ingredients from meal items with canonical merge and safe unit conversion
   async function calculateMealIngredients(tx, mealId, dinersCount, unitsMap) {
     const items = (await tx.query(`
       SELECT mi.*, r.base_servings
@@ -36,48 +36,77 @@ function createShoppingService(pool) {
         LEFT JOIN ingredients i ON i.id = ri.ingredient_id
         WHERE ri.recipe_id=$1 AND ri.required=true`, [item.recipe_id])).rows;
       for (const ing of ingredients) {
-        // Canonical key: ingredient_id if available, else canonical_code, else display_name
         const key = ing.ingredient_id || ing.canonical_code || ing.display_name_override || 'unknown_' + ing.id;
+        // Convert to base unit for merging
+        const rawQty = ing.quantity ? ing.quantity * ratio : null;
+        const converted = toBaseQuantity(rawQty, ing.unit_code, unitsMap);
         if (!ingredientMap.has(key)) {
           ingredientMap.set(key, {
             ingredient_id: ing.ingredient_id,
+            canonical_code: ing.canonical_code,
             name: ing.ingredient_name || ing.display_name_override,
-            unit_code: ing.unit_code,
-            quantity: 0,
+            unit_code: converted.converted ? converted.unitCode : ing.unit_code,
+            quantity: converted.converted ? converted.quantity : (rawQty || 0),
             quantity_text: ing.quantity_text,
-            needs_unit_confirmation: !ing.unit_code && !!ing.quantity_text,
+            needs_unit_confirmation: !converted.converted && !ing.unit_code && !!ing.quantity_text,
+            unit_incompatible: false,
             sources: []
           });
         }
         const entry = ingredientMap.get(key);
-        if (ing.quantity) entry.quantity += ing.quantity * ratio;
-        entry.sources.push({ recipe_id: item.recipe_id, recipe_name: null, quantity: ing.quantity, quantity_text: ing.quantity_text, unit_code: ing.unit_code });
+        // Merge: only if units compatible (both converted to same base, or same original unit)
+        if (converted.converted && entry.unit_code === converted.unitCode) {
+          entry.quantity += converted.quantity;
+        } else if (!converted.converted && entry.unit_code === ing.unit_code && ing.unit_code) {
+          entry.quantity += rawQty || 0;
+        } else if (ing.unit_code && entry.unit_code !== ing.unit_code) {
+          // Units incompatible - mark for confirmation, don't merge
+          entry.unit_incompatible = true;
+          entry.needs_unit_confirmation = true;
+        }
+        entry.sources.push({ recipe_id: item.recipe_id, quantity: ing.quantity, quantity_text: ing.quantity_text, unit_code: ing.unit_code });
       }
     }
     return Array.from(ingredientMap.values());
   }
 
-  // Deduct fridge inventory with unit-safe matching
+  // Deduct fridge inventory with unit-safe conversion
   async function deductFridge(tx, familyId, ingredients, unitsMap) {
     const fridge = (await tx.query(`
       SELECT fi.*, i.display_name as ingredient_name, i.canonical_code
       FROM fridge_items fi LEFT JOIN ingredients i ON i.id = fi.ingredient_id
       WHERE fi.family_id=$1`, [familyId])).rows;
     for (const ing of ingredients) {
-      let remaining = ing.quantity || 0;
+      if (ing.quantity == null) { ing.missing_quantity = null; continue; }
+      let remaining = ing.quantity;
       const matching = fridge.filter(f =>
         (f.ingredient_id && f.ingredient_id === ing.ingredient_id) ||
         (f.canonical_code && f.canonical_code === ing.canonical_code)
       );
       for (const item of matching) {
-        if (remaining <= 0) break;
-        if (item.quantity && item.unit_code === ing.unit_code) {
+        if (remaining <= 0 || item.quantity == null) break;
+        // Convert both to base unit for comparison
+        const needBase = toBaseQuantity(remaining, ing.unit_code, unitsMap);
+        const haveBase = toBaseQuantity(item.quantity, item.unit_code, unitsMap);
+        if (needBase.converted && haveBase.converted && needBase.unitCode === haveBase.unitCode) {
+          const deductBase = Math.min(haveBase.quantity, needBase.quantity);
+          // Convert deducted back to ingredient's unit for reporting
+          const deductInEntryUnit = ing.unit_code && unitsMap.get(ing.unit_code)?.to_base_factor
+            ? deductBase / unitsMap.get(ing.unit_code).to_base_factor
+            : deductBase;
+          ing.inventory_deducted = (ing.inventory_deducted || 0) + deductInEntryUnit;
+          remaining = needBase.quantity - deductBase;
+          // Convert remaining back to entry unit
+          if (ing.unit_code && unitsMap.get(ing.unit_code)?.to_base_factor) {
+            remaining = remaining / unitsMap.get(ing.unit_code).to_base_factor;
+          }
+        } else if (item.unit_code === ing.unit_code) {
           const deduct = Math.min(item.quantity, remaining);
           ing.inventory_deducted = (ing.inventory_deducted || 0) + deduct;
           remaining -= deduct;
         }
       }
-      ing.missing_quantity = ing.quantity ? Math.max(0, ing.quantity - (ing.inventory_deducted || 0)) : null;
+      ing.missing_quantity = Math.max(0, remaining);
     }
     return ingredients;
   }
@@ -145,13 +174,19 @@ function createShoppingService(pool) {
 
       let added = 0;
       for (const ing of ingredients) {
-        // Only add if missing quantity > 0 OR needs unit confirmation
-        if ((ing.missing_quantity != null && ing.missing_quantity > 0) || ing.needs_unit_confirmation) {
-          const existing = (await tx.query('SELECT id FROM shopping_list_items WHERE shopping_list_id=$1 AND ingredient_id=$2', [list.id, ing.ingredient_id])).rows[0];
+        // required = original needed; missing = after deductions
+        const requiredQty = ing.quantity || null;
+        const invDed = ing.inventory_deducted || 0;
+        const panDed = ing.pantry_deducted || 0;
+        const missingQty = ing.missing_quantity != null ? ing.missing_quantity : requiredQty;
+        // Only add if missing > 0 OR needs unit confirmation
+        if ((missingQty != null && missingQty > 0) || ing.needs_unit_confirmation) {
+          const existing = (await tx.query('SELECT id FROM shopping_list_items WHERE shopping_list_id=$1 AND ingredient_id=$2 AND source=\'GENERATED\'', [list.id, ing.ingredient_id])).rows[0];
           if (!existing) {
-            await tx.query(`INSERT INTO shopping_list_items(id,shopping_list_id,ingredient_id,display_name_override,required_quantity,required_quantity_text,unit_code,is_purchased,source,needs_unit_confirmation,created_by_user_id)
-              VALUES($1,$2,$3,$4,$5,$6,$7,false,'GENERATED',$8,$9)`,
-              [randomUUID(), list.id, ing.ingredient_id, ing.name, ing.missing_quantity, ing.quantity_text, ing.unit_code, ing.needs_unit_confirmation || false, userId]);
+            await tx.query(`INSERT INTO shopping_list_items(id,shopping_list_id,ingredient_id,display_name_override,required_quantity,required_quantity_text,unit_code,inventory_deducted,pantry_deducted,missing_quantity,is_purchased,source,needs_unit_confirmation,created_by_user_id)
+              VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,false,'GENERATED',$11,$12)`,
+              [randomUUID(), list.id, ing.ingredient_id, ing.name, requiredQty, ing.quantity_text, ing.unit_code,
+               invDed, panDed, missingQty, ing.needs_unit_confirmation || false, userId]);
             added++;
           }
         }

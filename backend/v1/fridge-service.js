@@ -55,7 +55,7 @@ function createFridgeService(pool) {
          body.unit_code || null, body.storage_location || 'REFRIGERATED', body.purchase_date || null,
          body.expiry_date || null, body.note || null, userId])).rows[0];
       await tx.query(`INSERT INTO inventory_movements(id,family_id,fridge_item_id,ingredient_id,movement_type,quantity_delta,unit_code,performed_by_user_id)
-        VALUES($1,$2,$3,$4,'PURCHASE_IN',$5,$6,$7)`,
+        VALUES($1,$2,$3,$4,'MANUAL_IN',$5,$6,$7)`,
         [randomUUID(), familyId, id, body.ingredient_id || null, body.quantity != null ? body.quantity : 0, body.unit_code || null, userId]);
       return fridgeRow(item);
     });
@@ -65,13 +65,14 @@ function createFridgeService(pool) {
     return access(familyId, userId, null, true, async tx => {
       const existing = (await tx.query('SELECT * FROM fridge_items WHERE id=$1 AND family_id=$2 FOR UPDATE', [itemId, familyId])).rows[0];
       if (!existing) throw new ApiError(404, 'NOT_FOUND', '食材不存在');
+      if (body.version == null) throw new ApiError(400, 'VERSION_REQUIRED', '需要提供 version');
       const fields = ['display_name_override', 'quantity', 'quantity_text', 'unit_code', 'storage_location', 'purchase_date', 'expiry_date', 'note'];
       const keys = fields.filter(k => k in body);
       const values = keys.map(k => body[k]);
       const set = keys.map((k, i) => `${k}=$${i + 1}`);
       set.push('version=version+1', 'updated_at=now()');
-      values.push(itemId);
-      const result = await tx.query(`UPDATE fridge_items SET ${set.join(',')} WHERE id=$${values.length} RETURNING *`, values);
+      values.push(itemId, familyId, body.version);
+      const result = await tx.query(`UPDATE fridge_items SET ${set.join(',')} WHERE id=$${values.length - 2} AND family_id=$${values.length - 1} AND version=$${values.length} RETURNING *`, values);
       if (!result.rows[0]) throw new ApiError(409, 'VERSION_CONFLICT', '版本已更新，请刷新');
       return fridgeRow(result.rows[0]);
     });
@@ -103,9 +104,9 @@ function createFridgeService(pool) {
     });
   }
 
-  async function putPantry(familyId, userId, body) {
+  async function putPantry(familyId, userId, ingredientId, body) {
     return access(familyId, userId, null, true, async tx => {
-      const existing = (await tx.query('SELECT * FROM pantry_staples WHERE family_id=$1 AND ingredient_id=$2 FOR UPDATE', [familyId, body.ingredient_id])).rows[0];
+      const existing = (await tx.query('SELECT * FROM pantry_staples WHERE family_id=$1 AND ingredient_id=$2 FOR UPDATE', [familyId, ingredientId])).rows[0];
       if (existing) {
         const result = await tx.query(`UPDATE pantry_staples SET quantity=$1, quantity_text=$2, unit_code=$3, assume_available=$4, updated_by_user_id=$5, updated_at=now()
           WHERE id=$6 RETURNING *`,
@@ -116,15 +117,15 @@ function createFridgeService(pool) {
       const id = randomUUID();
       const item = (await tx.query(`INSERT INTO pantry_staples(id,family_id,ingredient_id,quantity,quantity_text,unit_code,assume_available,updated_by_user_id)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-        [id, familyId, body.ingredient_id, body.quantity != null ? body.quantity : null, body.quantity_text || null,
+        [id, familyId, ingredientId, body.quantity != null ? body.quantity : null, body.quantity_text || null,
          body.unit_code || null, body.assume_available != null ? body.assume_available : true, userId])).rows[0];
       return item;
     });
   }
 
-  async function deletePantry(familyId, userId, itemId) {
+  async function deletePantry(familyId, userId, ingredientId) {
     return access(familyId, userId, null, true, async tx => {
-      await tx.query('DELETE FROM pantry_staples WHERE id=$1 AND family_id=$2', [itemId, familyId]);
+      await tx.query('DELETE FROM pantry_staples WHERE family_id=$1 AND ingredient_id=$2', [familyId, ingredientId]);
       return { ok: true };
     });
   }

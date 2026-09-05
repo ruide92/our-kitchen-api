@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS meal_items (
   source TEXT NOT NULL DEFAULT 'MANUAL' CHECK (source IN ('WEEKLY_PLAN','MANUAL','RANDOM','WISH')),
   servings DECIMAL(6,2) NOT NULL DEFAULT 2,
   sort_order INTEGER NOT NULL DEFAULT 0,
+  recipe_snapshot JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (meal_id, recipe_id)
 );
