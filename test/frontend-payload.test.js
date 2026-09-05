@@ -172,3 +172,135 @@ test('Homepage uses getSettings (not getFamilySettings)', async () => {
   const wrongCall = api._calls.find(c => c.method === 'getFamilySettings')
   assert.equal(wrongCall, undefined, 'getFamilySettings should NOT be called')
 })
+
+test('Menu custom meal type click reads dataset.type', () => {
+  const wx = createMockWx()
+  const api = createMockApi()
+  const page = createPageInstance('../miniprogram/pages/menu/menu.js', wx, api)
+  page.onCustomMealTypeChange({ currentTarget: { dataset: { type: 'BREAKFAST' } } })
+  assert.equal(page.data.customMealType, 'BREAKFAST')
+  page.onCustomMealTypeChange({ currentTarget: { dataset: { type: 'LUNCH' } } })
+  assert.equal(page.data.customMealType, 'LUNCH')
+  page.onCustomMealTypeChange({ currentTarget: { dataset: { type: 'DINNER' } } })
+  assert.equal(page.data.customMealType, 'DINNER')
+})
+
+test('Menu mini-cart network error preserves last valid count', async () => {
+  const wx = createMockWx()
+  const api = createMockApi()
+  const page = createPageInstance('../miniprogram/pages/menu/menu.js', wx, api)
+  page._familyId = 'family-1'
+  page.data.targetMeal = { meal_date: '2026-09-22', meal_type: 'DINNER' }
+  page.data.miniCartCount = 3
+  page.data.miniCartVisible = true
+  api.getCurrentMeal = async () => { throw new Error('NETWORK_ERROR') }
+  await page._refreshMiniCart()
+  assert.equal(page.data.miniCartCount, 3, 'should preserve last count on network error')
+  assert.equal(page.data.miniCartVisible, true, 'should preserve visibility on network error')
+  assert.ok(page.data.miniCartError, 'should record miniCartError')
+})
+
+test('Menu mini-cart 404 clears count, network error does not', async () => {
+  const wx = createMockWx()
+  const api = createMockApi()
+  const page = createPageInstance('../miniprogram/pages/menu/menu.js', wx, api)
+  page._familyId = 'family-1'
+  page.data.targetMeal = { meal_date: '2026-09-22', meal_type: 'DINNER' }
+  page.data.miniCartCount = 3
+  const err404 = new Error('not found'); err404.status = 404; err404.code = 'NOT_FOUND'
+  api.getCurrentMeal = async () => { throw err404 }
+  await page._refreshMiniCart()
+  assert.equal(page.data.miniCartCount, 0, '404 should clear count')
+  assert.equal(page.data.miniCartError, null, '404 should not set error')
+})
+
+test('ALREADY_IN_MEAL is ignored, MEAL_NOT_EDITABLE 409 is failure', async () => {
+  const wx = createMockWx()
+  const api = createMockApi()
+  api.getCurrentMeal = async () => null
+  api.ensureCurrentMeal = async () => ({ id: 'meal-1' })
+  let callCount = 0
+  api.addMealItem = async () => {
+    callCount++
+    if (callCount === 1) { const e = new Error('already'); e.code = 'ALREADY_IN_MEAL'; throw e }
+    if (callCount === 2) { const e = new Error('not editable'); e.status = 409; e.code = 'MEAL_NOT_EDITABLE'; throw e }
+    return { id: 'item-1' }
+  }
+  const page = createPageInstance('../miniprogram/pages/index/index.js', wx, api)
+  page.data.selectedFullDate = '2026-09-22'
+  page.data.selectedMeals = [{ key: 'DINNER', label: '晚餐', icon: '🌙', dishes: [{ recipeId: 'r1', name: '菜1' }, { recipeId: 'r2', name: '菜2' }, { recipeId: 'r3', name: '菜3' }] }]
+  page._loadRealData = () => {}
+  await page.addMealToCurrent({ currentTarget: { dataset: { mealKey: 'DINNER' } } })
+  const toast = wx._calls.find(c => c.type === 'showToast')
+  assert.ok(toast, 'toast should show')
+  assert.ok(toast.opts.title.includes('失败') || toast.opts.title.includes('1道失败'), 'MEAL_NOT_EDITABLE should be reported as failure')
+})
+
+test('Homepage settings failure sets loadError, not fallback 2', async () => {
+  const wx = createMockWx()
+  const api = createMockApi()
+  api.getSettings = async () => { throw new Error('SETTINGS_UNAVAILABLE') }
+  const page = createPageInstance('../miniprogram/pages/index/index.js', wx, api)
+  page._familyId = 'family-1'
+  page.data.weekDays = [{ fullDate: '2026-09-22' }]
+  await page._loadRealData()
+  assert.ok(page.data.loadError, 'settings failure should set loadError')
+})
+
+test('Pantry API error sets pantryError, not empty array', async () => {
+  const wx = createMockWx()
+  const api = createMockApi()
+  api.listPantry = async () => { throw new Error('PANTRY_ERROR') }
+  const page = createPageInstance('../miniprogram/pages/fridge/fridge.js', wx, api)
+  page._familyId = 'family-1'
+  page.data.pantryStaples = [{ name: 'existing', ingredient_id: 'i1' }]
+  await page._loadPantry()
+  assert.ok(page.data.pantryError, 'pantry error should be recorded')
+  assert.equal(page.data.pantryStaples.length, 1, 'should preserve existing staples on error')
+  assert.equal(page.data.pantryLoading, false)
+})
+
+test('Pantry API [] returns empty, not error', async () => {
+  const wx = createMockWx()
+  const api = createMockApi()
+  api.listPantry = async () => []
+  const page = createPageInstance('../miniprogram/pages/fridge/fridge.js', wx, api)
+  page._familyId = 'family-1'
+  await page._loadPantry()
+  assert.equal(page.data.pantryError, null)
+  assert.equal(page.data.pantryStaples.length, 0)
+  assert.equal(page.data.pantryLoading, false)
+})
+
+test('Fridge existing custom unit edit round trip', async () => {
+  const wx = createMockWx()
+  const api = createMockApi()
+  const page = createPageInstance('../miniprogram/pages/fridge/fridge.js', wx, api)
+  page.data.inventoryItems = [{ id: 'f1', name: '酸奶', quantity: 2, unit_code: null, quantity_text: '2盒', storage_location: 'REFRIGERATED', version: 1 }]
+  page.openEditSheet({ currentTarget: { dataset: { id: 'f1' } } })
+  assert.equal(page.data.editForm.quantity, '2')
+  assert.equal(page.data.editForm.unit_code, '自定义')
+  assert.equal(page.data.editForm.custom_unit, '盒')
+  await page.saveEditItem()
+  const call = api._calls.find(c => c.method === 'updateFridgeItem')
+  assert.ok(call, 'updateFridgeItem should be called')
+  assert.equal(call.body.unit_code, null)
+  assert.equal(call.body.quantity_text, '2盒')
+  assert.equal(call.body.quantity, 2)
+})
+
+test('Fridge category mapping: MEAT item shows under 肉蛋', () => {
+  const wx = createMockWx()
+  const api = createMockApi()
+  const page = createPageInstance('../miniprogram/pages/fridge/fridge.js', wx, api)
+  const enriched = page._enrichItem({ id: 'f1', name: '猪肉', category_code: 'MEAT', quantity: 500, unit_code: 'g' })
+  assert.equal(enriched.category_label, '肉蛋')
+  page.data.inventoryItems = [enriched]
+  page.data.currentCategory = '肉蛋'
+  page.data.searchKeyword = ''
+  page._refreshFiltered()
+  assert.equal(page.data.filteredItems.length, 1, 'MEAT item should show under 肉蛋')
+  page.data.currentCategory = '蔬菜'
+  page._refreshFiltered()
+  assert.equal(page.data.filteredItems.length, 0, 'MEAT item should NOT show under 蔬菜')
+})

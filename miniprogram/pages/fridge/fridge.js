@@ -14,6 +14,11 @@ const STORAGE_MAP = { '冷藏': 'REFRIGERATED', '冷冻': 'FROZEN', '常温': 'R
 const STORAGE_REVERSE = { REFRIGERATED: '冷藏', FROZEN: '冷冻', ROOM_TEMP: '常温', OTHER: '其他' }
 
 const CATEGORIES = ['全部', '蔬菜', '肉蛋', '海鲜', '乳品', '调料', '主食', '水果', '其他']
+const CATEGORY_CODE_MAP = {
+  VEGETABLE: '蔬菜', MEAT: '肉蛋', EGG: '肉蛋', SEAFOOD: '海鲜',
+  DAIRY: '乳品', SEASONING: '调料', STAPLE: '主食', FRUIT: '水果', OTHER: '其他'
+}
+function categoryLabel(code) { return CATEGORY_CODE_MAP[code] || '其他' }
 const UNIT_OPTIONS = UI_UNIT_OPTIONS
 const STORAGE_OPTIONS = ['冷藏', '冷冻', '常温', '其他']
 
@@ -84,8 +89,6 @@ Page({
         expiringCount: expiring.length,
         expiringItems: expiring.slice(0, 3),
         loading: false,
-    pantryLoading: false,
-    pantryError: null,
       })
       this._refreshFiltered()
     } catch (e) {
@@ -95,6 +98,7 @@ Page({
 
   async _loadPantry() {
     if (!this._familyId) return
+    this.setData({ pantryLoading: true, pantryError: null })
     try {
       const staples = await this._api.listPantry(this._familyId)
       const viewModel = (staples || []).map(s => ({
@@ -103,9 +107,9 @@ Page({
         is_staple: s.assume_available === true,
         ingredient_id: s.ingredient_id,
       }))
-      this.setData({ pantryStaples: viewModel })
+      this.setData({ pantryStaples: viewModel, pantryLoading: false, pantryError: null })
     } catch (e) {
-      this.setData({ pantryStaples: [] })
+      this.setData({ pantryLoading: false, pantryError: e.message || '加载失败' })
     }
   },
 
@@ -118,6 +122,7 @@ Page({
       expiry_label: fresh.label,
       name: item.display_name_override || item.ingredient_name || '食材',
       quantity_label: formatQuantity(item.quantity, item.unit_code, item.quantity_text),
+      category_label: categoryLabel(item.category_code),
     }
   },
 
@@ -134,7 +139,7 @@ Page({
   _refreshFiltered() {
     const { inventoryItems, currentCategory, searchKeyword } = this.data
     let list = inventoryItems
-    if (currentCategory !== '全部') list = list.filter(i => (i.category_code || '其他') === currentCategory || i.name.includes(currentCategory))
+    if (currentCategory !== '全部') list = list.filter(i => i.category_label === currentCategory)
     if (searchKeyword) list = list.filter(i => i.name.includes(searchKeyword))
     this.setData({ filteredItems: list })
   },
@@ -205,7 +210,7 @@ Page({
       editingItem: item,
       editForm: {
         quantity: item.quantity != null ? String(item.quantity) : '',
-        unit_code: item.unit_code || 'g',
+        unit_code: item.unit_code || '自定义',
         custom_unit: item.unit_code ? '' : (item.quantity_text ? item.quantity_text.replace(/^\d+/, '') : ''),
         storage_location: STORAGE_REVERSE[item.storage_location] || '冷藏',
         purchase_date: item.purchase_date || todayStr(),

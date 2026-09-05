@@ -486,3 +486,40 @@ Backend core and frontend real-data wiring for Recipe/Meal/Fridge/Shopping loop.
 **VISUAL GATE: PENDING** (no auto screenshot evidence for Global Bottom Dock)
 
 **Next:** NEON MIGRATION (code gate passed; visual gate remains pending for final phone acceptance)
+
+## CODE GATE FINAL (09I) — 2026-09-05
+
+**Commit: fix: seal kitchen code gate before cloud migration**
+
+**Runtime Fixes:**
+- Menu custom meal type: **FIXED** — onCustomMealTypeChange reads e.currentTarget.dataset.type (not e.detail.value)
+- Menu mini-cart error: **FIXED** — 404=count 0; NETWORK_ERROR/500/401/403 preserves last valid count + miniCartError
+- 409 semantics: **FIXED** — only code==='ALREADY_IN_MEAL' ignored; MEAL_NOT_EDITABLE 409 = failure; applied to homepage + menu
+- Homepage settings error: **FIXED** — removed .catch(() => null); settings API failure sets loadError
+- Pantry states: **FIXED** — pantryLoading=true/pantryError=null on start; success sets data; failure sets pantryError (preserves existing); removed pantry state from _loadFridge
+- Fridge custom unit edit: **FIXED** — unit_code=null opens as '自定义' + custom_unit extracted from quantity_text; round-trip preserves null + '2盒'
+- Fridge category mapping: **FIXED** — CATEGORY_CODE_MAP; _enrichItem adds category_label; _refreshFiltered compares category_label (not English code)
+
+**Test Infrastructure:**
+- package.json: added test:frontend, test:audit, test:gate
+- test:gate runs: unit + frontend + audit(wxml+static api) + integration
+- Frontend tests: **17/17 PASS** (8 original + 9 new)
+  - custom meal type click
+  - mini-cart network error preserves state
+  - mini-cart 404 clears count
+  - ALREADY_IN_MEAL vs MEAL_NOT_EDITABLE
+  - homepage settings failure -> loadError
+  - pantry error != empty
+  - pantry [] = empty
+  - existing custom unit edit round trip
+  - fridge category mapping
+
+**Final Gate:**
+- npm run test:gate: **0 fail**
+- Unit 52/52, Frontend 17/17, WXML audit missing=0/dynamic=0/fixture=0, Static API audit 0 missing, Integration 41/41
+- DevTools CLI compile: **0 project error**
+
+**CODE GATE: PASS**
+**VISUAL GATE: PENDING** (no auto screenshot evidence for Global Bottom Dock)
+
+**Next:** NEON MIGRATION (code gate fully sealed; visual gate remains for final phone acceptance)

@@ -10,7 +10,10 @@
     "db:migrate": "node backend/v1/migrate-cli.js",
     "test": "node --test test/unit/*.test.js test/integration/*.test.js",
     "test:unit": "node --test test/unit/*.test.js",
-    "test:integration": "node --test test/integration/*.test.js"
+    "test:integration": "node --env-file=.env --test test/integration/*.test.js",
+    "test:frontend": "node --test test/frontend-payload.test.js",
+    "test:audit": "node scripts/wxml-handler-audit.js && node scripts/static-api-audit.js",
+    "test:gate": "npm run test:unit && npm run test:frontend && npm run test:audit && npm run test:integration"
   },
   "dependencies": {
     "axios": "^1.6.7",

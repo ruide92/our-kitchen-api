@@ -63,6 +63,7 @@ Page({
     miniCartCount: 0,
     miniCartVisible: false,
     miniCartLoading: false,
+    miniCartError: null,
   },
 
   onLoad() {
@@ -228,7 +229,7 @@ Page({
   },
 
   onCustomMealTypeChange(e) {
-    this.setData({ customMealType: e.detail.value })
+    this.setData({ customMealType: e.currentTarget.dataset.type })
   },
 
   confirmCustomDate() {
@@ -250,14 +251,18 @@ Page({
   async _refreshMiniCart() {
     if (!this._familyId || !this._api) return
     const { targetMeal } = this.data
-    this.setData({ miniCartLoading: true })
+    this.setData({ miniCartLoading: true, miniCartError: null })
     try {
       const meal = await this._api.getCurrentMeal(this._familyId, targetMeal.meal_date, targetMeal.meal_type)
       const count = meal && meal.items ? meal.items.length : 0
-      this.setData({ miniCartCount: count, miniCartVisible: count > 0, miniCartLoading: false })
+      this.setData({ miniCartCount: count, miniCartVisible: count > 0, miniCartLoading: false, miniCartError: null })
     } catch (e) {
-      // Meal not found = 0 items
-      this.setData({ miniCartCount: 0, miniCartVisible: false, miniCartLoading: false })
+      if (e.status === 404 || e.code === 'NOT_FOUND') {
+        this.setData({ miniCartCount: 0, miniCartVisible: false, miniCartLoading: false, miniCartError: null })
+      } else {
+        // Network/500/401/403: preserve last valid count, record error
+        this.setData({ miniCartLoading: false, miniCartError: e.message || '加载失败' })
+      }
     }
   },
 
@@ -323,7 +328,7 @@ Page({
       wx.showToast({ title: this._mealTarget.toastLabel(targetMeal), icon: 'success', duration: 1000 })
     } catch (err) {
       wx.hideLoading()
-      if (err.code === 'ALREADY_IN_MEAL' || err.status === 409) {
+      if (err.code === 'ALREADY_IN_MEAL') {
         wx.showToast({ title: '已在' + this.data.targetMealText + '中', icon: 'none' })
       } else {
         wx.showToast({ title: err.message || '加入失败', icon: 'none' })

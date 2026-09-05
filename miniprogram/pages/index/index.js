@@ -98,7 +98,7 @@ Page({
         this._api.getFamily(this._familyId),
         this._api.getMembers(this._familyId),
         this._api.getWeeklyPlan(this._familyId, this.data.weekDays[0].fullDate),
-        this._api.getSettings(this._familyId).catch(() => null),
+        this._api.getSettings(this._familyId),
       ])
       // Family + members view model
       const memberVM = (members || []).map(m => ({
@@ -220,7 +220,7 @@ Page({
           await this._api.addMealItem(this._familyId, mealObj.id, { recipe_id: dish.recipeId, servings: 2, source: 'WEEKLY_PLAN' })
           added++
         } catch (addErr) {
-          if (addErr.status === 409 || addErr.code === 'ALREADY_IN_MEAL') {
+          if (addErr.code === 'ALREADY_IN_MEAL') {
             already++
           } else {
             failed++
