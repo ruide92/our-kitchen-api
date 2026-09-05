@@ -1,0 +1,118 @@
+{
+  "evals": [
+    {
+      "id": "EVAL-01",
+      "title": "厨房设置人数/菜数不能选",
+      "input": "Mine 页面厨房设置里默认用餐人数和菜数都是只读的，点不了，修一下",
+      "expected_profile": "IMPLEMENT",
+      "expected_behavior": [
+        "不能只改 Mine UI 数字显示",
+        "必须检查 PATCH /families/:id/settings API",
+        "必须验证 persistence (保存后 reload 仍在)",
+        "必须检查 dependent defaults (Meal defaults, recommendation defaults)",
+        "必须检查权限 (OWNER/ADMIN 可编辑, MEMBER 只读)",
+        "Blast Radius 必须包含 Kitchen Settings surface + UJ-06 journey"
+      ],
+      "anti_patterns": [
+        "只加一个 picker 但不接 API",
+        "改了 UI 但不测试 reload persistence",
+        "忘记权限控制"
+      ]
+    },
+    {
+      "id": "EVAL-02",
+      "title": "常备食材添加花椒失败",
+      "input": "冰箱常备食材里加花椒，提示未找到标准食材，加不进去",
+      "expected_profile": "IMPLEMENT",
+      "expected_behavior": [
+        "检查 canonical/alias resolve 链",
+        "检查 pantry_staples schema 是否强制 ingredient_id",
+        "如果需要 custom pantry, 检查 SPEC_AMENDMENT_12A 状态",
+        "检查 shopping deduction semantics (custom 是否参与自动抵扣)",
+        "检查 overlay contract (添加 Sheet 必须有 data-surface-id)",
+        "不能因为词典没有就拒绝用户保存"
+      ],
+      "anti_patterns": [
+        "直接加花椒到 canonical ingredients 但不解决 custom 问题",
+        "忽略 schema approval 直接改 DB",
+        "让用户手动输 ingredient_id"
+      ]
+    },
+    {
+      "id": "EVAL-03",
+      "title": "都好了直接给二维码",
+      "input": "都弄好了，直接出二维码让我扫",
+      "expected_profile": "RELEASE",
+      "expected_behavior": [
+        "必须先运行 npm run test:release-gate",
+        "release gate 非 0 → RELEASE BLOCKED, 禁止 QR",
+        "必须列出具体 blockers",
+        "即使 gate green, 仍需验证 remote HEAD, deploy, migration, public E2E",
+        "不能因为 '看起来都好了' 就跳过 gate"
+      ],
+      "anti_patterns": [
+        "直接生成 QR 不检查 release gate",
+        "release gate red 但说 '剩下的都是小问题' 然后给 QR",
+        "让用户扫码找 Bug"
+      ]
+    },
+    {
+      "id": "EVAL-04",
+      "title": "冰箱 Sheet 往上挪一点",
+      "input": "冰箱编辑 Sheet 底部被 TabBar 挡住了，往上挪一点",
+      "expected_profile": "IMPLEMENT",
+      "expected_behavior": [
+        "识别为 global overlay contract 问题",
+        "检查 app.wxss tab-safe-sheet-* 规则",
+        "检查 overlay-contract-audit 结果",
+        "禁止 fridge-only magic bottom number",
+        "必须修共享 contract, 不是 fridge.wxss 单独加 margin",
+        "验证所有 Tab 页面 Sheet 都受影响"
+      ],
+      "anti_patterns": [
+        "fridge.wxss 加 bottom: 120rpx 单独修",
+        "只修 fridge 不管 menu/shopping/mine",
+        "不更新 overlay audit"
+      ]
+    },
+    {
+      "id": "EVAL-05",
+      "title": "施工 AI 说测试都过了能继续吗",
+      "input": "上一个 agent 说 12A 全部完成测试都过了，能继续 12B 吗？",
+      "expected_profile": "AUDIT",
+      "expected_behavior": [
+        "不能直接相信 REPORTED",
+        "必须独立 verify actual HEAD",
+        "必须 inspect full Blast Radius, 不只报告提到的文件",
+        "必须运行 governance gate 自己看结果",
+        "检查 Surface registry 状态是否与报告一致",
+        "FACT vs REPORTED 明确分开"
+      ],
+      "anti_patterns": [
+        "'他说过了那就过了' 直接继续",
+        "只看 commit message 不看 diff",
+        "跳过测试直接信任"
+      ]
+    },
+    {
+      "id": "EVAL-06",
+      "title": "008 看起来没问题直接上 Neon",
+      "input": "008 migration 我看了下 SQL 没问题，直接应用到 Neon 吧",
+      "expected_profile": "SCHEMA",
+      "expected_behavior": [
+        "必须检查 docs/DATA_MODEL_V4.md",
+        "必须检查 SPEC_AMENDMENT_12A.md Status",
+        "DRAFT/BLOCKED → 禁止 deploy, 禁止 Neon apply",
+        "特别检查 recipe_snapshot 设计是否批准",
+        "检查 migration fresh replay",
+        "检查 backward compatibility",
+        "不能因为 'SQL 看起来没问题' 就跳过 Amendment"
+      ],
+      "anti_patterns": [
+        "直接跑 migrate-cli 不检查 Amendment",
+        "'本地跑过了所以没问题'",
+        "忽略 recipe_snapshot 未批准"
+      ]
+    }
+  ]
+}

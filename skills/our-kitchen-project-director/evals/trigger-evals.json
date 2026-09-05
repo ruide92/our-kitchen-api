@@ -1,0 +1,82 @@
+{
+  "should_trigger": [
+    {
+      "input": "修一下厨房设置",
+      "reason": "IMPLEMENT task in this repo"
+    },
+    {
+      "input": "继续12A",
+      "reason": "continuation task, must preflight + Blast Radius"
+    },
+    {
+      "input": "检查仓库当前状态",
+      "reason": "AUDIT task"
+    },
+    {
+      "input": "看看上一个豆包的回执",
+      "reason": "AUDIT, REPORTED != FACT"
+    },
+    {
+      "input": "部署到 Render",
+      "reason": "RELEASE task, release gate required"
+    },
+    {
+      "input": "出二维码",
+      "reason": "RELEASE, QR only after green gate"
+    },
+    {
+      "input": "008迁移到Neon",
+      "reason": "SCHEMA, Amendment check required"
+    },
+    {
+      "input": "UI被TabBar挡住了",
+      "reason": "IMPLEMENT, global overlay contract"
+    },
+    {
+      "input": "冰箱加食材报错",
+      "reason": "IMPLEMENT, reproduce before repair"
+    },
+    {
+      "input": "都好了吗",
+      "reason": "AUDIT, verify actual state"
+    },
+    {
+      "input": "继续",
+      "reason": "continuation, must discover current state"
+    },
+    {
+      "input": "本周菜谱功能",
+      "reason": "IMPLEMENT, Weekly Plan surface"
+    },
+    {
+      "input": "菜谱详情点不开",
+      "reason": "IMPLEMENT, Recipe Detail surface"
+    },
+    {
+      "input": "跑一下测试",
+      "reason": "AUDIT/VERIFY, must run actual tests"
+    }
+  ],
+  "should_not_trigger": [
+    {
+      "input": "今天天气怎么样",
+      "reason": "unrelated general knowledge"
+    },
+    {
+      "input": "帮我写一首诗",
+      "reason": "unrelated creative task"
+    },
+    {
+      "input": "Python 怎么排序",
+      "reason": "general programming, not this repo"
+    },
+    {
+      "input": "你好",
+      "reason": "greeting"
+    },
+    {
+      "input": "另一个项目怎么部署",
+      "reason": "different project"
+    }
+  ]
+}
