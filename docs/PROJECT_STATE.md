@@ -67,7 +67,8 @@ Local V1 environment and real WeChat login verified end-to-end on this machine.
 - Phase 2.5 homepage UI acceptance checkpoint: `80e5c261599a34655b9c6340257b706006a39b33`
 - Phase 3 handoff gate: local and remote both verified at `27b3fcb51a13558d226b48c72d32c24ef8d94e99` after fetch/checkout/ff-only pull.
 - Phase 3 foundation implementation checkpoint: `508623ef995305fcb6021a94386a33e0e57e372c`.
-- V1 local real auth/family checkpoint: `f2f392ea837483d16e5dfc1f348d35da374cf18e`
+- V1 Auth/Family frontend cutover checkpoint: `f2f392ea837483d16e5dfc1f348d35da374cf18e`
+- V1 local real auth/family acceptance checkpoint: `718aa944d948bbcfa3b5e7f1ac85053d8f040cd0`
 - Base branch: `main`
 - Remote: `https://github.com/ruide92/our-kitchen-api.git`
 - The original `main` checkout has a pre-existing modification to `database.json`. It has not been overwritten or included in this worktree.
@@ -187,7 +188,7 @@ Baseline evidence remains:
 - `npm ci`: pass (99 packages installed at Phase 1 baseline).
 - JavaScript syntax baseline: 34 project files checked, 0 failures at Phase 1.
 - Legacy `test-api.js` is not accepted as trustworthy.
-- Isolated JsonDatabase probe confirmed broken pagination/search/count/JOIN/COALES/update-expression behavior.
+- Isolated JsonDatabase probe confirmed broken pagination/search/count/JOIN/COALESCE/update-expression behavior.
 
 Phase 2 consisted only of specification documents; no business code or production deployment was modified. Normative cross-check was performed across Product ↔ Data Model ↔ API ↔ Acceptance Tests plus KRP/Recommendation/Roadmap.
 
@@ -204,4 +205,9 @@ V1 local checkpoint (2026-09-05): unit 38/38 PASS, PostgreSQL integration 19/19 
 
 ## Next first action
 
-Complete Mine visual acceptance in DevTools (switch to "我的" tab and screenshot real data, no fixture). Then proceed to second-user join (糖糖) and members=2 verification. Do not deploy to public HTTPS or cut over recipe/menu/fridge/shopping to real backend without a separate task.
+1. **Mine visual acceptance** — open `pages/mine/mine` in DevTools and screenshot real V1 data (no fixture). Currently PENDING.
+2. **Public HTTPS V1 deployment** — deploy V1 backend to an HTTPS endpoint (localhost loopback is DevTools-only).
+3. **小程序切换到 HTTPS V1** — update `miniprogram/config/v1.js` baseUrl to the HTTPS endpoint.
+4. **第二个真实微信用户/糖糖加入** — invite and join with a second real WeChat account.
+5. **双用户 members=2 验收** — verify both users ACTIVE, roles correct, family shared.
+6. Only after the above: begin Recipe / Weekly Plan / Fridge / Shopping real-backend cutover.
