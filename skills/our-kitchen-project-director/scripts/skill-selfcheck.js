@@ -64,9 +64,11 @@ function main() {
 
   try {
     const triggers = JSON.parse(fs.readFileSync(path.join(SKILL_DIR, 'evals/trigger-evals.json'), 'utf8'));
-    const triggerList = triggers.should_trigger || triggers;
-    console.log(`  trigger-evals.json: ${Array.isArray(triggerList) ? triggerList.length : 'not array'} triggers`);
-    if (!Array.isArray(triggerList) || triggerList.length === 0) failures++;
+    const shouldTrigger = triggers.should_trigger;
+    const shouldNotTrigger = triggers.should_not_trigger;
+    console.log(`  trigger-evals.json: should_trigger=${Array.isArray(shouldTrigger) ? shouldTrigger.length : 'not array'}, should_not_trigger=${Array.isArray(shouldNotTrigger) ? shouldNotTrigger.length : 'not array'}`);
+    if (!Array.isArray(shouldTrigger) || shouldTrigger.length === 0) failures++;
+    if (!Array.isArray(shouldNotTrigger) || shouldNotTrigger.length === 0) failures++;
   } catch (e) {
     console.log(`  trigger-evals.json: PARSE FAIL (${e.message})`);
     failures++;

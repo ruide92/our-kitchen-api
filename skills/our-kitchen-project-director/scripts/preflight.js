@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Preflight — verify repository identity, branch, HEAD, cleanliness, governance files
+// Uses spawnSync with argv array — no shell redirection, no 2>$null, cross-platform.
 // Usage: node skills/our-kitchen-project-director/scripts/preflight.js
-const { execSync } = require('node:child_process');
+const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -10,11 +11,14 @@ const EXPECTED_REPO = 'ruide92/our-kitchen-api';
 const EXPECTED_BRANCH = 'codex/kitchen-v4';
 
 function git(args) {
-  try {
-    return execSync(`git ${args}`, { cwd: ROOT, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
-  } catch (e) {
-    return e.stdout?.toString().trim() || e.stderr?.toString().trim() || '';
-  }
+  const r = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8' });
+  return (r.stdout || '').trim();
+}
+
+function gitNoProxy(args) {
+  const env = { ...process.env, http_proxy: '', https_proxy: '', HTTP_PROXY: '', HTTPS_PROXY: '' };
+  const r = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8', env, timeout: 15000 });
+  return { stdout: (r.stdout || '').trim(), status: r.status };
 }
 
 function main() {
@@ -23,40 +27,54 @@ function main() {
   console.log('=== PROJECT PREFLIGHT ===');
 
   // Repository identity
-  const origin = git('remote get-url origin');
+  const origin = git(['remote', 'get-url', 'origin']);
   const repoMatch = origin.includes(EXPECTED_REPO);
   console.log(`Origin: ${origin}`);
   console.log(`Repository identity: ${repoMatch ? 'OK' : 'FAIL'} (expected ${EXPECTED_REPO})`);
   if (!repoMatch) failures++;
 
   // Branch
-  const branch = git('rev-parse --abbrev-ref HEAD');
+  const branch = git(['rev-parse', '--abbrev-ref', 'HEAD']);
   const branchMatch = branch === EXPECTED_BRANCH;
   console.log(`Branch: ${branch}`);
   console.log(`Branch match: ${branchMatch ? 'OK' : 'FAIL'} (expected ${EXPECTED_BRANCH})`);
   if (!branchMatch) failures++;
 
-  // HEAD
-  const localHead = git('rev-parse HEAD');
-  console.log(`Local HEAD: ${localHead}`);
+  // Local HEAD
+  const localHead = git(['rev-parse', 'HEAD']);
+  console.log(`LOCAL_HEAD: ${localHead}`);
 
-  // Remote HEAD (specific branch, not default)
+  // Remote HEAD (specific branch, no proxy)
+  const remoteResult = gitNoProxy(['ls-remote', 'origin', EXPECTED_BRANCH]);
   let remoteHead = '';
-  try {
-    remoteHead = execSync(`git -c http.proxy= -c https.proxy= ls-remote origin ${EXPECTED_BRANCH}`, { cwd: ROOT, encoding: 'utf8', timeout: 15000 }).split('\t')[0].trim();
-  } catch (e) {
-    remoteHead = '(fetch failed)';
+  if (remoteResult.status === 0 && remoteResult.stdout) {
+    remoteHead = remoteResult.stdout.split('\t')[0].trim();
+    console.log(`REMOTE_HEAD: ${remoteHead}`);
+  } else {
+    console.log(`REMOTE_HEAD: UNKNOWN (fetch failed, status=${remoteResult.status})`);
+    failures++;
+    console.log('FAIL: REMOTE_HEAD_UNKNOWN');
   }
-  console.log(`Remote HEAD: ${remoteHead}`);
 
-  // Divergence
-  const localOnly = git(`rev-list --count ${remoteHead}..HEAD 2>$null`);
-  const remoteOnly = git(`rev-list --count HEAD..${remoteHead} 2>$null`);
-  console.log(`Divergence: local-only=${localOnly || 0}, remote-only=${remoteOnly || 0}`);
+  // Divergence — hard fail if mismatch
+  if (remoteHead) {
+    const localOnly = git(['rev-list', '--count', `${remoteHead}..HEAD`]);
+    const remoteOnly = git(['rev-list', '--count', `HEAD..${remoteHead}`]);
+    const lo = parseInt(localOnly, 10) || 0;
+    const ro = parseInt(remoteOnly, 10) || 0;
+    console.log(`LOCAL_ONLY: ${lo}`);
+    console.log(`REMOTE_ONLY: ${ro}`);
+    if (lo > 0 || ro > 0) {
+      console.log('FAIL: HEAD_DIVERGENCE (local != remote)');
+      failures++;
+    } else {
+      console.log('HEAD match: yes');
+    }
+  }
 
   // Tracked changes
-  const trackedDiff = git('diff --name-only');
-  const stagedDiff = git('diff --cached --name-only');
+  const trackedDiff = git(['diff', '--name-only']);
+  const stagedDiff = git(['diff', '--cached', '--name-only']);
   const trackedClean = trackedDiff === '' && stagedDiff === '';
   console.log(`Tracked clean: ${trackedClean ? 'yes' : 'no'}`);
   if (!trackedClean) {
@@ -65,7 +83,7 @@ function main() {
   }
 
   // Untracked files
-  const untracked = git('ls-files --others --exclude-standard');
+  const untracked = git(['ls-files', '--others', '--exclude-standard']);
   const untrackedCount = untracked === '' ? 0 : untracked.split('\n').length;
   console.log(`Untracked count: ${untrackedCount}`);
   if (untrackedCount > 0 && untrackedCount <= 10) {
