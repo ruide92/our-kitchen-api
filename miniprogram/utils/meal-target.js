@@ -96,6 +96,7 @@ function createMealTarget({ wxAdapter }) {
         })
       }
     }
+    opts.push({ meal_date: null, meal_type: null, label: '自选日期...', isCustom: true })
     return opts
   }
 

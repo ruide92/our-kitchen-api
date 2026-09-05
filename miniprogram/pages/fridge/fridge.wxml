@@ -1,6 +1,5 @@
 <view class="page">
 
-  <!-- ===== 顶部标题区 ===== -->
   <view class="header">
     <view class="header-left">
       <text class="header-title">我家的冰箱</text>
@@ -12,7 +11,6 @@
     </view>
   </view>
 
-  <!-- ===== 双段切换 ===== -->
   <view class="tab-switch">
     <view class="tab-item {{activeTab === 'inventory' ? 'tab-active' : ''}}" data-tab="inventory" bindtap="switchTab">
       <text>冰箱库存</text>
@@ -25,7 +23,17 @@
   <!-- ==================== 冰箱库存视图 ==================== -->
   <block wx:if="{{activeTab === 'inventory'}}">
 
-    <!-- 快过期提醒 -->
+    <view wx:if="{{loading}}" class="state-loading">
+      <text class="state-icon">⏳</text>
+      <text class="state-text">加载冰箱...</text>
+    </view>
+    <view wx:elif="{{error}}" class="state-error">
+      <text class="state-icon">⚠️</text>
+      <text class="state-text">{{error}}</text>
+      <view class="state-retry" bindtap="retryLoad"><text>重新加载</text></view>
+    </view>
+    <block wx:else>
+
     <view class="expiring-bar" wx:if="{{expiringItems.length > 0}}">
       <view class="expiring-left">
         <text class="expiring-icon">⚠️</text>
@@ -41,7 +49,6 @@
       </view>
     </view>
 
-    <!-- 搜索 -->
     <view class="search-row">
       <view class="search-box">
         <text class="search-icon">🔍</text>
@@ -49,7 +56,6 @@
       </view>
     </view>
 
-    <!-- 横向分类 -->
     <scroll-view class="cat-scroll" scroll-x="true" enhanced="true" show-scrollbar="false">
       <view
         wx:for="{{categories}}"
@@ -60,10 +66,14 @@
       >{{item}}</view>
     </scroll-view>
 
-    <!-- 库存列表 -->
     <view class="inventory-list">
-      <view wx:if="{{filteredItems.length === 0}}" class="empty-state">
+      <view wx:if="{{inventoryItems.length === 0 && !searchKeyword}}" class="empty-state">
         <text class="empty-icon">🧊</text>
+        <text class="empty-text">冰箱还是空的</text>
+        <text class="empty-hint">添加第一样食材</text>
+      </view>
+      <view wx:elif="{{filteredItems.length === 0}}" class="empty-state">
+        <text class="empty-icon">🔍</text>
         <text class="empty-text">没有找到匹配的食材</text>
       </view>
       <view
@@ -91,7 +101,6 @@
       </view>
     </view>
 
-    <!-- sticky 看冰箱做菜 -->
     <view class="cook-bar">
       <view class="cook-bar-left">
         <text class="cook-bar-icon">🥘</text>
@@ -100,20 +109,37 @@
       <view class="cook-bar-btn" bindtap="cookWithFridge">看冰箱做菜</view>
     </view>
 
+    </block>
   </block>
 
   <!-- ==================== 常备食材视图 ==================== -->
   <block wx:if="{{activeTab === 'pantry'}}">
 
+    <view wx:if="{{pantryLoading}}" class="state-loading">
+      <text class="state-icon">⏳</text>
+      <text class="state-text">加载常备食材...</text>
+    </view>
+    <view wx:elif="{{pantryError}}" class="state-error">
+      <text class="state-icon">⚠️</text>
+      <text class="state-text">{{pantryError}}</text>
+      <view class="state-retry" bindtap="retryPantry"><text>重新加载</text></view>
+    </view>
+    <block wx:else>
+
     <view class="pantry-desc">
       <text>这些食材默认认为家里通常会有，以后生成购物清单时会作为常备项参考。</text>
     </view>
 
+    <view wx:if="{{pantryStaples.length === 0}}" class="empty-state">
+      <text class="empty-icon">📦</text>
+      <text class="empty-text">还没有常备食材</text>
+    </view>
+
     <view class="pantry-list">
-      <view wx:for="{{pantryStaples}}" wx:key="id" class="pantry-row">
+      <view wx:for="{{pantryStaples}}" wx:key="ingredient_id" class="pantry-row">
         <view class="pantry-info">
           <text class="pantry-name">{{item.name}}</text>
-          <text wx:if="{{item.is_staple}}" class="pantry-badge">家中常备 ✓</text>
+          <text wx:if="{{item.assume_available}}" class="pantry-badge">家中常备 ✓</text>
         </view>
         <view class="pantry-more" catchtap="removeStaple" data-ingredient-id="{{item.ingredient_id}}">移除</view>
       </view>
@@ -124,6 +150,7 @@
       <text class="pantry-add-text">添加常备食材</text>
     </view>
 
+    </block>
   </block>
 
   <!-- ===== 添加食材 bottom sheet ===== -->
@@ -148,6 +175,11 @@
             <view class="picker-text">{{addForm.unit_code}} ▾</view>
           </picker>
         </view>
+      </view>
+
+      <view wx:if="{{addForm.unit_code === '自定义'}}" class="form-item">
+        <text class="form-label">自定义单位</text>
+        <input class="form-input" placeholder="如：盒、袋、瓶" data-field="custom_unit" bindinput="onAddInput" value="{{addForm.custom_unit}}" />
       </view>
 
       <view class="form-item">
@@ -193,6 +225,11 @@
             <view class="picker-text">{{editForm.unit_code}} ▾</view>
           </picker>
         </view>
+      </view>
+
+      <view wx:if="{{editForm.unit_code === '自定义'}}" class="form-item">
+        <text class="form-label">自定义单位</text>
+        <input class="form-input" placeholder="如：盒、袋、瓶" data-field="custom_unit" bindinput="onEditInput" value="{{editForm.custom_unit}}" />
       </view>
 
       <view class="form-item">

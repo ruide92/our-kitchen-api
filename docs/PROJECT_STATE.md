@@ -451,3 +451,38 @@ Backend core and frontend real-data wiring for Recipe/Meal/Fridge/Shopping loop.
 - Global Bottom Dock visual evidence: PENDING (no auto screenshot)
 
 **Next:** CODE GATE PASS / VISUAL PENDING — remaining frontend items + visual evidence before NEON MIGRATION
+
+## LOCAL GATE CORRECTION (09H) — 2026-09-05
+
+**Commit: fix: finish local kitchen runtime gate**
+
+**Critical Runtime Fixes:**
+- Homepage settings API: **FIXED** — getFamilySettings → getSettings (method did not exist in v1-api.js)
+- Menu overlay helper: **FIXED** — added equire('../../utils/tabbar-overlay') import for hideTabBar/showTabBar
+- Homepage error semantics: **FIXED** — getCurrentMeal no longer swallows all errors; only 404/NOT_FOUND treated as empty
+- Homepage addMeal accuracy: **FIXED** — only 409/ALREADY_IN_MEAL ignored; counts added/already/failed; toast shows real results
+- Business DATE contract: **FIXED** — pg types.setTypeParser(1082) returns DATE as YYYY-MM-DD string, no timezone shift; applied to start.js and test harness
+
+**Completed PENDING Features:**
+- Menu custom date: **DONE** — options() includes "自选日期..."; date picker + breakfast/lunch/dinner selector; saves to v1_meal_target
+- Menu states WXML: **DONE** — recipesLoading/recipesError/empty/search-empty; weeklyLoading/weeklyError/null/data; retryRecipes/retryWeekly
+- Fridge purchase_date: **DONE** — openEditSheet sets purchase_date; saveEditItem PATCH includes purchase_date
+- Fridge custom unit: **DONE** — add/edit show custom_unit input when unit_code='自定义'; 2盒 → unit_code=null + quantity_text='2盒'
+- Fridge states WXML: **DONE** — loading/error/empty/search-empty; pantryLoading/pantryError; retryLoad/retryPantry
+- Shopping category: **DONE** — CATEGORY_CODE_MAP (VEGETABLE→蔬菜 etc); _setItems generates category_label; _refreshGrouped uses category_label
+
+**New Tests & Audits:**
+- Frontend payload/behavior tests: **8/8 PASS** — fridge add/edit, shopping manual add, complete purchase, menu overlay, homepage addMeal accuracy, homepage getSettings
+- Static API method audit: **PASS** — scripts/static-api-audit.js; 0 missing API methods, 0 missing symbol imports
+- Runtime symbol audit: **PASS** — hideTabBar/showTabBar/createMealTarget/createV1Api all imported when used
+- WXML audit: **missing=0, dynamic=0, fixture imports=0**
+- Unit: **52/52 PASS**
+- Core integration: **22/22 PASS**
+- Legacy integration: **19/19 PASS**
+- Total integration: **41/41 PASS**
+- DevTools CLI compile: **0 project error**
+
+**CODE GATE: PASS**
+**VISUAL GATE: PENDING** (no auto screenshot evidence for Global Bottom Dock)
+
+**Next:** NEON MIGRATION (code gate passed; visual gate remains pending for final phone acceptance)

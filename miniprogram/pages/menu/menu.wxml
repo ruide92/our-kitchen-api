@@ -1,4 +1,4 @@
-﻿<view class="page">
+<view class="page">
 
   <!-- ===== 顶部双段切换 ===== -->
   <view class="tab-switch">
@@ -13,7 +13,22 @@
   <!-- ==================== 本周安排视图 ==================== -->
   <block wx:if="{{activeTab === 'weekly'}}">
 
-    <!-- 头部：标题 + 日期范围 + 重新安排本周 -->
+    <view wx:if="{{weeklyLoading}}" class="state-loading">
+      <text class="state-icon">⏳</text>
+      <text class="state-text">加载本周安排...</text>
+    </view>
+    <view wx:elif="{{weeklyError}}" class="state-error">
+      <text class="state-icon">⚠️</text>
+      <text class="state-text">{{weeklyError}}</text>
+      <view class="state-retry" bindtap="retryWeekly"><text>重新加载</text></view>
+    </view>
+    <view wx:elif="{{!weeklyPlan}}" class="state-empty">
+      <text class="state-icon">📅</text>
+      <text class="state-text">本周还没有生成计划</text>
+      <text class="state-hint">智能周菜谱功能稍后开放</text>
+    </view>
+    <block wx:else>
+
     <view class="weekly-header">
       <view class="weekly-title-row">
         <text class="weekly-title">本周安排</text>
@@ -24,7 +39,6 @@
       </view>
     </view>
 
-    <!-- 周一至周日 -->
     <scroll-view class="week-tabs" scroll-x="true" enhanced="true" show-scrollbar="false">
       <view
         wx:for="{{weekDays}}"
@@ -38,10 +52,8 @@
       </view>
     </scroll-view>
 
-    <!-- 当天三餐 -->
     <view class="meals-container">
       <view wx:for="{{selectedMeals}}" wx:key="key" class="meal-section">
-        <!-- 餐次标题行 -->
         <view class="meal-header">
           <view class="meal-header-left">
             <text class="meal-icon">{{item.icon}}</text>
@@ -52,8 +64,6 @@
             <text class="meal-rearrange" data-meal-key="{{item.key}}" catchtap="rearrangeMeal">重新安排</text>
           </view>
         </view>
-
-        <!-- 菜品横向排列 -->
         <view class="meal-dishes">
           <view wx:for="{{item.dishes}}" wx:for-item="dish" wx:key="id" class="plan-dish-card">
             <view class="plan-dish-thumb">
@@ -64,15 +74,12 @@
               <view wx:if="{{dish.locked}}" class="plan-dish-lock">🔒</view>
             </view>
             <text class="plan-dish-name">{{dish.name}}</text>
-            <!-- 轻量操作：锁定/换一道/删除 -->
             <view class="plan-dish-actions">
               <text class="dish-action" data-item-id="{{dish.id}}" catchtap="toggleLock">{{dish.locked ? '解锁' : '锁定'}}</text>
               <text class="dish-action" data-item-id="{{dish.id}}" catchtap="swapDish">换一道</text>
               <text class="dish-action dish-action-del" data-item-id="{{dish.id}}" catchtap="removePlanItem">删除</text>
             </view>
           </view>
-
-          <!-- + 添加菜品 -->
           <view class="plan-dish-add" data-meal-key="{{item.key}}" bindtap="addToMeal">
             <text class="plan-dish-add-icon">+</text>
             <text class="plan-dish-add-text">添加</text>
@@ -81,24 +88,22 @@
       </view>
     </view>
 
-    <!-- 重新安排今天 -->
     <view class="rearrange-day-btn" bindtap="rearrangeDay">
       <text>重新安排今天</text>
     </view>
 
+    </block>
   </block>
 
   <!-- ==================== 全部菜品视图 ==================== -->
   <block wx:if="{{activeTab === 'recipes'}}">
 
-    <!-- 目标餐次上下文 -->
     <view class="target-bar" bindtap="openTargetPicker">
       <text class="target-label">正在为：</text>
       <text class="target-meal">{{targetMealText}}</text>
       <text class="target-hint">选菜</text>
     </view>
 
-    <!-- 搜索框 -->
     <view class="search-bar">
       <view class="search-box">
         <text class="search-icon">🔍</text>
@@ -109,9 +114,7 @@
       </view>
     </view>
 
-    <!-- 左侧分类 + 右侧菜品列表 -->
     <view class="recipes-content">
-      <!-- 左侧分类 -->
       <scroll-view class="cat-sidebar" scroll-y>
         <view
           wx:for="{{categories}}"
@@ -124,13 +127,25 @@
         </view>
       </scroll-view>
 
-      <!-- 右侧菜品列表 -->
       <scroll-view class="recipe-list" scroll-y>
-        <view wx:if="{{filteredRecipes.length === 0}}" class="recipe-empty">
-          <text class="recipe-empty-icon">🍽️</text>
-          <text class="recipe-empty-text">没有找到相关菜品</text>
+        <view wx:if="{{recipesLoading}}" class="state-loading">
+          <text class="state-icon">⏳</text>
+          <text class="state-text">加载菜谱...</text>
         </view>
-
+        <view wx:elif="{{recipesError}}" class="state-error">
+          <text class="state-icon">⚠️</text>
+          <text class="state-text">{{recipesError}}</text>
+          <view class="state-retry" bindtap="retryRecipes"><text>重新加载</text></view>
+        </view>
+        <view wx:elif="{{recipes.length === 0 && !searchText}}" class="state-empty">
+          <text class="state-icon">🍽️</text>
+          <text class="state-text">还没有可用菜谱</text>
+        </view>
+        <view wx:elif="{{filteredRecipes.length === 0}}" class="state-empty">
+          <text class="state-icon">🔍</text>
+          <text class="state-text">没有找到相关菜品</text>
+        </view>
+        <block wx:else>
         <view wx:for="{{filteredRecipes}}" wx:key="id" class="recipe-row" data-id="{{item.id}}" bindtap="goDetail">
           <view class="recipe-thumb">
             <image wx:if="{{item.cover_image_url}}" src="{{item.cover_image_url}}" mode="aspectFill" class="recipe-img"></image>
@@ -150,17 +165,15 @@
               <text wx:if="{{item.kissText}}" class="meta-item meta-kiss">{{item.kissText}}</text>
             </view>
           </view>
-          <!-- 加入按钮 -->
           <view class="recipe-add-btn" data-recipe-id="{{item.id}}" catchtap="addRecipeToMeal">
             <text class="recipe-add-text">＋</text>
           </view>
         </view>
-
         <view class="recipe-list-bottom">共 {{filteredRecipes.length}} 道菜</view>
+        </block>
       </scroll-view>
     </view>
 
-    <!-- mini cart（sticky，TabBar 上方）-->
     <view wx:if="{{miniCartVisible}}" class="mini-cart" bindtap="goTodayMenu">
       <text class="mini-cart-icon">🍽</text>
       <text class="mini-cart-text">{{targetMealText}} · {{miniCartCount}}道</text>
@@ -168,7 +181,6 @@
     </view>
 
   </block>
-
 
   <!-- Target meal picker sheet -->
   <view wx:if="{{showTargetPicker}}" class="sheet-mask" bindtap="closeTargetPicker">
@@ -182,6 +194,32 @@
       </view>
     </view>
   </view>
-  <!-- 底部安全区 -->
+
+  <!-- Custom date picker sheet -->
+  <view wx:if="{{showCustomDate}}" class="sheet-mask" bindtap="cancelCustomDate">
+    <view class="sheet-panel" catchtap="noop">
+      <view class="sheet-handle"></view>
+      <text class="sheet-title">自选日期和餐次</text>
+      <view class="custom-date-row">
+        <text class="custom-date-label">日期</text>
+        <picker mode="date" value="{{customDate}}" bindchange="onCustomDateChange">
+          <view class="custom-date-picker">{{customDate || '选择日期'}}</view>
+        </picker>
+      </view>
+      <view class="custom-date-row">
+        <text class="custom-date-label">餐次</text>
+        <view class="custom-meal-types">
+          <view class="custom-meal-type {{customMealType === 'BREAKFAST' ? 'active' : ''}}" data-type="BREAKFAST" bindtap="onCustomMealTypeChange">早餐</view>
+          <view class="custom-meal-type {{customMealType === 'LUNCH' ? 'active' : ''}}" data-type="LUNCH" bindtap="onCustomMealTypeChange">午餐</view>
+          <view class="custom-meal-type {{customMealType === 'DINNER' ? 'active' : ''}}" data-type="DINNER" bindtap="onCustomMealTypeChange">晚餐</view>
+        </view>
+      </view>
+      <view class="sheet-actions">
+        <view class="sheet-btn sheet-btn-cancel" bindtap="cancelCustomDate"><text>取消</text></view>
+        <view class="sheet-btn sheet-btn-primary" bindtap="confirmCustomDate"><text>确认</text></view>
+      </view>
+    </view>
+  </view>
+
   <view class="bottom-space"></view>
 </view>

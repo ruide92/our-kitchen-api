@@ -8,7 +8,8 @@ test('Core kitchen HTTP checkpoint against real PostgreSQL', async t => {
   assert.ok(connectionString, 'TEST_DATABASE_URL required');
   assert.match(new URL(connectionString).pathname, /_test$/i);
   assert.notEqual(connectionString, process.env.DATABASE_URL);
-  const { Pool } = require('pg');
+  const { Pool, types } = require('pg');
+  types.setTypeParser(1082, (val) => val); // DATE as YYYY-MM-DD string
   const { loadMigrations, migrate } = require('../../backend/v1/migrations');
   const { createRepository } = require('../../backend/v1/repository');
   const { createFamilyService } = require('../../backend/v1/family-service');
@@ -410,7 +411,7 @@ test('Core kitchen HTTP checkpoint against real PostgreSQL', async t => {
     assert.equal(res.status, 200, 'GET current should be 200');
     const list = res.body.data;
     assert.ok(list.meal_summary, 'meal_summary should not be null');
-    const md = new Date(list.meal_summary.meal_date); assert.equal(md.getUTCFullYear(), 2026, 'meal_date year'); assert.equal(md.getUTCMonth(), 8, 'meal_date month'); assert.equal(md.getUTCDate(), 21, 'meal_date day (UTC)');
+    assert.equal(list.meal_summary.meal_date, '2026-09-22', 'meal_date must be YYYY-MM-DD no timezone shift');
     assert.equal(list.meal_summary.meal_type, 'DINNER', 'meal_type correct');
     assert.equal(num(list.meal_summary.diners_count), 2, 'diners_count correct');
     assert.ok(list.meal_summary.recipes.includes('辣椒炒肉'), 'recipes should include 辣椒炒肉');

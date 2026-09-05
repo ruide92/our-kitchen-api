@@ -8,6 +8,7 @@
 
 const { createV1Api } = require('../../utils/v1-api')
 const { createMealTarget } = require('../../utils/meal-target')
+const { hideTabBar, showTabBar } = require('../../utils/tabbar-overlay')
 
 const MEAL_META = {
   BREAKFAST: { key: 'BREAKFAST', label: '早餐', icon: '🌅' },
@@ -55,6 +56,9 @@ Page({
     targetMealText: '',
     targetMealOptions: [],
     showTargetPicker: false,
+    showCustomDate: false,
+    customDate: '',
+    customMealType: 'DINNER',
     // Mini cart
     miniCartCount: 0,
     miniCartVisible: false,
@@ -116,6 +120,9 @@ Page({
     this._loadRecipes()
     this._loadWeeklyPlan()
   },
+
+  retryRecipes() { this._loadRecipes() },
+  retryWeekly() { this._loadWeeklyPlan() },
 
   // ===== Recipes (real API) =====
   async _loadRecipes() {
@@ -202,12 +209,41 @@ Page({
     const idx = e.currentTarget.dataset.index
     const option = this.data.targetMealOptions[idx]
     if (!option) return
+    if (option.isCustom) {
+      const today = new Date()
+      const dateStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0')
+      this.setData({ showCustomDate: true, customDate: dateStr, customMealType: 'DINNER' })
+      return
+    }
     const target = this._mealTarget.update({ meal_date: option.meal_date, meal_type: option.meal_type })
     showTabBar(this)
     this.setData({ targetMeal: target, showTargetPicker: false }, () => {
       this._refreshTargetMealText()
       this._refreshMiniCart()
     })
+  },
+
+  onCustomDateChange(e) {
+    this.setData({ customDate: e.detail.value })
+  },
+
+  onCustomMealTypeChange(e) {
+    this.setData({ customMealType: e.detail.value })
+  },
+
+  confirmCustomDate() {
+    const { customDate, customMealType } = this.data
+    if (!customDate) return
+    const target = this._mealTarget.update({ meal_date: customDate, meal_type: customMealType })
+    showTabBar(this)
+    this.setData({ targetMeal: target, showTargetPicker: false, showCustomDate: false }, () => {
+      this._refreshTargetMealText()
+      this._refreshMiniCart()
+    })
+  },
+
+  cancelCustomDate() {
+    this.setData({ showCustomDate: false })
   },
 
   // ===== Mini cart (real Meal API) =====

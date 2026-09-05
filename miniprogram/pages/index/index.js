@@ -98,7 +98,7 @@ Page({
         this._api.getFamily(this._familyId),
         this._api.getMembers(this._familyId),
         this._api.getWeeklyPlan(this._familyId, this.data.weekDays[0].fullDate),
-        this._api.getFamilySettings(this._familyId).catch(() => null),
+        this._api.getSettings(this._familyId).catch(() => null),
       ])
       // Family + members view model
       const memberVM = (members || []).map(m => ({
@@ -205,18 +205,37 @@ Page({
     const selDate = this.data.selectedFullDate
     wx.showLoading({ title: '加入中...' })
     try {
-      let mealObj = await this._api.getCurrentMeal(this._familyId, selDate, mealKey).catch(() => null)
+      let mealObj = null
+      try {
+        mealObj = await this._api.getCurrentMeal(this._familyId, selDate, mealKey)
+      } catch (mealErr) {
+        if (mealErr.status !== 404 && mealErr.code !== 'NOT_FOUND') throw mealErr
+      }
       if (!mealObj || !mealObj.id) {
         mealObj = await this._api.ensureCurrentMeal(this._familyId, { meal_date: selDate, meal_type: mealKey, diners_count: 2 })
       }
+      let added = 0, already = 0, failed = 0
       for (const dish of meal.dishes) {
         try {
           await this._api.addMealItem(this._familyId, mealObj.id, { recipe_id: dish.recipeId, servings: 2, source: 'WEEKLY_PLAN' })
-        } catch (_) { /* already in meal */ }
+          added++
+        } catch (addErr) {
+          if (addErr.status === 409 || addErr.code === 'ALREADY_IN_MEAL') {
+            already++
+          } else {
+            failed++
+          }
+        }
       }
       wx.hideLoading()
       this._loadRealData()
-      wx.showToast({ title: '已加入' + meal.dishes.length + '道', icon: 'success' })
+      if (failed > 0) {
+        wx.showToast({ title: `加入${added}道，${failed}道失败`, icon: 'none' })
+      } else if (already > 0) {
+        wx.showToast({ title: `已加入${added}道，${already}道已在菜单中`, icon: 'success' })
+      } else {
+        wx.showToast({ title: `已加入${added}道`, icon: 'success' })
+      }
     } catch (err) {
       wx.hideLoading()
       wx.showToast({ title: err.message || '加入失败', icon: 'none' })

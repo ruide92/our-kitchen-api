@@ -12,6 +12,11 @@ const { toCode, toLabel, formatQuantity, UI_UNIT_OPTIONS } = require('../../util
 const UNIT_OPTIONS = UI_UNIT_OPTIONS
 const CATEGORY_OPTIONS = ['蔬菜', '肉蛋', '海鲜', '乳品', '调料', '主食', '水果', '其他']
 const CATEGORY_ORDER = ['蔬菜', '肉蛋', '海鲜', '乳品', '调料', '主食', '水果', '其他']
+const CATEGORY_CODE_MAP = {
+  VEGETABLE: '蔬菜', MEAT: '肉蛋', EGG: '肉蛋', SEAFOOD: '海鲜',
+  DAIRY: '乳品', SEASONING: '调料', STAPLE: '主食', FRUIT: '水果', OTHER: '其他'
+}
+function categoryLabel(code) { return CATEGORY_CODE_MAP[code] || '其他' }
 const STORAGE_OPTIONS = ['冷藏', '冷冻', '常温', '其他']
 const STORAGE_MAP = { '冷藏': 'REFRIGERATED', '冷冻': 'FROZEN', '常温': 'ROOM_TEMP', '其他': 'OTHER' }
 
@@ -83,6 +88,7 @@ Page({
       missing_label: formatQuantity(i.missing_quantity, i.unit_code, null),
       inventory_label: formatQuantity(i.inventory_deducted, i.unit_code, null),
       pantry_label: formatQuantity(i.pantry_deducted, i.unit_code, null),
+      category_label: categoryLabel(i.category_code),
     }))
     const purchased = enriched.filter(i => i.is_purchased).length
     const total = enriched.length
@@ -100,14 +106,14 @@ Page({
     const orderSet = new Set(CATEGORY_ORDER)
     const groups = []
     CATEGORY_ORDER.forEach(cat => {
-      const catItems = filtered.filter(i => (i.category || '其他') === cat)
+      const catItems = filtered.filter(i => (i.category_label || '其他') === cat)
       if (catItems.length > 0) groups.push({ category: cat, items: catItems })
     })
     filtered.forEach(item => {
-      if (orderSet.has(item.category || '其他')) return
-      const existing = groups.find(g => g.category === item.category)
+      if (orderSet.has(item.category_label || '其他')) return
+      const existing = groups.find(g => g.category === item.category_label)
       if (existing) existing.items.push(item)
-      else groups.push({ category: item.category || '其他', items: [item] })
+      else groups.push({ category: item.category_label || '其他', items: [item] })
     })
     this.setData({ groupedItems: groups })
   },

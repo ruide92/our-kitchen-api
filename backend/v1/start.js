@@ -1,4 +1,6 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
+// Return DATE columns as YYYY-MM-DD strings, not JS Date objects (avoids timezone shift)
+types.setTypeParser(1082, (val) => val);
 const { loadConfig } = require('./config');
 const { createTokens } = require('./tokens');
 const { createWechatClient } = require('./wechat');

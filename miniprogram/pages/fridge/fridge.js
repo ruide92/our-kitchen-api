@@ -43,8 +43,8 @@ Page({
     showAddStapleSheet: false,
     newStapleName: '',
     // Forms
-    addForm: { name: '', quantity: '', unit_code: 'g', storage_location: '冷藏', expiry_date: '', note: '' },
-    editForm: { quantity: '', unit_code: 'g', storage_location: '冷藏', expiry_date: '', note: '' },
+    addForm: { name: '', quantity: '', unit_code: 'g', custom_unit: '', storage_location: '冷藏', expiry_date: '', note: '' },
+    editForm: { quantity: '', unit_code: 'g', custom_unit: '', storage_location: '冷藏', purchase_date: '', expiry_date: '', note: '' },
     unitOptions: UNIT_OPTIONS,
     storageOptions: STORAGE_OPTIONS,
   },
@@ -67,6 +67,9 @@ Page({
     this._loadFridge()
     this._loadPantry()
   },
+
+  retryLoad() { this._loadFridge() },
+  retryPantry() { this._loadPantry() },
 
   async _loadFridge() {
     if (!this._familyId) return
@@ -143,7 +146,7 @@ Page({
 
   // ===== Add sheet =====
   openAddSheet() {
-    this.setData({ showAddSheet: true, addForm: { name: '', quantity: '', unit_code: 'g', storage_location: '冷藏', expiry_date: '', note: '' } })
+    this.setData({ showAddSheet: true, addForm: { name: '', quantity: '', unit_code: 'g', custom_unit: '', storage_location: '冷藏', expiry_date: '', note: '' } })
     hideTabBar(this)
   },
   closeAddSheet() { this.setData({ showAddSheet: false }); showTabBar(this) },
@@ -162,7 +165,7 @@ Page({
     if (form.quantity && (isNaN(qty) || qty < 0)) { wx.showToast({ title: '请输入正确数量', icon: 'none' }); return }
     const isCustom = form.unit_code === '自定义'
     const unitCode = isCustom ? null : toCode(form.unit_code)
-    const quantityText = isCustom ? (form.quantity || '') + form.unit_code : (form.quantity ? form.quantity + (toLabel(unitCode) || '') : null)
+    const quantityText = isCustom ? (form.quantity || '') + (form.custom_unit || '') : (form.quantity ? form.quantity + (toLabel(unitCode) || '') : null)
     wx.showLoading({ title: '添加中...' })
     try {
       let ingredientId = null
@@ -203,7 +206,9 @@ Page({
       editForm: {
         quantity: item.quantity != null ? String(item.quantity) : '',
         unit_code: item.unit_code || 'g',
+        custom_unit: item.unit_code ? '' : (item.quantity_text ? item.quantity_text.replace(/^\d+/, '') : ''),
         storage_location: STORAGE_REVERSE[item.storage_location] || '冷藏',
+        purchase_date: item.purchase_date || todayStr(),
         expiry_date: item.expiry_date || '',
         note: item.note || '',
       },
@@ -226,7 +231,7 @@ Page({
     if (qty < 0) { wx.showToast({ title: '数量不能小于0', icon: 'none' }); return }
     const isCustom = form.unit_code === '自定义'
     const unitCode = isCustom ? null : toCode(form.unit_code)
-    const quantityText = isCustom ? (form.quantity || '') + form.unit_code : (form.quantity ? form.quantity + (toLabel(unitCode) || '') : null)
+    const quantityText = isCustom ? (form.quantity || '') + (form.custom_unit || '') : (form.quantity ? form.quantity + (toLabel(unitCode) || '') : null)
     wx.showLoading({ title: '保存中...' })
     try {
       await this._api.updateFridgeItem(this._familyId, item.id, {
@@ -234,6 +239,7 @@ Page({
         quantity_text: quantityText,
         unit_code: unitCode,
         storage_location: STORAGE_MAP[form.storage_location] || 'REFRIGERATED',
+        purchase_date: form.purchase_date || null,
         expiry_date: form.expiry_date || null,
         note: form.note || null,
         version: item.version,
