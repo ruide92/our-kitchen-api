@@ -7,7 +7,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
-const { execFileSync } = require('node:child_process');
+const { execFileSync, spawnSync } = require('node:child_process');
 
 const SKILL_SCRIPTS = path.resolve(__dirname, '..', 'skills', 'our-kitchen-project-director', 'scripts');
 
@@ -67,37 +67,77 @@ function runScript(scriptName, args, cwd, extraEnv = {}) {
   }
 }
 
-// R1: local HEAD != remote HEAD → preflight FAIL
-// We test this by checking the divergence logic: preflight calls git rev-list --count
-// and if >0, increments failures. We verify by code inspection + a controlled scenario.
-test('R1: preflight FAILs on HEAD divergence', () => {
+// R1: local HEAD != remote HEAD → preflight FAIL (authoritative direct SHA comparison)
+// Origin path must contain ruide92/our-kitchen-api to pass repo identity check.
+test('R1: preflight FAILs on HEAD divergence (direct SHA mismatch)', () => {
   const dir = makeTempDir();
   makeMinimalRepo(dir);
-  // Init a real git repo with one commit
+  // Init a real git repo
   execFileSync('git', ['init'], { cwd: dir, stdio: 'pipe' });
   execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, stdio: 'pipe' });
   execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'pipe' });
   execFileSync('git', ['add', '.'], { cwd: dir, stdio: 'pipe' });
   execFileSync('git', ['commit', '-m', 'init'], { cwd: dir, stdio: 'pipe' });
   execFileSync('git', ['branch', '-M', 'codex/kitchen-v4'], { cwd: dir, stdio: 'pipe' });
-  // Set origin to a local bare repo with DIFFERENT HEAD
-  const bare = path.join(dir, 'bare.git');
+  // Origin path contains ruide92/our-kitchen-api to satisfy repo identity
+  const bare = path.join(dir, 'ruide92', 'our-kitchen-api.git');
   execFileSync('git', ['init', '--bare', bare], { stdio: 'pipe' });
   execFileSync('git', ['remote', 'add', 'origin', bare], { cwd: dir, stdio: 'pipe' });
-  // Create a different commit in bare
+  // Push local to bare first
+  execFileSync('git', ['push', '-u', 'origin', 'codex/kitchen-v4'], { cwd: dir, stdio: 'pipe' });
+  // Create a DIFFERENT commit in bare via a separate clone (specify branch)
   const tmp2 = makeTempDir();
-  execFileSync('git', ['clone', bare, tmp2], { stdio: 'pipe' });
+  execFileSync('git', ['clone', '--branch', 'codex/kitchen-v4', bare, tmp2], { stdio: 'pipe' });
   execFileSync('git', ['config', 'user.email', 't@t.com'], { cwd: tmp2, stdio: 'pipe' });
   execFileSync('git', ['config', 'user.name', 'T'], { cwd: tmp2, stdio: 'pipe' });
-  writeFile(tmp2, 'remote-file.txt', 'remote');
+  writeFile(tmp2, 'remote-only-file.txt', 'remote');
   execFileSync('git', ['add', '.'], { cwd: tmp2, stdio: 'pipe' });
-  execFileSync('git', ['commit', '-m', 'remote commit'], { cwd: tmp2, stdio: 'pipe' });
+  execFileSync('git', ['commit', '-m', 'remote-only commit'], { cwd: tmp2, stdio: 'pipe' });
   execFileSync('git', ['push', 'origin', 'HEAD:codex/kitchen-v4'], { cwd: tmp2, stdio: 'pipe' });
+  // Do NOT fetch into dir — local HEAD != remote HEAD
 
   const result = runScript('preflight.js', [], dir);
   assert.notEqual(result.code, 0, `preflight should FAIL on divergence, got code=0`);
-  assert.ok(result.stdout.includes('HEAD_DIVERGENCE') || result.stdout.includes('REMOTE_ONLY'),
-    `should report divergence, got: ${result.stdout.slice(0, 500)}`);
+  assert.ok(result.stdout.includes('HEAD_DIVERGENCE'),
+    `must report HEAD_DIVERGENCE, got: ${result.stdout.slice(0, 600)}`);
+  assert.ok(result.stdout.includes('LOCAL_HEAD:') && result.stdout.includes('REMOTE_HEAD:'),
+    `must output both HEADs, got: ${result.stdout.slice(0, 600)}`);
+});
+
+// R1b: remote SHA not in local object database, ls-remote readable, local != remote
+// → preflight must HEAD_DIVERGENCE FAIL (covers the dangerous un-fetched scenario)
+test('R1b: preflight FAILs when remote SHA is unknown to local object DB', () => {
+  const dir = makeTempDir();
+  makeMinimalRepo(dir);
+  execFileSync('git', ['init'], { cwd: dir, stdio: 'pipe' });
+  execFileSync('git', ['config', 'user.email', 't@t.com'], { cwd: dir, stdio: 'pipe' });
+  execFileSync('git', ['config', 'user.name', 'T'], { cwd: dir, stdio: 'pipe' });
+  execFileSync('git', ['add', '.'], { cwd: dir, stdio: 'pipe' });
+  execFileSync('git', ['commit', '-m', 'local init'], { cwd: dir, stdio: 'pipe' });
+  execFileSync('git', ['branch', '-M', 'codex/kitchen-v4'], { cwd: dir, stdio: 'pipe' });
+  const bare = path.join(dir, 'ruide92', 'our-kitchen-api.git');
+  execFileSync('git', ['init', '--bare', bare], { stdio: 'pipe' });
+  execFileSync('git', ['remote', 'add', 'origin', bare], { cwd: dir, stdio: 'pipe' });
+  // Push local, then create remote commit from a clone that is NEVER fetched into dir
+  execFileSync('git', ['push', '-u', 'origin', 'codex/kitchen-v4'], { cwd: dir, stdio: 'pipe' });
+  const tmp2 = makeTempDir();
+  execFileSync('git', ['clone', '--branch', 'codex/kitchen-v4', bare, tmp2], { stdio: 'pipe' });
+  execFileSync('git', ['config', 'user.email', 'r@r.com'], { cwd: tmp2, stdio: 'pipe' });
+  execFileSync('git', ['config', 'user.name', 'R'], { cwd: tmp2, stdio: 'pipe' });
+  writeFile(tmp2, 'unfetched.txt', 'never-fetched-into-dir');
+  execFileSync('git', ['add', '.'], { cwd: tmp2, stdio: 'pipe' });
+  execFileSync('git', ['commit', '-m', 'unfetched remote commit'], { cwd: tmp2, stdio: 'pipe' });
+  execFileSync('git', ['push', 'origin', 'HEAD:codex/kitchen-v4'], { cwd: tmp2, stdio: 'pipe' });
+
+  // Verify remote SHA is NOT in dir's object database
+  const remoteSha = execFileSync('git', ['ls-remote', 'origin', 'codex/kitchen-v4'], { cwd: dir, encoding: 'utf8' }).split('\t')[0].trim();
+  const catFile = spawnSync('git', ['cat-file', '-t', remoteSha], { cwd: dir, encoding: 'utf8' });
+  assert.notEqual(catFile.status, 0, 'remote SHA should NOT exist in local object DB before preflight');
+
+  const result = runScript('preflight.js', [], dir);
+  assert.notEqual(result.code, 0, `preflight should FAIL, got code=0`);
+  assert.ok(result.stdout.includes('HEAD_DIVERGENCE'),
+    `must report HEAD_DIVERGENCE even when rev-list may fail, got: ${result.stdout.slice(0, 600)}`);
 });
 
 // R2: remote HEAD unavailable → preflight FAIL
