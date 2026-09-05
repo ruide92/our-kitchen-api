@@ -1,4 +1,4 @@
-<view class="page">
+﻿<view class="page">
 
   <!-- ===== 顶部双段切换 ===== -->
   <view class="tab-switch">
@@ -92,7 +92,7 @@
   <block wx:if="{{activeTab === 'recipes'}}">
 
     <!-- 目标餐次上下文 -->
-    <view class="target-bar">
+    <view class="target-bar" bindtap="openTargetPicker">
       <text class="target-label">正在为：</text>
       <text class="target-meal">{{targetMealText}}</text>
       <text class="target-hint">选菜</text>
@@ -169,6 +169,19 @@
 
   </block>
 
+
+  <!-- Target meal picker sheet -->
+  <view wx:if="{{showTargetPicker}}" class="sheet-mask" bindtap="closeTargetPicker">
+    <view class="sheet-panel" catchtap="noop">
+      <view class="sheet-handle"></view>
+      <text class="sheet-title">选择目标餐次</text>
+      <view class="target-options">
+        <view wx:for="{{targetMealOptions}}" wx:key="label" class="target-option {{item.meal_date === targetMeal.meal_date && item.meal_type === targetMeal.meal_type ? 'target-option-active' : ''}}" bindtap="selectTargetMeal" data-index="{{index}}">
+          <text>{{item.label}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
   <!-- 底部安全区 -->
   <view class="bottom-space"></view>
 </view>

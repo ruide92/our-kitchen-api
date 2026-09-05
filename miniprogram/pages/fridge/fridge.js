@@ -8,12 +8,13 @@
 
 const { hideTabBar, showTabBar } = require('../../utils/tabbar-overlay.js')
 const { createV1Api } = require('../../utils/v1-api')
+const { toCode, toLabel, formatQuantity, UI_UNIT_OPTIONS } = require('../../utils/unit-display.js')
 
 const STORAGE_MAP = { '冷藏': 'REFRIGERATED', '冷冻': 'FROZEN', '常温': 'ROOM_TEMP', '其他': 'OTHER' }
 const STORAGE_REVERSE = { REFRIGERATED: '冷藏', FROZEN: '冷冻', ROOM_TEMP: '常温', OTHER: '其他' }
 
 const CATEGORIES = ['全部', '蔬菜', '肉蛋', '海鲜', '乳品', '调料', '主食', '水果', '其他']
-const UNIT_OPTIONS = ['g', 'kg', 'ml', 'L', '个', '盒', '袋', '根', '瓶']
+const UNIT_OPTIONS = UI_UNIT_OPTIONS
 const STORAGE_OPTIONS = ['冷藏', '冷冻', '常温', '其他']
 
 function pad(n) { return n < 10 ? '0' + n : '' + n }
@@ -89,7 +90,13 @@ Page({
     if (!this._familyId) return
     try {
       const staples = await this._api.listPantry(this._familyId)
-      this.setData({ pantryStaples: staples || [] })
+      const viewModel = (staples || []).map(s => ({
+        ...s,
+        name: s.ingredient_name || s.display_name_override || '食材',
+        is_staple: s.assume_available === true,
+        ingredient_id: s.ingredient_id,
+      }))
+      this.setData({ pantryStaples: viewModel })
     } catch (e) {
       this.setData({ pantryStaples: [] })
     }
@@ -103,6 +110,7 @@ Page({
       freshness_status: fresh.status,
       expiry_label: fresh.label,
       name: item.display_name_override || item.ingredient_name || '食材',
+      quantity_label: formatQuantity(item.quantity, item.unit_code, item.quantity_text),
     }
   },
 
@@ -148,9 +156,11 @@ Page({
     if (!form.name.trim()) { wx.showToast({ title: '请输入食材名', icon: 'none' }); return }
     const qty = Number(form.quantity)
     if (form.quantity && (isNaN(qty) || qty < 0)) { wx.showToast({ title: '请输入正确数量', icon: 'none' }); return }
+    const isCustom = form.unit_code === '自定义'
+    const unitCode = isCustom ? null : toCode(form.unit_code)
+    const quantityText = isCustom ? (form.quantity || '') + form.unit_code : (form.quantity ? form.quantity + (toLabel(unitCode) || '') : null)
     wx.showLoading({ title: '添加中...' })
     try {
-      // Try resolve ingredient
       let ingredientId = null
       try {
         const resolved = await this._api.resolveIngredient(this._familyId, form.name.trim())
@@ -162,8 +172,8 @@ Page({
         ingredient_id: ingredientId,
         display_name_override: ingredientId ? null : form.name.trim(),
         quantity: qty || null,
-        quantity_text: form.quantity ? form.quantity + (form.unit_code || '') : null,
-        unit_code: form.unit_code || null,
+        quantity_text: quantityText,
+        unit_code: unitCode,
         storage_location: STORAGE_MAP[form.storage_location] || 'REFRIGERATED',
         expiry_date: form.expiry_date || null,
         purchase_date: todayStr(),
@@ -210,11 +220,15 @@ Page({
     if (form.quantity === '') { wx.showToast({ title: '数量不能为空', icon: 'none' }); return }
     if (isNaN(qty)) { wx.showToast({ title: '请输入正确数量', icon: 'none' }); return }
     if (qty < 0) { wx.showToast({ title: '数量不能小于0', icon: 'none' }); return }
+    const isCustom = form.unit_code === '自定义'
+    const unitCode = isCustom ? null : toCode(form.unit_code)
+    const quantityText = isCustom ? (form.quantity || '') + form.unit_code : (form.quantity ? form.quantity + (toLabel(unitCode) || '') : null)
     wx.showLoading({ title: '保存中...' })
     try {
       await this._api.updateFridgeItem(this._familyId, item.id, {
         quantity: qty,
-        unit_code: form.unit_code || null,
+        quantity_text: quantityText,
+        unit_code: unitCode,
         storage_location: STORAGE_MAP[form.storage_location] || 'REFRIGERATED',
         expiry_date: form.expiry_date || null,
         note: form.note || null,
@@ -304,6 +318,13 @@ Page({
 
   // ===== Cook with fridge (placeholder) =====
   cookWithFridge() { wx.showToast({ title: '看冰箱做菜将在推荐引擎接入后启用', icon: 'none' }) },
+
+  // ===== Missing handlers for WXML contract =====
+  noop() {},
+  prioritizeExpiring() { wx.showToast({ title: '优先做掉将在推荐引擎接入后启用', icon: 'none' }) },
+  removeItem(e) { this.deleteItem(e) },
+  toggleStaple(e) { this.removeStaple(e) },
+  onEditPurchaseChange(e) { this.setData({ 'editForm.purchase_date': e.detail.value }) },
 
   onPullDownRefresh() {
     this._loadAll()

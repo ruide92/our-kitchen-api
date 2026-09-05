@@ -199,10 +199,12 @@ function createShoppingService(pool) {
     return access(familyId, userId, null, true, async tx => {
       const list = (await tx.query('SELECT * FROM shopping_lists WHERE id=$1 AND family_id=$2 AND status=$3', [listId, familyId, 'OPEN'])).rows[0];
       if (!list) throw new ApiError(404, 'NOT_FOUND', '购物清单不存在或已关闭');
+      const reqQty = body.required_quantity != null ? body.required_quantity : (body.quantity != null ? body.quantity : null)
+      const reqQtyText = body.required_quantity_text || body.quantity_text || null
       const item = (await tx.query(`INSERT INTO shopping_list_items(id,shopping_list_id,ingredient_id,display_name_override,required_quantity,required_quantity_text,unit_code,is_purchased,source,note,created_by_user_id)
         VALUES($1,$2,$3,$4,$5,$6,$7,false,'MANUAL',$8,$9) RETURNING *`,
-        [randomUUID(), listId, body.ingredient_id || null, body.name, body.quantity != null ? body.quantity : null,
-         body.quantity_text || null, body.unit_code || null, body.note || null, userId])).rows[0];
+        [randomUUID(), listId, body.ingredient_id || null, body.name || body.display_name_override, reqQty,
+         reqQtyText, body.unit_code || null, body.note || null, userId])).rows[0];
       return item;
     });
   }

@@ -584,3 +584,9 @@
 .bottom-space {
   height: calc(130rpx + env(safe-area-inset-bottom));
 }
+
+/* Target meal picker */
+.target-options { padding: 16rpx 0; }
+.target-option { padding: 24rpx 32rpx; font-size: 28rpx; color: #5D4037; border-bottom: 1rpx solid #F0EBE3; }
+.target-option-active { color: #7CB342; font-weight: 600; background: #F1F8E9; }
+

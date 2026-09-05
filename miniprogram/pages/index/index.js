@@ -64,40 +64,98 @@ Page({
   onLoad() {
     this._familyId = wx.getStorageSync('v1_active_family_id')
     this._api = createV1Api({ wxAdapter: wx })
-    this._buildFromFixture()
+    this._initWeekDays()
     this._loadRealData()
   },
 
+  _initWeekDays() {
+    const now = new Date()
+    const day = now.getDay()
+    const mondayOffset = day === 0 ? -6 : 1 - day
+    const monday = new Date(now)
+    monday.setDate(now.getDate() + mondayOffset)
+    const weekDays = []
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday)
+      d.setDate(monday.getDate() + i)
+      weekDays.push({
+        index: i,
+        label: WEEKDAYS[i],
+        date: String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'),
+        fullDate: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'),
+        isToday: d.toDateString() === now.toDateString(),
+      })
+    }
+    const todayIndex = weekDays.findIndex(d => d.isToday)
+    this.setData({
+      weekDays,
+      selectedDayIndex: todayIndex >= 0 ? todayIndex : 0,
+      selectedFullDate: weekDays[todayIndex >= 0 ? todayIndex : 0].fullDate,
+      todayLabel: now.getFullYear() + '年' + (now.getMonth() + 1) + '月' + now.getDate() + '日 ' + WEEKDAYS[(now.getDay() + 6) % 7],
+    })
+  },
+
   async _loadRealData() {
-    if (!this._familyId) return
+    if (!this._familyId) {
+      this.setData({ family: { name: '未登录家庭' }, members: [] })
+      return
+    }
     try {
-      // Real family/members from session storage
-      const family = wx.getStorageSync('v1_family')
-      const members = wx.getStorageSync('v1_members')
+      // Real family/members from API
+      const [family, members, weekly] = await Promise.all([
+        this._api.getFamily(this._familyId).catch(() => null),
+        this._api.getMembers(this._familyId).catch(() => []),
+        this._api.getWeeklyPlan(this._familyId, this.data.weekDays[0].fullDate).catch(() => null),
+      ])
       if (family) {
         this.setData({
           family: { name: family.name || '我们的小厨房' },
           members: (members || []).map(m => ({ nickname: m.nickname || '家庭成员', role: m.role || 'MEMBER' })),
+          dinersLabel: (family.default_diners || 2) + '人',
         })
       }
-      // Real today label
-      const now = new Date()
-      const weekday = WEEKDAYS[(now.getDay() + 6) % 7]
-      this.setData({ todayLabel: now.getFullYear() + '年' + (now.getMonth() + 1) + '月' + now.getDate() + '日 ' + weekday })
-      // Real current meal
+      // Weekly plan: null = real empty state
+      if (weekly && weekly.items) {
+        this._buildWeeklyDisplay(weekly)
+      } else {
+        this.setData({ selectedMeals: MEAL_TYPES.map(mt => ({ key: mt.key, label: mt.label, icon: mt.icon, dishes: [] })) })
+      }
+      // Real current meal from shared meal-target
       const mealTarget = wx.getStorageSync('v1_meal_target')
       if (mealTarget) {
-        const meal = await this._api.getCurrentMeal(this._familyId, mealTarget.meal_date, mealTarget.meal_type)
+        const meal = await this._api.getCurrentMeal(this._familyId, mealTarget.meal_date, mealTarget.meal_type).catch(() => null)
         if (meal && meal.items) {
           this.setData({
             currentMeal: { meal_date: meal.meal_date, meal_type: meal.meal_type, items: meal.items },
             currentMealDate: meal.meal_date,
+            mealTypeLabel: MEAL_TYPES.find(m => m.key === meal.meal_type)?.label || '晚餐',
           })
         }
       }
     } catch (e) {
-      // Keep fixture as fallback for non-critical display
+      // Real error - don't fall back to fixture
     }
+  },
+
+  _buildWeeklyDisplay(weekly) {
+    const { selectedFullDate } = this.data
+    const items = weekly.items || []
+    const selectedMeals = MEAL_TYPES.map(mt => {
+      const dishes = items
+        .filter(it => it.plan_date === selectedFullDate && it.meal_type === mt.key)
+        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+        .map(it => ({
+          id: it.id,
+          recipeId: it.recipe_id,
+          name: it.recipe_name || '菜谱',
+          coverImageUrl: it.cover_image_url || '',
+          color: dishColor(it.recipe_name || '菜'),
+          initial: (it.recipe_name || '菜').charAt(0),
+          locked: !!it.locked,
+        }))
+      return { key: mt.key, label: mt.label, icon: mt.icon, dishes }
+    })
+    this.setData({ selectedMeals })
   },
 
   onShow() {
@@ -262,54 +320,38 @@ Page({
    * 仅当选中日期和餐次同时匹配时才刷新底部展示。
    * 真实后端接入后应调用 POST /api/v1/families/:family_id/meals/:meal_id/items（批量）。
    */
-  addMealToCurrent(e) {
+  async addMealToCurrent(e) {
     const mealKey = e.currentTarget.dataset.mealKey
     const meal = this.data.selectedMeals.find((m) => m.key === mealKey)
     if (!meal || meal.dishes.length === 0) {
       wx.showToast({ title: '该餐暂未安排', icon: 'none' })
       return
     }
-
-    const selDate = this.data.selectedFullDate
-    // 定位到「选中日期 + 选中餐次」的独立存储
-    const dayBucket = this.data.mealsByDateAndType[selDate] || {}
-    const mealBucket = dayBucket[mealKey] || { items: [] }
-    const targetItems = mealBucket.items || []
-
-    const existingIds = new Set(targetItems.map((it) => it.recipeId))
-    const toAdd = meal.dishes.filter((d) => !existingIds.has(d.recipeId))
-
-    if (toAdd.length === 0) {
-      wx.showToast({ title: '已全部在本餐菜单', icon: 'none' })
+    if (!this._familyId || !this._api) {
+      wx.showToast({ title: '请先登录', icon: 'none' })
       return
     }
-
-    const newItems = toAdd.map((d) => ({
-      id: `mi-local-${Date.now()}-${d.recipeId}`,
-      recipeId: d.recipeId,
-      name: d.name,
-      coverImageUrl: d.coverImageUrl || '',
-      color: dishColor(d.name),
-      initial: dishInitial(d.name),
-      selected_by_nickname: '锐'
-    }))
-
-    const allItems = targetItems.concat(newItems)
-    const patch = {
-      [`mealsByDateAndType.${selDate}.${mealKey}.items`]: allItems
+    const selDate = this.data.selectedFullDate
+    wx.showLoading({ title: '加入中...' })
+    try {
+      let mealObj = await this._api.getCurrentMeal(this._familyId, selDate, mealKey).catch(() => null)
+      if (!mealObj || !mealObj.id) {
+        mealObj = await this._api.ensureCurrentMeal(this._familyId, { meal_date: selDate, meal_type: mealKey, diners_count: 2 })
+      }
+      // Add each dish as meal item (idempotent - API handles duplicates)
+      for (const dish of meal.dishes) {
+        try {
+          await this._api.addMealItem(this._familyId, mealObj.id, { recipe_id: dish.recipeId, servings: 2, source: 'WEEKLY_PLAN' })
+        } catch (_) { /* already in meal */ }
+      }
+      wx.hideLoading()
+      this._loadRealData()
+      wx.showToast({ title: '已加入' + meal.dishes.length + '道', icon: 'success' })
+    } catch (err) {
+      wx.hideLoading()
+      wx.showToast({ title: err.message || '加入失败', icon: 'none' })
     }
-
-    // 仅当选中日期 + 餐次同时等于底部展示餐次时，才刷新 currentMeal
-    if (selDate === this.data.currentMealDate && mealKey === this.data.currentMeal.meal_type) {
-      patch['currentMeal.items'] = allItems
-      patch.currentMealLabel = `${this.data.mealTypeLabel}菜单 · ${allItems.length}道`
-    }
-
-    this.setData(patch)
-    const mealLabel = MEAL_TYPES.find((m) => m.key === mealKey)
-      ? MEAL_TYPES.find((m) => m.key === mealKey).label
-      : mealKey
-    wx.showToast({ title: `${mealLabel}已加入${toAdd.length}道`, icon: 'success' })
+  },
   },
 
   // ===== 快捷入口 =====
@@ -340,7 +382,10 @@ Page({
   // ===== 已点菜单 =====
 
   goTodayMenu() {
-    wx.showToast({ title: '本餐菜单真实数据接入后启用', icon: 'none', duration: 1500 })
+    const mealTarget = wx.getStorageSync('v1_meal_target')
+    const date = mealTarget?.meal_date || this.data.currentMealDate || this.data.selectedFullDate
+    const mealType = mealTarget?.meal_type || 'DINNER'
+    wx.navigateTo({ url: '/pages/meal/meal?date=' + date + '&meal_type=' + mealType })
   },
 
   goDetail(e) {
@@ -349,7 +394,7 @@ Page({
 
   // 下拉刷新（fixture 模式：重建 view model 并停止刷新）
   onPullDownRefresh() {
-    this._buildFromFixture()
+    this._loadRealData()
     wx.stopPullDownRefresh()
   }
 })

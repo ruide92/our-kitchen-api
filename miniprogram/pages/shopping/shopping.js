@@ -7,8 +7,9 @@
 
 const { hideTabBar, showTabBar } = require('../../utils/tabbar-overlay.js')
 const { createV1Api } = require('../../utils/v1-api')
+const { toCode, toLabel, formatQuantity, UI_UNIT_OPTIONS } = require('../../utils/unit-display.js')
 
-const UNIT_OPTIONS = ['g', 'kg', 'ml', 'L', '个', '盒', '袋', '自定义']
+const UNIT_OPTIONS = UI_UNIT_OPTIONS
 const CATEGORY_OPTIONS = ['蔬菜', '肉蛋', '海鲜', '乳品', '调料', '主食', '水果', '其他']
 const CATEGORY_ORDER = ['蔬菜', '肉蛋', '海鲜', '乳品', '调料', '主食', '水果', '其他']
 const STORAGE_OPTIONS = ['冷藏', '冷冻', '常温', '其他']
@@ -75,10 +76,16 @@ Page({
   },
 
   _setItems(items) {
-    const purchased = items.filter(i => i.is_purchased).length
-    const total = items.length
+    const enriched = (items || []).map(i => ({
+      ...i,
+      name: i.display_name_override || i.ingredient_name || '商品',
+      quantity_label: formatQuantity(i.required_quantity, i.unit_code, i.required_quantity_text),
+      missing_label: formatQuantity(i.missing_quantity, i.unit_code, null),
+    }))
+    const purchased = enriched.filter(i => i.is_purchased).length
+    const total = enriched.length
     const percent = total > 0 ? Math.round((purchased / total) * 100) : 0
-    this.setData({ items, totalCount: total, purchasedCount: purchased, progressPercent: percent })
+    this.setData({ items: enriched, totalCount: total, purchasedCount: purchased, progressPercent: percent })
     this._refreshGrouped()
   },
 
@@ -152,7 +159,7 @@ Page({
     const item = this.data.items.find(i => i.id === e.currentTarget.dataset.id)
     if (!item || item.source !== 'MANUAL') return
     const standardUnits = UNIT_OPTIONS.filter(u => u !== '自定义')
-    const isCustom = !item.unit_code || !standardUnits.includes(item.unit_code)
+    const isCustom = !item.unit_code || !standardUnits.includes(toLabel(item.unit_code))
     this.setData({
       showManualDetailSheet: true,
       manualItem: item,
@@ -161,8 +168,8 @@ Page({
       editForm: {
         name: item.name,
         quantity: String(item.required_quantity || ''),
-        unit: isCustom ? '自定义' : item.unit_code,
-        customUnit: isCustom ? (item.unit_text || '') : '',
+        unit: isCustom ? '自定义' : toLabel(item.unit_code),
+        customUnit: isCustom ? (item.unit_text || item.required_quantity_text || '') : '',
         category: item.category || '其他',
         note: item.note || '',
       },
@@ -181,16 +188,15 @@ Page({
     if (!editForm.name || !editForm.name.trim()) { wx.showToast({ title: '请输入商品名称', icon: 'none' }); return }
     const isCustom = editForm.unit === '自定义'
     if (isCustom && !editForm.customUnit.trim()) { wx.showToast({ title: '请输入自定义单位', icon: 'none' }); return }
-    const unitText = isCustom ? editForm.customUnit.trim() : editForm.unit
+    const unitCode = isCustom ? null : toCode(editForm.unit)
+    const quantityText = isCustom ? (editForm.quantity || '') + editForm.customUnit.trim() : (editForm.quantity ? editForm.quantity + (toLabel(unitCode) || '') : null)
     wx.showLoading({ title: '保存中...' })
     try {
       await this._api.updateShoppingItem(this._familyId, this.data.currentList.id, editingManualId, {
-        name: editForm.name.trim(),
+        display_name_override: editForm.name.trim(),
         required_quantity: Number(editForm.quantity) || 0,
-        required_quantity_text: (editForm.quantity || '') + unitText,
-        unit_code: isCustom ? null : editForm.unit,
-        unit_text: isCustom ? unitText : null,
-        category: editForm.category,
+        required_quantity_text: quantityText,
+        unit_code: unitCode,
         note: editForm.note || null,
       })
       wx.hideLoading()
@@ -243,16 +249,15 @@ Page({
     if (!addForm.name || !addForm.name.trim()) { wx.showToast({ title: '请输入商品名称', icon: 'none' }); return }
     const isCustom = addForm.unit === '自定义'
     if (isCustom && !addForm.customUnit.trim()) { wx.showToast({ title: '请输入自定义单位', icon: 'none' }); return }
-    const unitText = isCustom ? addForm.customUnit.trim() : addForm.unit
+    const unitCode = isCustom ? null : toCode(addForm.unit)
+    const quantityText = isCustom ? (addForm.quantity || '') + addForm.customUnit.trim() : (addForm.quantity ? addForm.quantity + (toLabel(unitCode) || '') : null)
     wx.showLoading({ title: '添加中...' })
     try {
       await this._api.addShoppingItem(this._familyId, this.data.currentList.id, {
         name: addForm.name.trim(),
         required_quantity: Number(addForm.quantity) || 0,
-        required_quantity_text: (addForm.quantity || '') + unitText,
-        unit_code: isCustom ? null : addForm.unit,
-        unit_text: isCustom ? unitText : null,
-        category: addForm.category,
+        required_quantity_text: quantityText,
+        unit_code: unitCode,
         note: addForm.note || null,
         source: 'MANUAL',
       })

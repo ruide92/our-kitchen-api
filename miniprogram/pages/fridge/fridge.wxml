@@ -81,7 +81,7 @@
         </view>
         <view class="inv-info">
           <text class="inv-name">{{item.name}}</text>
-          <text class="inv-meta">{{item.quantity}}{{item.unit_code}} · {{item.storage_location}}</text>
+          <text class="inv-meta">{{item.quantity_label}} · {{item.storage_label}}</text>
         </view>
         <view class="inv-status status-{{item.freshness_status}}">
           <text class="inv-status-dot"></text>
@@ -115,7 +115,7 @@
           <text class="pantry-name">{{item.name}}</text>
           <text wx:if="{{item.is_staple}}" class="pantry-badge">家中常备 ✓</text>
         </view>
-        <view class="pantry-more" catchtap="toggleStaple" data-id="{{item.id}}">⋯</view>
+        <view class="pantry-more" catchtap="removeStaple" data-ingredient-id="{{item.ingredient_id}}">移除</view>
       </view>
     </view>
 
@@ -223,7 +223,7 @@
       </view>
 
       <view class="sheet-actions">
-        <view class="sheet-btn sheet-btn-danger" bindtap="removeItem">移出冰箱</view>
+        <view class="sheet-btn sheet-btn-danger" bindtap="deleteItem" data-id="{{editingItem.id}}">移出冰箱</view>
         <view class="sheet-btn sheet-btn-confirm" bindtap="saveEditItem">保存</view>
       </view>
     </view>

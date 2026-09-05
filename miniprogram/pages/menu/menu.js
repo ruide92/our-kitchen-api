@@ -316,6 +316,8 @@ Page({
 
   goDetail() { wx.showToast({ title: '菜品详情接入后启用', icon: 'none' }) },
 
+  noop() {},
+
   onPullDownRefresh() {
     this._loadAll()
     wx.stopPullDownRefresh()
