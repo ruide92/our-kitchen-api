@@ -125,38 +125,23 @@ function createCookingService(pool) {
 
       const result = [];
       for (const meal of meals) {
-        let items;
-        if (meal.recipe_snapshot && meal.recipe_snapshot.schema_version === 1) {
-          // Use frozen snapshot — immune to recipe rename/edit/delete
-          const snapshotItems = getItemsFromSnapshot(meal.recipe_snapshot);
-          items = await Promise.all(snapshotItems.map(async si => {
-            const user = si.selected_by_user_id
-              ? (await tx.query('SELECT nickname FROM users WHERE id=$1', [si.selected_by_user_id])).rows[0]
-              : null;
-            return {
-              id: si.meal_item_id,
-              recipe_id: si.recipe_id,
-              recipe_name: si.recipe?.name || si.recipe_name,
-              servings: si.servings,
-              source: si.source,
-              selected_by_user_id: si.selected_by_user_id,
-              selected_by_nickname: user?.nickname || null,
-            };
-          }));
-        } else {
-          // Legacy: no snapshot — fail closed for CONFIRMED+, use live for PLANNING only
-          if (meal.status !== 'PLANNING') {
-            items = [{ error: 'MEAL_SNAPSHOT_MISSING', meal_id: meal.id, status: meal.status }];
-          } else {
-            items = (await tx.query(`
-              SELECT mi.*, r.name as recipe_name, u.nickname as selected_by_nickname
-              FROM meal_items mi
-              JOIN recipes r ON r.id = mi.recipe_id
-              LEFT JOIN users u ON u.id = mi.selected_by_user_id
-              WHERE mi.meal_id=$1 ORDER BY mi.sort_order
-            `, [meal.id])).rows;
-          }
-        }
+        // Fail closed: CONFIRMED/COOKING/COMPLETED must have valid snapshot
+        const snapshot = requireSnapshot(meal, 'getMealHistory');
+        const snapshotItems = getItemsFromSnapshot(snapshot);
+        const items = await Promise.all(snapshotItems.map(async si => {
+          const user = si.selected_by_user_id
+            ? (await tx.query('SELECT nickname FROM users WHERE id=$1', [si.selected_by_user_id])).rows[0]
+            : null;
+          return {
+            id: si.meal_item_id,
+            recipe_id: si.recipe_id,
+            recipe_name: si.recipe?.name || si.recipe_name,
+            servings: si.servings,
+            source: si.source,
+            selected_by_user_id: si.selected_by_user_id,
+            selected_by_nickname: user?.nickname || null,
+          };
+        }));
         result.push({ ...meal, items });
       }
       return result;

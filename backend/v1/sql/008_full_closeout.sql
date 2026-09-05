@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS cooking_sessions (
   family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
   meal_id UUID NOT NULL REFERENCES meals(id) ON DELETE CASCADE,
   status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','COMPLETED','CANCELLED')),
-  started_by_user_id UUID REFERENCES users(id),
+  started_by_user_id UUID NOT NULL REFERENCES users(id),
   completed_by_user_id UUID REFERENCES users(id),
   started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   completed_at TIMESTAMPTZ
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS kiss_ledger (
   family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
   from_user_id UUID NOT NULL REFERENCES users(id),
   to_user_id UUID NOT NULL REFERENCES users(id),
-  meal_id UUID REFERENCES meals(id),
+  meal_id UUID NOT NULL REFERENCES meals(id),
   recipe_id UUID REFERENCES recipes(id),
   suggested_amount INTEGER,
   actual_amount INTEGER NOT NULL DEFAULT 0 CHECK (actual_amount >= 0),
@@ -61,7 +61,7 @@ CREATE INDEX IF NOT EXISTS idx_kiss_ledger_to ON kiss_ledger(to_user_id);
 CREATE TABLE IF NOT EXISTS recipe_imports (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-  created_by_user_id UUID REFERENCES users(id),
+  created_by_user_id UUID NOT NULL REFERENCES users(id),
   schema_version TEXT NOT NULL DEFAULT '2.0',
   raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
   normalized_payload JSONB,

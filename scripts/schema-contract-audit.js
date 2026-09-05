@@ -11,6 +11,18 @@ const AMENDMENT_DIR = path.join(ROOT, 'docs');
 
 const mode = process.argv.find(a => a.startsWith('--mode='))?.split('=')[1] || 'governance';
 
+// Baseline migrations already approved and running in production (001-007).
+// Only migrations after baseline require amendment approval.
+const BASELINE_MIGRATIONS = new Set([
+  '001_identity_family.sql',
+  '002_family_cookware.sql',
+  '003_ingredients_recipes.sql',
+  '004_meals_weekly.sql',
+  '005_fridge_pantry.sql',
+  '006_shopping.sql',
+  '007_shopping_evidence.sql',
+]);
+
 function readFile(p) { return fs.readFileSync(p, 'utf8'); }
 
 function listSql() {
@@ -61,6 +73,7 @@ function main() {
   const allAlters = [];
 
   for (const f of sqlFiles) {
+    if (BASELINE_MIGRATIONS.has(f)) continue; // already approved in production
     const sql = readFile(path.join(SQL_DIR, f));
     extractTables(sql).forEach(t => allTables.set(t, f));
     allAlters.push(...extractAlterColumns(sql).map(a => ({ ...a, migration: f })));

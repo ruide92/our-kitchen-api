@@ -337,7 +337,7 @@
 - `sort_order`
 - `created_at`
 
-为了保证后续家庭菜谱被编辑也不会悄悄改变一顿已经确认/做过的饭，在 Meal 从 `PLANNING` 转 `CONFIRMED` 时应创建可审计 recipe snapshot（实现方式可为 JSON snapshot 或版本引用）；Phase 3 施工前在 migration 设计中确定，但行为必须满足“历史不漂移”。
+为了保证后续家庭菜谱被编辑也不会悄悄改变一顿已经确认/做过的饭，在 Meal 从 `PLANNING` 转 `CONFIRMED` 时必须在同一事务中原子创建 `meals.recipe_snapshot`（schema_version=1 versioned full JSON snapshot）。CONFIRMED 后 snapshot immutable，禁止重新 confirm 覆盖。CONFIRMED/COOKING/COMPLETED 状态下 cooking steps、shopping requirements、history recipe name 必须从 snapshot 读取，不得重新 JOIN 当前 live recipes。
 
 ## 20. fridge_items
 
@@ -539,7 +539,9 @@ V4 统一：
 - weekly_plans(family_id,week_start_date) 对 ACTIVE 唯一
 - meals(family_id,meal_date,meal_type) unique
 - favorites(user_id,recipe_id) unique
-- pantry_staples(family_id,ingredient_id) unique
+- pantry_staples canonical: UNIQUE(family_id, ingredient_id) WHERE ingredient_id IS NOT NULL
+- pantry_staples custom: UNIQUE(family_id, LOWER(BTRIM(display_name_override))) WHERE ingredient_id IS NULL
+- pantry_staples CHECK: ingredient_id IS NOT NULL OR NULLIF(BTRIM(display_name_override), '') IS NOT NULL
 - recipes family scope/BASE scope CHECK
 
 所有 family-scoped 查询需以 family_id 索引支持。

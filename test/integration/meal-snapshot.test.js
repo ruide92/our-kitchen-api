@@ -287,4 +287,110 @@ test('Meal snapshot historical correctness + pantry custom', async t => {
     const kiss = (await pool.query(`SELECT to_regclass('kiss_ledger') as t`)).rows[0].t;
     assert.ok(kiss, 'kiss_ledger table exists');
   });
+
+  // ===== S15: History CONFIRMED snapshot missing → MEAL_SNAPSHOT_MISSING =====
+  await t.test('S15: history missing snapshot fails closed', async () => {
+    const mealId = await createMealWithRecipe('2026-09-21', 'DINNER');
+    await request('POST', `/families/${family.id}/meals/${mealId}/confirm`, {});
+    // Corrupt: set snapshot to null
+    await pool.query('UPDATE meals SET recipe_snapshot=NULL WHERE id=$1', [mealId]);
+    const res = await request('GET', `/families/${family.id}/meals/history?limit=10`);
+    assert.notEqual(res.statusCode, 200, 'history must fail when snapshot missing');
+    assert.equal(res.body?.error?.code, 'MEAL_SNAPSHOT_MISSING');
+  });
+
+  // ===== S16: History schema_version unsupported → MEAL_SNAPSHOT_UNSUPPORTED =====
+  await t.test('S16: history unsupported schema version fails closed', async () => {
+    const mealId = await createMealWithRecipe('2026-09-22', 'DINNER');
+    await request('POST', `/families/${family.id}/meals/${mealId}/confirm`, {});
+    // Corrupt: set schema_version to 999
+    await pool.query(`UPDATE meals SET recipe_snapshot=jsonb_set(recipe_snapshot, '{schema_version}', '999') WHERE id=$1`, [mealId]);
+    const res = await request('GET', `/families/${family.id}/meals/history?limit=10`);
+    assert.notEqual(res.statusCode, 200, 'history must fail when schema_version unsupported');
+    assert.equal(res.body?.error?.code, 'MEAL_SNAPSHOT_UNSUPPORTED');
+  });
+
+  // ===== S17: confirm 后修改 recipe 内容，snapshot JSON 本身保持不变 =====
+  await t.test('S17: snapshot immutable after recipe modification', async () => {
+    const mealId = await createMealWithRecipe('2026-09-23', 'DINNER');
+    const confirmed = (await request('POST', `/families/${family.id}/meals/${mealId}/confirm`, {})).body.data;
+    const snapshotBefore = JSON.stringify(confirmed.recipe_snapshot);
+
+    // Modify recipe name, ingredients, steps
+    await pool.query(`UPDATE recipes SET name='新红烧肉_immutable_test' WHERE id=$1`, [recipeId]);
+    await pool.query(`DELETE FROM recipe_ingredients WHERE recipe_id=$1`, [recipeId]);
+    await pool.query(`DELETE FROM recipe_steps WHERE recipe_id=$1`, [recipeId]);
+
+    // Re-fetch meal — snapshot must be unchanged
+    const mealAfter = (await pool.query('SELECT recipe_snapshot FROM meals WHERE id=$1', [mealId])).rows[0];
+    const snapshotAfter = JSON.stringify(mealAfter.recipe_snapshot);
+    assert.equal(snapshotAfter, snapshotBefore, 'snapshot must be immutable after recipe modification');
+
+    // Restore recipe for subsequent tests
+    await pool.query(`UPDATE recipes SET name='红烧肉' WHERE id=$1`, [recipeId]);
+  });
+
+  // ===== S18: 008 fields/nullability/index/check 逐项匹配 DATA_MODEL 25-28 =====
+  await t.test('S18: 008 schema alignment with DATA_MODEL sections 25-28', async () => {
+    // cooking_sessions.started_by_user_id NOT NULL
+    const cookingStarted = (await pool.query(`
+      SELECT is_nullable FROM information_schema.columns
+      WHERE table_schema=current_schema() AND table_name='cooking_sessions' AND column_name='started_by_user_id'
+    `)).rows[0];
+    assert.equal(cookingStarted.is_nullable, 'NO', 'cooking_sessions.started_by_user_id must be NOT NULL');
+
+    // kiss_ledger.meal_id NOT NULL
+    const kissMeal = (await pool.query(`
+      SELECT is_nullable FROM information_schema.columns
+      WHERE table_schema=current_schema() AND table_name='kiss_ledger' AND column_name='meal_id'
+    `)).rows[0];
+    assert.equal(kissMeal.is_nullable, 'NO', 'kiss_ledger.meal_id must be NOT NULL');
+
+    // recipe_imports.created_by_user_id NOT NULL
+    const importCreated = (await pool.query(`
+      SELECT is_nullable FROM information_schema.columns
+      WHERE table_schema=current_schema() AND table_name='recipe_imports' AND column_name='created_by_user_id'
+    `)).rows[0];
+    assert.equal(importCreated.is_nullable, 'NO', 'recipe_imports.created_by_user_id must be NOT NULL');
+
+    // pantry custom CHECK constraint exists
+    const pantryCheck = (await pool.query(`
+      SELECT conname FROM pg_constraint
+      WHERE conname='pantry_custom_name_required'
+    `)).rows;
+    assert.ok(pantryCheck.length > 0, 'pantry_custom_name_required CHECK constraint exists');
+
+    // pantry canonical partial unique index exists
+    const canonicalIdx = (await pool.query(`
+      SELECT indexname FROM pg_indexes
+      WHERE tablename='pantry_staples' AND indexname LIKE '%canonical%'
+    `)).rows;
+    assert.ok(canonicalIdx.length > 0, 'pantry canonical partial unique index exists');
+
+    // pantry custom normalized partial unique index exists
+    const customIdx = (await pool.query(`
+      SELECT indexname FROM pg_indexes
+      WHERE tablename='pantry_staples' AND indexname LIKE '%custom%'
+    `)).rows;
+    assert.ok(customIdx.length > 0, 'pantry custom normalized partial unique index exists');
+  });
+
+  // ===== S19: DATA_MODEL / SPEC approval consistency =====
+  await t.test('S19: amendment approval consistency', async () => {
+    const fs = require('fs');
+    const path = require('path');
+    const amendmentPath = path.join(__dirname, '..', '..', 'docs', 'SPEC_AMENDMENT_12A.md');
+    const content = fs.readFileSync(amendmentPath, 'utf8');
+    const statusMatch = content.match(/^Status:\s*(\w+)/m);
+    const blockedMatch = content.match(/^Blocked:\s*(.+)/m);
+    if (statusMatch && statusMatch[1] === 'APPROVED') {
+      assert.ok(blockedMatch && blockedMatch[1].trim().startsWith('NO'),
+        'APPROVED amendment must have Blocked: NO');
+    }
+    // If DRAFT, must be BLOCKED
+    if (statusMatch && statusMatch[1] === 'DRAFT') {
+      assert.ok(blockedMatch && blockedMatch[1].includes('YES'),
+        'DRAFT amendment must be Blocked: YES');
+    }
+  });
 });

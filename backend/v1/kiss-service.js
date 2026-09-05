@@ -20,6 +20,7 @@ function createKissService(pool) {
       const { to_user_id, recipe_id, meal_id, suggested_amount, actual_amount, rating_id, reason } = body;
       if (!to_user_id) throw new ApiError(400, 'TO_USER_REQUIRED', '请选择接收么么哒的家人');
       if (to_user_id === userId) throw new ApiError(400, 'CANNOT_KISS_SELF', '不能给自己送么么哒');
+      if (!meal_id) throw new ApiError(400, 'MEAL_REQUIRED', '么么哒必须关联具体餐次');
 
       // Verify both are active family members
       const toMember = (await tx.query('SELECT * FROM family_members WHERE family_id=$1 AND user_id=$2 AND status=\'ACTIVE\'', [familyId, to_user_id])).rows[0];
