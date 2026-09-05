@@ -11,6 +11,7 @@
 
 const FIXTURE = require('./shopping-fixture.js')
 const { hideTabBar, showTabBar } = require('../../utils/tabbar-overlay.js')
+const { createV1Api } = require('../../utils/v1-api')
 
 Page({
   data: {
@@ -66,6 +67,22 @@ Page({
 
   onLoad() {
     this.initFromFixture()
+    this._familyId = wx.getStorageSync('v1_active_family_id')
+    this._api = createV1Api({ wxAdapter: wx })
+    this._loadRealShopping()
+  },
+
+  async _loadRealShopping() {
+    if (!this._familyId || !this._api) return
+    try {
+      const list = await this._api.getCurrentShoppingList(this._familyId)
+      if (list && list.items && list.items.length > 0) {
+        this.setData({ currentList: list, mealSummary: list.meal_summary || null })
+        this._setItems(list.items)
+      }
+    } catch (e) {
+      // fallback to fixture
+    }
   },
 
   onShow() {
@@ -147,10 +164,23 @@ Page({
   },
 
   // ===== 勾选购买 =====
-  togglePurchased(e) {
+  async togglePurchased(e) {
     const id = e.currentTarget.dataset.id
+    const item = this.data.items.find(i => i.id === id)
+    if (!item) return
+    const newPurchased = !item.is_purchased
+
+    // 如果有真实 V1 环境，调用真实 API
+    if (this._familyId && this._api && this.data.currentList && this.data.currentList.id) {
+      try {
+        await this._api.updateShoppingItem(this._familyId, this.data.currentList.id, id, { is_purchased: newPurchased })
+      } catch (e) {
+        // fallback to local
+      }
+    }
+
     const items = this.data.items.map(i =>
-      i.id === id ? { ...i, is_purchased: !i.is_purchased } : i
+      i.id === id ? { ...i, is_purchased: newPurchased } : i
     )
     this._setItems(items)
   },
@@ -359,8 +389,20 @@ Page({
     showTabBar(this)
   },
 
-  confirmComplete() {
-    // 本轮只做 toast，不真的写入冰箱
+  async confirmComplete() {
+    // 如果有真实 V1 环境，调用真实 API
+    if (this._familyId && this._api && this.data.currentList && this.data.currentList.id) {
+      try {
+        await this._api.completeShoppingList(this._familyId, this.data.currentList.id)
+        wx.showToast({ title: '采购完成，已入冰箱', icon: 'success', duration: 2000 })
+        this.setData({ showCompleteSheet: false, purchasedItems: [] })
+        showTabBar(this)
+        await this._loadRealShopping()
+        return
+      } catch (e) {
+        // fallback to toast
+      }
+    }
     wx.showToast({
       title: '真实入库将在库存事务接入后启用',
       icon: 'none',
