@@ -1,459 +1,312 @@
 /**
- * 冰箱 Tab — V4 fixture UI
+ * 冰箱 Tab — Real V1 data mode
  *
- * 本页面完全使用 fridge-fixture.js 本地演示数据，不接 legacy API。
- * 所有增删改仅修改页面运行态，刷新后恢复 fixture。
- * "看冰箱做菜"为 placeholder，不做真实推荐。
+ * REAL MODE: no fixture fallback. All CRUD via V1 API.
+ * Freshness computed from real today's date.
+ * Storage enum mapped: 冷藏->REFRIGERATED, 冷冻->FROZEN, 常温->ROOM_TEMP, 其他->OTHER
  */
 
-const FIXTURE = require('./fridge-fixture.js')
 const { hideTabBar, showTabBar } = require('../../utils/tabbar-overlay.js')
 const { createV1Api } = require('../../utils/v1-api')
 
+const STORAGE_MAP = { '冷藏': 'REFRIGERATED', '冷冻': 'FROZEN', '常温': 'ROOM_TEMP', '其他': 'OTHER' }
+const STORAGE_REVERSE = { REFRIGERATED: '冷藏', FROZEN: '冷冻', ROOM_TEMP: '常温', OTHER: '其他' }
+
+const CATEGORIES = ['全部', '蔬菜', '肉蛋', '海鲜', '乳品', '调料', '主食', '水果', '其他']
+const UNIT_OPTIONS = ['g', 'kg', 'ml', 'L', '个', '盒', '袋', '根', '瓶']
+const STORAGE_OPTIONS = ['冷藏', '冷冻', '常温', '其他']
+
+function pad(n) { return n < 10 ? '0' + n : '' + n }
+function todayStr() { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) }
+
 Page({
   data: {
-    // 双段切换
     activeTab: 'inventory',
-
-    // 库存运行态
     inventoryItems: [],
     pantryStaples: [],
     filteredItems: [],
-
-    // 筛选
-    categories: FIXTURE.categories,
+    categories: CATEGORIES,
     currentCategory: '全部',
     searchKeyword: '',
-
-    // 摘要
     totalCount: 0,
     expiringCount: 0,
     expiringItems: [],
-
-    // bottom sheet
+    loading: false,
+    error: null,
+    // Sheets
     showAddSheet: false,
     showEditSheet: false,
     editingItem: null,
     showAddStapleSheet: false,
     newStapleName: '',
-
-    // 表单
-    addForm: {
-      name: '',
-      quantity: '',
-      unit_code: 'g',
-      storage_location: '冷藏',
-      expiry_date: '',
-      note: '',
-    },
-    editForm: {
-      quantity: '',
-      unit_code: 'g',
-      storage_location: '冷藏',
-      purchase_date: '',
-      expiry_date: '',
-      note: '',
-    },
-    unitOptions: FIXTURE.unit_options,
-    storageOptions: FIXTURE.storage_options,
+    // Forms
+    addForm: { name: '', quantity: '', unit_code: 'g', storage_location: '冷藏', expiry_date: '', note: '' },
+    editForm: { quantity: '', unit_code: 'g', storage_location: '冷藏', expiry_date: '', note: '' },
+    unitOptions: UNIT_OPTIONS,
+    storageOptions: STORAGE_OPTIONS,
   },
 
   onLoad() {
-    this.initFromFixture()
     this._familyId = wx.getStorageSync('v1_active_family_id')
     this._api = createV1Api({ wxAdapter: wx })
-    this._loadRealFridge()
-  },
-
-  async _loadRealFridge() {
-    if (!this._familyId || !this._api) return
-    try {
-      const items = await this._api.listFridge(this._familyId, {})
-      if (items && items.length > 0) {
-        const enriched = items.map(i => ({
-          ...i,
-          freshness_status: this._computeFreshness(i.expiry_date).status,
-          expiry_label: this._computeFreshness(i.expiry_date).label
-        }))
-        const expiring = enriched.filter(i => i.freshness_status === 'EXPIRING')
-        this.setData({
-          inventoryItems: enriched,
-          totalCount: enriched.length,
-          expiringCount: expiring.length,
-          expiringItems: expiring.slice(0, 3),
-          filteredItems: enriched
-        })
-      }
-    } catch (e) {
-      // fallback to fixture
-    }
+    this._loadAll()
   },
 
   onShow() {
-    try { if (this.getTabBar()) this.getTabBar().setData({ selected: 2, hidden: false }) } catch(e) {}
+    try { if (this.getTabBar()) this.getTabBar().setData({ selected: 2, hidden: false }) } catch (e) {}
+    this._loadAll()
   },
 
   onHide() { showTabBar(this) },
   onUnload() { showTabBar(this) },
 
-  // 注意：不在 onShow 重置 fixture。
-  // 用户运行态（添加/编辑/删除/常备食材修改）在切换 Tab 后必须保留。
-  // 只有页面真正重新加载（onLoad）时才恢复 fixture。
+  async _loadAll() {
+    this._loadFridge()
+    this._loadPantry()
+  },
 
-  initFromFixture() {
-    const items = JSON.parse(JSON.stringify(FIXTURE.inventory_items))
-    const staples = JSON.parse(JSON.stringify(FIXTURE.pantry_staples))
-    const expiring = items.filter(i => i.freshness_status === 'EXPIRING')
-    this.setData({
-      inventoryItems: items,
-      pantryStaples: staples,
-      totalCount: items.length,
-      expiringCount: expiring.length,
-      expiringItems: expiring.slice(0, 3),
-    })
-    this._refreshFiltered()
+  async _loadFridge() {
+    if (!this._familyId) return
+    this.setData({ loading: true, error: null })
+    try {
+      const items = await this._api.listFridge(this._familyId, {})
+      const enriched = (items || []).map(i => this._enrichItem(i))
+      const expiring = enriched.filter(i => i.freshness_status === 'EXPIRING' || i.freshness_status === 'EXPIRED')
+      this.setData({
+        inventoryItems: enriched,
+        totalCount: enriched.length,
+        expiringCount: expiring.length,
+        expiringItems: expiring.slice(0, 3),
+        loading: false,
+      })
+      this._refreshFiltered()
+    } catch (e) {
+      this.setData({ loading: false, error: e.message || '加载失败', inventoryItems: [], filteredItems: [] })
+    }
+  },
+
+  async _loadPantry() {
+    if (!this._familyId) return
+    try {
+      const staples = await this._api.listPantry(this._familyId)
+      this.setData({ pantryStaples: staples || [] })
+    } catch (e) {
+      this.setData({ pantryStaples: [] })
+    }
+  },
+
+  _enrichItem(item) {
+    const fresh = this._computeFreshness(item.expiry_date)
+    return {
+      ...item,
+      storage_label: STORAGE_REVERSE[item.storage_location] || item.storage_location,
+      freshness_status: fresh.status,
+      expiry_label: fresh.label,
+      name: item.display_name_override || item.ingredient_name || '食材',
+    }
+  },
+
+  _computeFreshness(expiryDate) {
+    if (!expiryDate) return { status: 'FRESH', label: '无保质期' }
+    const today = new Date(todayStr() + 'T00:00:00')
+    const expiry = new Date(expiryDate + 'T00:00:00')
+    const days = Math.floor((expiry - today) / 86400000)
+    if (days < 0) return { status: 'EXPIRED', label: '已过期' }
+    if (days <= 2) return { status: 'EXPIRING', label: days + '天后过期' }
+    return { status: 'FRESH', label: days + '天' }
   },
 
   _refreshFiltered() {
     const { inventoryItems, currentCategory, searchKeyword } = this.data
     let list = inventoryItems
-    if (currentCategory !== '全部') {
-      list = list.filter(i => i.category === currentCategory)
-    }
-    if (searchKeyword && searchKeyword.trim()) {
-      const kw = searchKeyword.trim().toLowerCase()
-      list = list.filter(i => i.name.toLowerCase().includes(kw))
-    }
+    if (currentCategory !== '全部') list = list.filter(i => (i.category_code || '其他') === currentCategory || i.name.includes(currentCategory))
+    if (searchKeyword) list = list.filter(i => i.name.includes(searchKeyword))
     this.setData({ filteredItems: list })
   },
 
-  /**
-   * 基于 FIXTURE.reference_date 确定性计算保质状态。
-   * 不使用系统当前时间，避免 fixture 漂移。
-   */
-  _computeFreshness(expiryDate) {
-    if (!expiryDate) {
-      return { freshness_status: 'NORMAL', expiry_label: '长期' }
-    }
-    const ref = new Date(FIXTURE.reference_date + 'T00:00:00')
-    const exp = new Date(expiryDate + 'T00:00:00')
-    const diff = Math.round((exp - ref) / (1000 * 60 * 60 * 24))
-    if (diff < 0) {
-      return { freshness_status: 'EXPIRED', expiry_label: '已过期' }
-    }
-    if (diff === 0) {
-      return { freshness_status: 'EXPIRING', expiry_label: '今天到期' }
-    }
-    if (diff === 1) {
-      return { freshness_status: 'EXPIRING', expiry_label: '明天到期' }
-    }
-    if (diff <= 3) {
-      return { freshness_status: 'EXPIRING', expiry_label: diff + '天到期' }
-    }
-    return { freshness_status: 'FRESH', expiry_label: '还有' + diff + '天' }
-  },
+  // ===== Tab switch =====
+  switchTab(e) { this.setData({ activeTab: e.currentTarget.dataset.tab }) },
+  selectCategory(e) { this.setData({ currentCategory: e.currentTarget.dataset.code }, () => this._refreshFiltered()) },
+  onSearchInput(e) { this.setData({ searchKeyword: e.detail.value }, () => this._refreshFiltered()) },
 
-  /**
-   * 统一刷新统计：totalCount / expiringCount / expiringItems / filteredItems。
-   * 新增/编辑/删除后统一调用，避免多套漂移逻辑。
-   */
-  _refreshStats() {
-    const items = this.data.inventoryItems
-    const expiring = items.filter(i => i.freshness_status === 'EXPIRING')
-    this.setData({
-      totalCount: items.length,
-      expiringCount: expiring.length,
-      expiringItems: expiring.slice(0, 3),
-    })
-    this._refreshFiltered()
-  },
-
-  /**
-   * 解析数量输入。
-   * 空字符串 → 返回 oldValue（编辑时保留旧值，新增时为 0）。
-   * NaN → toast 提示，返回 null（调用方应中止保存）。
-   * 负数 → toast 提示，返回 null。
-   * 合法数字（含 0）→ 返回该数字。
-   */
-  _parseQuantity(raw, oldValue) {
-    if (raw === '' || raw === null || raw === undefined) {
-      return oldValue
-    }
-    const n = Number(raw)
-    if (isNaN(n)) {
-      wx.showToast({ title: '请输入正确数量', icon: 'none' })
-      return null
-    }
-    if (n < 0) {
-      wx.showToast({ title: '数量不能小于0', icon: 'none' })
-      return null
-    }
-    return n
-  },
-
-  // ===== 双段切换 =====
-  switchTab(e) {
-    this.setData({ activeTab: e.currentTarget.dataset.tab })
-  },
-
-  // ===== 分类筛选 =====
-  selectCategory(e) {
-    this.setData({ currentCategory: e.currentTarget.dataset.category })
-    this._refreshFiltered()
-  },
-
-  // ===== 搜索 =====
-  onSearchInput(e) {
-    this.setData({ searchKeyword: e.detail.value })
-    this._refreshFiltered()
-  },
-
-  // ===== 看冰箱做菜（placeholder）=====
-  cookWithFridge() {
-    wx.showToast({ title: '推荐功能将在真实库存接入后启用', icon: 'none', duration: 2000 })
-  },
-
-  prioritizeExpiring() {
-    wx.showToast({ title: '推荐功能将在真实库存接入后启用', icon: 'none', duration: 2000 })
-  },
-
-  // ===== 添加食材 =====
+  // ===== Add sheet =====
   openAddSheet() {
-    this.setData({
-      showAddSheet: true,
-      addForm: { name: '', quantity: '', unit_code: 'g', storage_location: '冷藏', expiry_date: '', note: '' },
-    })
+    this.setData({ showAddSheet: true, addForm: { name: '', quantity: '', unit_code: 'g', storage_location: '冷藏', expiry_date: '', note: '' } })
     hideTabBar(this)
   },
-
-  closeAddSheet() {
-    this.setData({ showAddSheet: false })
-    showTabBar(this)
-  },
-
+  closeAddSheet() { this.setData({ showAddSheet: false }); showTabBar(this) },
   onAddInput(e) {
-    this.setData({ [`addForm.${e.currentTarget.dataset.field}`]: e.detail.value })
+    const field = e.currentTarget.dataset.field
+    this.setData({ ['addForm.' + field]: e.detail.value })
   },
-
-  onAddUnitChange(e) {
-    this.setData({ 'addForm.unit_code': this.data.unitOptions[e.detail.value] })
-  },
-
-  onAddStorageChange(e) {
-    this.setData({ 'addForm.storage_location': this.data.storageOptions[e.detail.value] })
-  },
-
-  onAddExpiryChange(e) {
-    this.setData({ 'addForm.expiry_date': e.detail.value })
-  },
+  onAddUnitChange(e) { this.setData({ 'addForm.unit_code': this.data.unitOptions[e.detail.value] }) },
+  onAddStorageChange(e) { this.setData({ 'addForm.storage_location': this.data.storageOptions[e.detail.value] }) },
+  onAddExpiryChange(e) { this.setData({ 'addForm.expiry_date': e.detail.value }) },
 
   async saveAddItem() {
-    const { addForm, inventoryItems } = this.data
-    if (!addForm.name || !addForm.name.trim()) {
-      wx.showToast({ title: '请输入食材名称', icon: 'none' })
-      return
-    }
-    const qty = this._parseQuantity(addForm.quantity, 0)
-    if (qty === null) return
-    const fresh = this._computeFreshness(addForm.expiry_date || null)
-
-    // 如果有真实 V1 环境，调用真实 API
-    if (this._familyId && this._api) {
+    const form = this.data.addForm
+    if (!form.name.trim()) { wx.showToast({ title: '请输入食材名', icon: 'none' }); return }
+    const qty = Number(form.quantity)
+    if (form.quantity && (isNaN(qty) || qty < 0)) { wx.showToast({ title: '请输入正确数量', icon: 'none' }); return }
+    wx.showLoading({ title: '添加中...' })
+    try {
+      // Try resolve ingredient
+      let ingredientId = null
       try {
-        await this._api.addFridgeItem(this._familyId, {
-          name: addForm.name.trim(),
-          quantity: qty,
-          unit_code: addForm.unit_code,
-          storage_location: addForm.storage_location,
-          purchase_date: FIXTURE.reference_date,
-          expiry_date: addForm.expiry_date || null,
-          note: addForm.note || ''
-        })
-        this.setData({ showAddSheet: false })
-        showTabBar(this)
-        await this._loadRealFridge()
-        wx.showToast({ title: '已添加', icon: 'success' })
-        return
-      } catch (e) {
-        // fallback to fixture
-      }
+        const resolved = await this._api.resolveIngredient(this._familyId, form.name.trim())
+        if (resolved && resolved.match && (resolved.confidence >= 0.95 || resolved.match_type === 'ALIAS_EXACT')) {
+          ingredientId = resolved.match.id
+        }
+      } catch (_) {}
+      await this._api.addFridgeItem(this._familyId, {
+        ingredient_id: ingredientId,
+        display_name_override: ingredientId ? null : form.name.trim(),
+        quantity: qty || null,
+        quantity_text: form.quantity ? form.quantity + (form.unit_code || '') : null,
+        unit_code: form.unit_code || null,
+        storage_location: STORAGE_MAP[form.storage_location] || 'REFRIGERATED',
+        expiry_date: form.expiry_date || null,
+        purchase_date: todayStr(),
+        note: form.note || null,
+      })
+      wx.hideLoading()
+      this.closeAddSheet()
+      this._loadFridge()
+      wx.showToast({ title: '已添加', icon: 'success' })
+    } catch (e) {
+      wx.hideLoading()
+      wx.showToast({ title: e.message || '添加失败', icon: 'none' })
     }
-
-    const newItem = {
-      id: 'inv-runtime-' + Date.now(),
-      ingredient_id: 'ing-runtime-' + Date.now(),
-      name: addForm.name.trim(),
-      image: null,
-      quantity: qty,
-      unit_code: addForm.unit_code,
-      storage_location: addForm.storage_location,
-      category: '其他',
-      purchase_date: FIXTURE.reference_date,
-      expiry_date: addForm.expiry_date || null,
-      freshness_status: fresh.freshness_status,
-      expiry_label: fresh.expiry_label,
-      note: addForm.note || '',
-    }
-    this.setData({
-      inventoryItems: [...inventoryItems, newItem],
-      showAddSheet: false,
-    })
-    showTabBar(this)
-    this._refreshStats()
-    wx.showToast({ title: '已添加（fixture 运行态）', icon: 'none' })
   },
 
-  // ===== 编辑食材 =====
+  // ===== Edit sheet =====
   openEditSheet(e) {
-    const id = e.currentTarget.dataset.id
-    const item = this.data.inventoryItems.find(i => i.id === id)
+    const item = this.data.inventoryItems.find(i => i.id === e.currentTarget.dataset.id)
     if (!item) return
     this.setData({
       showEditSheet: true,
       editingItem: item,
       editForm: {
-        quantity: String(item.quantity),
-        unit_code: item.unit_code,
-        storage_location: item.storage_location,
-        purchase_date: item.purchase_date || '',
+        quantity: item.quantity != null ? String(item.quantity) : '',
+        unit_code: item.unit_code || 'g',
+        storage_location: STORAGE_REVERSE[item.storage_location] || '冷藏',
         expiry_date: item.expiry_date || '',
         note: item.note || '',
       },
     })
     hideTabBar(this)
   },
+  closeEditSheet() { this.setData({ showEditSheet: false, editingItem: null }); showTabBar(this) },
+  onEditInput(e) { this.setData({ ['editForm.' + e.currentTarget.dataset.field]: e.detail.value }) },
+  onEditUnitChange(e) { this.setData({ 'editForm.unit_code': this.data.unitOptions[e.detail.value] }) },
+  onEditStorageChange(e) { this.setData({ 'editForm.storage_location': this.data.storageOptions[e.detail.value] }) },
+  onEditExpiryChange(e) { this.setData({ 'editForm.expiry_date': e.detail.value }) },
 
-  closeEditSheet() {
-    this.setData({ showEditSheet: false, editingItem: null })
-    showTabBar(this)
-  },
-
-  onEditInput(e) {
-    this.setData({ [`editForm.${e.currentTarget.dataset.field}`]: e.detail.value })
-  },
-
-  onEditUnitChange(e) {
-    this.setData({ 'editForm.unit_code': this.data.unitOptions[e.detail.value] })
-  },
-
-  onEditStorageChange(e) {
-    this.setData({ 'editForm.storage_location': this.data.storageOptions[e.detail.value] })
-  },
-
-  onEditPurchaseChange(e) {
-    this.setData({ 'editForm.purchase_date': e.detail.value })
-  },
-
-  onEditExpiryChange(e) {
-    this.setData({ 'editForm.expiry_date': e.detail.value })
-  },
-
-  saveEditItem() {
-    const { editingItem, editForm, inventoryItems } = this.data
-    if (!editingItem) return
-    // 数量校验：空字符串保留旧值；0 允许保存；NaN/负数拒绝
-    const qty = this._parseQuantity(editForm.quantity, editingItem.quantity)
-    if (qty === null) return
-    const fresh = this._computeFreshness(editForm.expiry_date || null)
-    const items = inventoryItems.map(i => {
-      if (i.id !== editingItem.id) return i
-      return {
-        ...i,
+  async saveEditItem() {
+    const item = this.data.editingItem
+    if (!item) return
+    const form = this.data.editForm
+    const qty = Number(form.quantity)
+    if (form.quantity === '') { wx.showToast({ title: '数量不能为空', icon: 'none' }); return }
+    if (isNaN(qty)) { wx.showToast({ title: '请输入正确数量', icon: 'none' }); return }
+    if (qty < 0) { wx.showToast({ title: '数量不能小于0', icon: 'none' }); return }
+    wx.showLoading({ title: '保存中...' })
+    try {
+      await this._api.updateFridgeItem(this._familyId, item.id, {
         quantity: qty,
-        unit_code: editForm.unit_code,
-        storage_location: editForm.storage_location,
-        purchase_date: editForm.purchase_date,
-        expiry_date: editForm.expiry_date || null,
-        note: editForm.note,
-        freshness_status: fresh.freshness_status,
-        expiry_label: fresh.expiry_label,
+        unit_code: form.unit_code || null,
+        storage_location: STORAGE_MAP[form.storage_location] || 'REFRIGERATED',
+        expiry_date: form.expiry_date || null,
+        note: form.note || null,
+        version: item.version,
+      })
+      wx.hideLoading()
+      this.closeEditSheet()
+      this._loadFridge()
+      wx.showToast({ title: '已保存', icon: 'success' })
+    } catch (e) {
+      wx.hideLoading()
+      if (e.status === 409 || e.code === 'VERSION_CONFLICT') {
+        wx.showToast({ title: '数据已被家人修改，请刷新', icon: 'none' })
+        this._loadFridge()
+      } else {
+        wx.showToast({ title: e.message || '保存失败', icon: 'none' })
       }
-    })
-    this.setData({ inventoryItems: items, showEditSheet: false, editingItem: null })
-    showTabBar(this)
-    this._refreshStats()
-    wx.showToast({ title: '已保存（fixture 运行态）', icon: 'none' })
+    }
   },
 
-  // ===== 移出冰箱 =====
-  removeItem() {
-    const { editingItem, inventoryItems } = this.data
-    if (!editingItem) return
+  // ===== Delete =====
+  deleteItem(e) {
+    const id = e.currentTarget.dataset.id
+    const item = this.data.inventoryItems.find(i => i.id === id)
     wx.showModal({
-      title: '移出冰箱',
-      content: `确定将「${editingItem.name}」移出冰箱吗？`,
-      confirmColor: '#E57373',
+      title: '删除食材',
+      content: '确定删除「' + (item?.name || '食材') + '」吗？',
       success: async (res) => {
-        if (res.confirm) {
-          // 如果有真实 V1 环境，调用真实 API
-          if (this._familyId && this._api) {
-            try {
-              await this._api.deleteFridgeItem(this._familyId, editingItem.id)
-              this.setData({ showEditSheet: false, editingItem: null })
-              showTabBar(this)
-              await this._loadRealFridge()
-              wx.showToast({ title: '已移出', icon: 'success' })
-              return
-            } catch (e) {
-              // fallback to fixture
-            }
-          }
-          const items = inventoryItems.filter(i => i.id !== editingItem.id)
-          this.setData({
-            inventoryItems: items,
-            showEditSheet: false,
-            editingItem: null,
-          })
-          showTabBar(this)
-          this._refreshStats()
-          wx.showToast({ title: '已移出（fixture 运行态）', icon: 'none' })
+        if (!res.confirm) return
+        try {
+          await this._api.deleteFridgeItem(this._familyId, id)
+          this._loadFridge()
+          wx.showToast({ title: '已删除', icon: 'success' })
+        } catch (e) {
+          wx.showToast({ title: e.message || '删除失败', icon: 'none' })
         }
       },
     })
   },
 
-  // ===== 常备食材 =====
-  toggleStaple(e) {
-    const id = e.currentTarget.dataset.id
-    const staples = this.data.pantryStaples.map(s =>
-      s.id === id ? { ...s, is_staple: !s.is_staple } : s
-    )
-    this.setData({ pantryStaples: staples })
-  },
-
+  // ===== Pantry =====
   openAddStapleSheet() {
     this.setData({ showAddStapleSheet: true, newStapleName: '' })
     hideTabBar(this)
   },
+  closeAddStapleSheet() { this.setData({ showAddStapleSheet: false }); showTabBar(this) },
+  onStapleNameInput(e) { this.setData({ newStapleName: e.detail.value }) },
 
-  closeAddStapleSheet() {
-    this.setData({ showAddStapleSheet: false })
-    showTabBar(this)
-  },
-
-  onStapleNameInput(e) {
-    this.setData({ newStapleName: e.detail.value })
-  },
-
-  saveAddStaple() {
+  async saveAddStaple() {
     const name = this.data.newStapleName.trim()
-    if (!name) {
-      wx.showToast({ title: '请输入食材名称', icon: 'none' })
-      return
+    if (!name) { wx.showToast({ title: '请输入食材名', icon: 'none' }); return }
+    wx.showLoading({ title: '添加中...' })
+    try {
+      let ingredientId = null
+      try {
+        const resolved = await this._api.resolveIngredient(this._familyId, name)
+        if (resolved && resolved.match && (resolved.confidence >= 0.95 || resolved.match_type === 'ALIAS_EXACT')) {
+          ingredientId = resolved.match.id
+        }
+      } catch (_) {}
+      if (!ingredientId) {
+        wx.hideLoading()
+        wx.showToast({ title: '未找到标准食材，暂不支持自定义常备品', icon: 'none' })
+        return
+      }
+      await this._api.putPantry(this._familyId, ingredientId, { assume_available: true, quantity: null, unit_code: null })
+      wx.hideLoading()
+      this.closeAddStapleSheet()
+      this._loadPantry()
+      wx.showToast({ title: '已添加', icon: 'success' })
+    } catch (e) {
+      wx.hideLoading()
+      wx.showToast({ title: e.message || '添加失败', icon: 'none' })
     }
-    const newStaple = {
-      id: 'staple-runtime-' + Date.now(),
-      ingredient_id: 'ing-runtime-' + Date.now(),
-      name,
-      is_staple: true,
-    }
-    this.setData({
-      pantryStaples: [...this.data.pantryStaples, newStaple],
-      showAddStapleSheet: false,
-    })
-    showTabBar(this)
-    wx.showToast({ title: '已添加（fixture 运行态）', icon: 'none' })
   },
 
-  noop() {},
+  async removeStaple(e) {
+    const ingredientId = e.currentTarget.dataset.ingredientId
+    try {
+      await this._api.deletePantry(this._familyId, ingredientId)
+      this._loadPantry()
+      wx.showToast({ title: '已移除', icon: 'success' })
+    } catch (e) {
+      wx.showToast({ title: e.message || '移除失败', icon: 'none' })
+    }
+  },
+
+  // ===== Cook with fridge (placeholder) =====
+  cookWithFridge() { wx.showToast({ title: '看冰箱做菜将在推荐引擎接入后启用', icon: 'none' }) },
+
+  onPullDownRefresh() {
+    this._loadAll()
+    wx.stopPullDownRefresh()
+  },
 })
