@@ -248,3 +248,60 @@ page {
 .tab-page-scroll-spacer {
   height: calc(100rpx + env(safe-area-inset-bottom) + 140rpx + 32rpx);
 }
+
+/* ===== Global Bottom Sheet Contract ===== */
+/* 主 Tab 页面：Sheet 必须在 Custom TabBar 上方，不进入 RESERVED BOTTOM ZONE */
+/* Custom TabBar height = calc(100rpx + env(safe-area-inset-bottom)) */
+
+.tab-safe-sheet-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: calc(100rpx + env(safe-area-inset-bottom));
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 90;
+}
+
+.tab-safe-sheet-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(100rpx + env(safe-area-inset-bottom) + 16rpx);
+  max-height: calc(100vh - 100rpx - env(safe-area-inset-bottom) - 120rpx);
+  background: #FFFFFF;
+  border-radius: 32rpx 32rpx 0 0;
+  z-index: 95;
+  overflow-y: auto;
+  box-shadow: 0 -8rpx 32rpx rgba(0, 0, 0, 0.12);
+}
+
+/* 二级页面（无 TabBar）：Sheet 只避开 safe area */
+.sheet-mask-no-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 90;
+}
+
+.sheet-panel-no-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(env(safe-area-inset-bottom) + 16rpx);
+  max-height: calc(100vh - 120rpx);
+  background: #FFFFFF;
+  border-radius: 32rpx 32rpx 0 0;
+  z-index: 95;
+  overflow-y: auto;
+  box-shadow: 0 -8rpx 32rpx rgba(0, 0, 0, 0.12);
+}
+
+/* TabBar 锁定：Sheet 打开时 TabBar 可见但不可点击 */
+.tabbar-locked {
+  pointer-events: none !important;
+  opacity: 0.6;
+}

@@ -2,6 +2,7 @@ Component({
   data: {
     selected: 0,
     hidden: false,
+    locked: false,
     list: [
       { pagePath: '/pages/index/index', text: '首页' },
       { pagePath: '/pages/menu/menu', text: '菜单' },

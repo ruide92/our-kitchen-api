@@ -106,11 +106,12 @@ function createFridgeService(pool) {
   async function listPantry(familyId, userId) {
     return access(familyId, userId, null, false, async tx => {
       const rows = (await tx.query(`
-        SELECT ps.*, i.display_name as ingredient_name, i.canonical_code, i.category_code
+        SELECT ps.*, i.display_name as ingredient_name, i.canonical_code, i.category_code,
+               COALESCE(i.display_name, ps.display_name_override, '自定义食材') as name
         FROM pantry_staples ps
         LEFT JOIN ingredients i ON i.id = ps.ingredient_id
         WHERE ps.family_id = $1
-        ORDER BY COALESCE(i.display_name, ps.id::text)
+        ORDER BY COALESCE(i.display_name, ps.display_name_override, ps.id::text)
       `, [familyId])).rows;
       return rows;
     });
@@ -135,6 +136,27 @@ function createFridgeService(pool) {
     });
   }
 
+  async function putCustomPantry(familyId, userId, body) {
+    return access(familyId, userId, null, true, async tx => {
+      const displayName = (body.display_name || body.name || '').trim();
+      if (!displayName) throw new ApiError(400, 'CUSTOM_NAME_REQUIRED', '自定义食材名称不能为空');
+      const existing = (await tx.query('SELECT * FROM pantry_staples WHERE family_id=$1 AND ingredient_id IS NULL AND COALESCE(display_name_override,\'\')=$2 FOR UPDATE', [familyId, displayName])).rows[0];
+      if (existing) {
+        const result = await tx.query(`UPDATE pantry_staples SET quantity=$1, quantity_text=$2, unit_code=$3, assume_available=$4, updated_by_user_id=$5, updated_at=now()
+          WHERE id=$6 RETURNING *`,
+          [body.quantity != null ? body.quantity : null, body.quantity_text || null, body.unit_code || null,
+           body.assume_available != null ? body.assume_available : true, userId, existing.id]);
+        return result.rows[0];
+      }
+      const id = randomUUID();
+      const item = (await tx.query(`INSERT INTO pantry_staples(id,family_id,ingredient_id,display_name_override,quantity,quantity_text,unit_code,assume_available,updated_by_user_id)
+        VALUES($1,$2,NULL,$3,$4,$5,$6,$7,$8) RETURNING *`,
+        [id, familyId, displayName, body.quantity != null ? body.quantity : null, body.quantity_text || null,
+         body.unit_code || null, body.assume_available != null ? body.assume_available : true, userId])).rows[0];
+      return item;
+    });
+  }
+
   async function deletePantry(familyId, userId, ingredientId) {
     return access(familyId, userId, null, true, async tx => {
       await tx.query('DELETE FROM pantry_staples WHERE family_id=$1 AND ingredient_id=$2', [familyId, ingredientId]);
@@ -142,7 +164,14 @@ function createFridgeService(pool) {
     });
   }
 
-  return { listFridge, addFridgeItem, updateFridgeItem, deleteFridgeItem, listPantry, putPantry, deletePantry };
+  async function deleteCustomPantry(familyId, userId, name) {
+    return access(familyId, userId, null, true, async tx => {
+      await tx.query('DELETE FROM pantry_staples WHERE family_id=$1 AND ingredient_id IS NULL AND COALESCE(display_name_override,\'\')=$2', [familyId, name]);
+      return { ok: true };
+    });
+  }
+
+  return { listFridge, addFridgeItem, updateFridgeItem, deleteFridgeItem, listPantry, putPantry, putCustomPantry, deletePantry, deleteCustomPantry };
 }
 
 module.exports = { createFridgeService };

@@ -219,7 +219,68 @@ function createRecipeService(pool) {
     });
   }
 
-  return { listRecipes, getRecipe, createRecipe, setFavorite };
+  async function listFavorites(familyId, userId) {
+    return access(familyId, userId, null, false, async tx => {
+      const rows = (await tx.query(`
+        SELECT r.*, rf.created_at as favorited_at
+        FROM recipe_favorites rf
+        JOIN recipes r ON r.id = rf.recipe_id
+        WHERE rf.user_id = $1 AND r.deleted_at IS NULL
+          AND (r.kind='BASE' OR (r.kind='FAMILY' AND r.family_id=$2))
+        ORDER BY rf.created_at DESC
+      `, [userId, familyId])).rows;
+      return rows;
+    });
+  }
+
+  async function setRating(familyId, userId, recipeId, rating, mealId) {
+    return access(familyId, userId, null, true, async tx => {
+      if (!rating || rating < 1 || rating > 5) throw new ApiError(400, 'INVALID_RATING', '评分必须 1-5');
+      const recipe = (await tx.query('SELECT id FROM recipes WHERE id=$1 AND deleted_at IS NULL', [recipeId])).rows[0];
+      if (!recipe) throw new ApiError(404, 'NOT_FOUND', '菜谱不存在');
+
+      const existing = (await tx.query('SELECT id FROM recipe_ratings WHERE user_id=$1 AND recipe_id=$2', [userId, recipeId])).rows[0];
+      if (existing) {
+        await tx.query('UPDATE recipe_ratings SET rating=$1, meal_id=$2, updated_at=now() WHERE id=$3', [rating, mealId || null, existing.id]);
+      } else {
+        await tx.query('INSERT INTO recipe_ratings(family_id,user_id,recipe_id,meal_id,rating) VALUES($1,$2,$3,$4,$5)', [familyId, userId, recipeId, mealId || null, rating]);
+      }
+      return { recipe_id: recipeId, rating };
+    });
+  }
+
+  async function listRatings(familyId, userId) {
+    return access(familyId, userId, null, false, async tx => {
+      const rows = (await tx.query(`
+        SELECT rr.*, r.name as recipe_name, r.cover_image_url
+        FROM recipe_ratings rr
+        JOIN recipes r ON r.id = rr.recipe_id
+        WHERE rr.user_id = $1 AND rr.family_id = $2
+        ORDER BY rr.updated_at DESC
+      `, [userId, familyId])).rows;
+      return rows;
+    });
+  }
+
+  async function getUserStats(familyId, userId) {
+    return access(familyId, userId, null, false, async tx => {
+      const favCount = (await tx.query('SELECT COUNT(*) as cnt FROM recipe_favorites WHERE user_id=$1', [userId])).rows[0].cnt;
+      const ratingCount = (await tx.query('SELECT COUNT(*) as cnt FROM recipe_ratings WHERE user_id=$1 AND family_id=$2', [userId, familyId])).rows[0].cnt;
+      const cookedCount = (await tx.query(`SELECT COUNT(DISTINCT m.id) as cnt FROM meals m
+        JOIN meal_items mi ON mi.meal_id = m.id
+        WHERE m.family_id=$1 AND m.status IN ('CONFIRMED','COOKING','COMPLETED')
+          AND mi.selected_by_user_id=$2`, [familyId, userId])).rows[0].cnt;
+      const kissCount = (await tx.query('SELECT COALESCE(SUM(actual_amount),0) as cnt FROM kiss_ledger WHERE to_user_id=$1 AND family_id=$2', [userId, familyId])).rows[0].cnt;
+      return {
+        favorites: parseInt(favCount),
+        ratings: parseInt(ratingCount),
+        cooked: parseInt(cookedCount),
+        kisses_received: parseInt(kissCount)
+      };
+    });
+  }
+
+  return { listRecipes, getRecipe, createRecipe, setFavorite, listFavorites, setRating, listRatings, getUserStats };
 }
 
 module.exports = { createRecipeService };

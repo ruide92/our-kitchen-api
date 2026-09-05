@@ -49,6 +49,7 @@ function createV1Api({ wxAdapter, baseUrl = config.baseUrl, timeoutMs = config.t
     getFamily: id => dataRequest(familyPath(id)),
     getMembers: id => dataRequest(familyPath(id) + '/members'),
     getSettings: id => dataRequest(familyPath(id) + '/settings'),
+    updateSettings: (id, data) => dataRequest(familyPath(id) + '/settings', { method: 'PATCH', data }),
     // Recipes
     listRecipes: (id, query) => dataRequest(familyPath(id) + '/recipes' + (query ? '?' + Object.entries(query).filter(([,v]) => v != null).map(([k,v]) => k + '=' + encodeURIComponent(v)).join('&') : '')),
     getRecipe: (id, recipeId) => dataRequest(familyPath(id) + '/recipes/' + recipeId),
@@ -81,7 +82,32 @@ function createV1Api({ wxAdapter, baseUrl = config.baseUrl, timeoutMs = config.t
     addShoppingItem: (id, listId, data) => dataRequest(familyPath(id) + '/shopping-lists/' + listId + '/items', { method: 'POST', data }),
     updateShoppingItem: (id, listId, itemId, data) => dataRequest(familyPath(id) + '/shopping-lists/' + listId + '/items/' + itemId, { method: 'PATCH', data }),
     deleteShoppingItem: (id, listId, itemId) => dataRequest(familyPath(id) + '/shopping-lists/' + listId + '/items/' + itemId, { method: 'DELETE' }),
-    completeShoppingList: (id, listId, data) => dataRequest(familyPath(id) + '/shopping-lists/' + listId + '/complete', { method: 'POST', data })
+    completeShoppingList: (id, listId, data) => dataRequest(familyPath(id) + '/shopping-lists/' + listId + '/complete', { method: 'POST', data }),
+    // Pantry custom
+    putCustomPantry: (id, data) => dataRequest(familyPath(id) + '/pantry-staples/custom', { method: 'POST', data }),
+    deleteCustomPantry: (id, name) => dataRequest(familyPath(id) + '/pantry-staples/custom/' + encodeURIComponent(name), { method: 'DELETE' }),
+    // Recommendation
+    generateRandomMeal: (id, data) => dataRequest(familyPath(id) + '/recommendations/random-meal', { method: 'POST', data }),
+    generateWeeklyPlan: (id, data) => dataRequest(familyPath(id) + '/weekly-plans/generate', { method: 'POST', data }),
+    confirmWeeklyPlan: (id, planId) => dataRequest(familyPath(id) + '/weekly-plans/' + planId + '/confirm', { method: 'POST' }),
+    getFridgeCooking: id => dataRequest(familyPath(id) + '/recommendations/fridge-cooking'),
+    // Cooking
+    startCooking: (id, mealId) => dataRequest(familyPath(id) + '/meals/' + mealId + '/cooking-sessions', { method: 'POST' }),
+    completeCooking: (id, sessionId, data) => dataRequest(familyPath(id) + '/cooking-sessions/' + sessionId + '/complete', { method: 'POST', data }),
+    getMealHistory: (id, limit) => dataRequest(familyPath(id) + '/meals/history' + (limit ? '?limit=' + limit : '')),
+    // Kiss
+    sendKiss: (id, data) => dataRequest(familyPath(id) + '/kiss', { method: 'POST', data }),
+    getKissSummary: (id, period) => dataRequest(familyPath(id) + '/kiss/summary' + (period ? '?period=' + period : '')),
+    // Recipe Import
+    parseRecipeImport: (id, data) => dataRequest(familyPath(id) + '/recipe-imports/parse', { method: 'POST', data }),
+    updateRecipeImport: (id, importId, data) => dataRequest(familyPath(id) + '/recipe-imports/' + importId, { method: 'PUT', data }),
+    validateRecipeImport: (id, importId) => dataRequest(familyPath(id) + '/recipe-imports/' + importId + '/validate'),
+    confirmRecipeImport: (id, importId) => dataRequest(familyPath(id) + '/recipe-imports/' + importId + '/confirm', { method: 'POST' }),
+    // Favorites / Ratings / Stats
+    listFavorites: id => dataRequest(familyPath(id) + '/favorites'),
+    setRating: (id, recipeId, rating, mealId) => dataRequest(familyPath(id) + '/recipes/' + recipeId + '/rating', { method: 'PUT', data: { rating, meal_id: mealId } }),
+    listRatings: id => dataRequest(familyPath(id) + '/ratings'),
+    getUserStats: id => dataRequest(familyPath(id) + '/stats')
   }
 }
 module.exports = { createV1Api, v1Error, SESSION_KEYS }

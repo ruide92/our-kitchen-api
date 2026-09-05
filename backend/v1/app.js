@@ -8,6 +8,10 @@ const { createMealService } = require('./meal-service');
 const { createFridgeService } = require('./fridge-service');
 const { createShoppingService } = require('./shopping-service');
 const { createIngredientService } = require('./ingredient-service');
+const { createRecommendationService } = require('./recommendation-service');
+const { createCookingService } = require('./cooking-service');
+const { createKissService } = require('./kiss-service');
+const { createRecipeImportService } = require('./recipe-import-service');
 const asyncRoute = handler => (req, res, next) => Promise.resolve(handler(req, res)).catch(next);
 
 function createApp({ repo, wechat, tokens, families, pool }) {
@@ -43,7 +47,11 @@ function createApp({ repo, wechat, tokens, families, pool }) {
     meals: createMealService(pool),
     fridge: createFridgeService(pool),
     shopping: createShoppingService(pool),
-    ingredients: createIngredientService(pool)
+    ingredients: createIngredientService(pool),
+    recommendation: createRecommendationService(pool),
+    cooking: createCookingService(pool),
+    kiss: createKissService(pool),
+    recipeImports: createRecipeImportService(pool)
   };
   installKitchenRoutes(app, kitchenServices);
   app.use((req, res, next) => next(new ApiError(404, 'NOT_FOUND', '接口不存在')));
