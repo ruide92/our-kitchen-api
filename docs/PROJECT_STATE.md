@@ -1,4 +1,4 @@
-# Kitchen V4 Project State
+﻿# Kitchen V4 Project State
 
 Last updated: 2026-09-05 (Asia/Shanghai)
 
@@ -9,29 +9,29 @@ Last updated: 2026-09-05 (Asia/Shanghai)
 Local V1 environment and real WeChat login verified end-to-end on this machine.
 
 - PostgreSQL 16.15 local environment: **PASS** (service running, localhost:5432)
-- Migration (`node --env-file=.env backend/v1/migrate-cli.js`): **PASS** — "Core migrations applied"
+- Migration (`node --env-file=.env backend/v1/migrate-cli.js`): **PASS** 鈥?"Core migrations applied"
 - Unit tests: **38/38 PASS**, 0 fail
 - PostgreSQL integration tests: **19/19 PASS**, 0 fail (real PostgreSQL Family HTTP checkpoint)
 - `DATABASE_URL`: **PRESENT** (dev DB `our_kitchen_v1_dev`, owner `our_kitchen_v1`)
 - `TEST_DATABASE_URL`: **PRESENT** (test DB `our_kitchen_v1_test`)
 - `WECHAT_APP_SECRET`: **PRESENT** (32-char, written to local `.env`; not committed)
-- Local V1 server (`node --env-file=.env backend/v1/start.js`): **PASS** — listening on 3101; `GET /api/v1/me` without token returns **401 AUTH_REQUIRED** (not 404)
-- Real WeChat login (`wx.login` → `POST /api/v1/auth/wechat`): **LOGIN_ACCEPTED** — user created/upserted, JWT issued
-- Real `/api/v1/me`: **PASS** — authenticated user returned
-- Real family: first login had 0 families → created **"我们的小厨房"** → role **OWNER**
+- Local V1 server (`node --env-file=.env backend/v1/start.js`): **PASS** 鈥?listening on 3101; `GET /api/v1/me` without token returns **401 AUTH_REQUIRED** (not 404)
+- Real WeChat login (`wx.login` 鈫?`POST /api/v1/auth/wechat`): **LOGIN_ACCEPTED** 鈥?user created/upserted, JWT issued
+- Real `/api/v1/me`: **PASS** 鈥?authenticated user returned
+- Real family: first login had 0 families 鈫?created **"鎴戜滑鐨勫皬鍘ㄦ埧"** 鈫?role **OWNER**
 - Real members: current user **ACTIVE**, role **OWNER**, members=1
-- Real family settings: **PASS** — `family_id` consistent, `default_diners=2`
-- v1Session runtime: **PASS** — backend request log confirms bootstrap auto-loads `/me`, `/me/families`, `/families/{id}`, `/members`, `/settings` all 200
+- Real family settings: **PASS** 鈥?`family_id` consistent, `default_diners=2`
+- v1Session runtime: **PASS** 鈥?backend request log confirms bootstrap auto-loads `/me`, `/me/families`, `/families/{id}`, `/members`, `/settings` all 200
 - Mine page:
-  - Code/Data Wiring: **PASS** — `mine.js` uses `mine-controller`; `mine-fixture.js` intentionally not imported
-  - Runtime Backend Evidence: **PASS** — real session data flows through v1Session
-  - Visual Acceptance: **PENDING** — DevTools GUI obstacle prevented capturing the Mine tab screenshot; not claimed as visual PASS
+  - Code/Data Wiring: **PASS** 鈥?`mine.js` uses `mine-controller`; `mine-fixture.js` intentionally not imported
+  - Runtime Backend Evidence: **PASS** 鈥?real session data flows through v1Session
+  - Visual Acceptance: **PENDING** 鈥?DevTools GUI obstacle prevented capturing the Mine tab screenshot; not claimed as visual PASS
 - `.env` is gitignored; no secrets committed. No AppSecret, database password, DATABASE_URL, openid, token, or JWT secret recorded in this document.
 
 **Explicitly NOT DONE at this checkpoint:**
 
 - Public HTTPS V1 deployment: **NOT DONE** (only localhost loopback, DevTools-only)
-- Second WeChat user / 糖糖 join: **NOT DONE**
+- Second WeChat user / 绯栫硸 join: **NOT DONE**
 - Two-user members=2 verification: **NOT DONE**
 - Homepage / Menu / Fridge / Shopping List: still **fixture data**; not wired to real backend
 - Recipe / weekly plan / meal / inventory / shopping / recommendation cutover: **NOT DONE**
@@ -40,30 +40,30 @@ Local V1 environment and real WeChat login verified end-to-end on this machine.
 
 Public cloud V1 environment deployed and verified with real WeChat login.
 
-- Neon PostgreSQL (Free tier, aws-us-east-2): **PASS** — project `our-kitchen-v1`, branch `br-curly-queen-aejg97pm`, SSL connection string verified with Node pg
-- Cloud migration (`backend/v1/migrate-cli.js` against Neon): **PASS** — "Core migrations applied"; core tables `users`, `families`, `family_members`, `family_settings`, `family_cookware`, `schema_migrations` confirmed
-- Render Web Service (Free tier): **PASS** — `our-kitchen-v1`, branch `codex/kitchen-v4`, build `npm ci`, start `npm run start:v1`, deploy succeeded in 31.4s
+- Neon PostgreSQL (Free tier, aws-us-east-2): **PASS** 鈥?project `our-kitchen-v1`, branch `br-curly-queen-aejg97pm`, SSL connection string verified with Node pg
+- Cloud migration (`backend/v1/migrate-cli.js` against Neon): **PASS** 鈥?"Core migrations applied"; core tables `users`, `families`, `family_members`, `family_settings`, `family_cookware`, `schema_migrations` confirmed
+- Render Web Service (Free tier): **PASS** 鈥?`our-kitchen-v1`, branch `codex/kitchen-v4`, build `npm ci`, start `npm run start:v1`, deploy succeeded in 31.4s
 - Public HTTPS URL: **https://our-kitchen-v1.onrender.com**
 - Render environment variables: `DATABASE_URL` **PRESENT**, `WECHAT_APP_ID` **PRESENT**, `WECHAT_APP_SECRET` **PRESENT**, `JWT_SECRET` **PRESENT** (newly generated 64-hex-char secret, not reused from local)
-- Public `GET /api/v1/me` without token: **401 AUTH_REQUIRED** (not 404) — confirms HTTPS, V1 routing, and auth middleware
-- Public `POST /api/v1/auth/wechat` with invalid code: **401** — V1 auth endpoint exists and rejects bad codes
-- Public real WeChat login: **PUBLIC_LOGIN_ACCEPTED** — DevTools CLI recompile triggered `wx.login`; Neon `users` table shows 1 user created at 2026-09-05T01:26:05Z (first public login)
-- Public user: **PASS** — real WeChat openid stored, user row exists in Neon
-- Public family (initial): **created directly in Neon SQL** during initial deployment due to DevTools GUI obstacle — this was NOT a valid `POST /api/v1/families` acceptance
-- Public Family Create API correction (2026-09-05): manually-created family deleted in a DB transaction (family_cookware → family_settings → family_members → families), then recreated via **`POST /api/v1/families`** with authenticated user — returned **201**, family name "我们的小厨房", invite_code generated by API
-- Public Family Read API: **PASS** — `GET /api/v1/families/:id` returns 200 with correct family data
-- Public Members Read API: **PASS** — `GET /api/v1/families/:id/members` returns 200, current user **ACTIVE / OWNER**, members=1
-- Public Settings Read API: **PASS** — `GET /api/v1/families/:id/settings` returns 200, `default_diners=2`
+- Public `GET /api/v1/me` without token: **401 AUTH_REQUIRED** (not 404) 鈥?confirms HTTPS, V1 routing, and auth middleware
+- Public `POST /api/v1/auth/wechat` with invalid code: **401** 鈥?V1 auth endpoint exists and rejects bad codes
+- Public real WeChat login: **PUBLIC_LOGIN_ACCEPTED** 鈥?DevTools CLI recompile triggered `wx.login`; Neon `users` table shows 1 user created at 2026-09-05T01:26:05Z (first public login)
+- Public user: **PASS** 鈥?real WeChat openid stored, user row exists in Neon
+- Public family (initial): **created directly in Neon SQL** during initial deployment due to DevTools GUI obstacle 鈥?this was NOT a valid `POST /api/v1/families` acceptance
+- Public Family Create API correction (2026-09-05): manually-created family deleted in a DB transaction (family_cookware 鈫?family_settings 鈫?family_members 鈫?families), then recreated via **`POST /api/v1/families`** with authenticated user 鈥?returned **201**, family name "鎴戜滑鐨勫皬鍘ㄦ埧", invite_code generated by API
+- Public Family Read API: **PASS** 鈥?`GET /api/v1/families/:id` returns 200 with correct family data
+- Public Members Read API: **PASS** 鈥?`GET /api/v1/families/:id/members` returns 200, current user **ACTIVE / OWNER**, members=1
+- Public Settings Read API: **PASS** 鈥?`GET /api/v1/families/:id/settings` returns 200, `default_diners=2`
 - Public member: **ACTIVE / OWNER**, members=1
-- Public settings: **PASS** — `default_diners=2`, `breakfast_target_count=2`, `lunch_target_count=2`, `dinner_target_count=3`, `random_default_mode=BALANCED`
-- Invite code: **PRESENT** — generated by API, available in real session for next-step user join (value not recorded here)
+- Public settings: **PASS** 鈥?`default_diners=2`, `breakfast_target_count=2`, `lunch_target_count=2`, `dinner_target_count=3`, `random_default_mode=BALANCED`
+- Invite code: **PRESENT** 鈥?generated by API, available in real session for next-step user join (value not recorded here)
 - Mini program `config/v1.js`: baseUrl switched from `http://127.0.0.1:3101` to `https://our-kitchen-v1.onrender.com`
-- Mine Visual Acceptance: **PENDING** — DevTools GUI obstacle persists; not claimed as visual PASS
+- Mine Visual Acceptance: **PENDING** 鈥?DevTools GUI obstacle persists; not claimed as visual PASS
 - No secrets recorded in this document. No AppSecret, database password, DATABASE_URL, Neon connection string, openid, token, or JWT secret.
 
 **Explicitly NOT DONE at this checkpoint:**
 
-- Second WeChat user / 糖糖 join: **NOT DONE**
+- Second WeChat user / 绯栫硸 join: **NOT DONE**
 - Two-user members=2 verification: **NOT DONE**
 - Homepage / Menu / Fridge / Shopping List: still **fixture data**; not wired to real public backend
 - Recipe / weekly plan / meal / inventory / shopping / recommendation cutover: **NOT DONE**
@@ -88,7 +88,7 @@ Public cloud V1 environment deployed and verified with real WeChat login.
 - Phase 1: complete
 - Phase 2: complete
 - Phase 2.5: complete
-- Phase 3: in progress — isolated backend foundation slice; NOT complete
+- Phase 3: in progress 鈥?isolated backend foundation slice; NOT complete
 
 ## Git state
 
@@ -109,7 +109,7 @@ Public cloud V1 environment deployed and verified with real WeChat login.
 
 ## Protection and backup
 
-- Original runtime database backup: `C:\Users\zhang\Documents\ChatGPT\菜谱小程序\backups\2026-09-03-pre-v4\database.json`
+- Original runtime database backup: `C:\Users\zhang\Documents\ChatGPT\鑿滆氨灏忕▼搴廫backups\2026-09-03-pre-v4\database.json`
 - Backup SHA-256: `FC633F7D5E58E2BA69546AEB244DAA372C548666D83BA55A25421950C6FEBCED`
 - Source and backup hashes matched at backup time.
 - No force push and no modification of `main` are permitted.
@@ -157,7 +157,7 @@ Canonical V4 decisions now frozen include:
 - `quantity, spiciness, sweetness, suggested_kiss, cookware, expiry_date, storage_location, is_purchased, invite_code, rating` are the canonical V4 names.
 - Ingredient matching uses canonical ingredient IDs + aliases + safe unit dimensions; no string-only shopping calculation.
 - Weekly planning and random meals share one recommendation engine.
-- KRP v2 requires parse → validate → preview/edit → confirm and explicit inferred/uncertain fields.
+- KRP v2 requires parse 鈫?validate 鈫?preview/edit 鈫?confirm and explicit inferred/uncertain fields.
 - Kiss is an append-only family ledger, not a price/score field.
 - UI reference images define visual acceptance; V4 specs define business behavior.
 
@@ -165,11 +165,11 @@ Canonical V4 decisions now frozen include:
 
 Homepage fixture UI implemented and visually accepted.
 
-- Scope: `miniprogram/pages/index/*` only — homepage WXML/WXSS/JS + explicit fixture file (`homepage-fixture.js`). No backend, database, auth, API contract, or other-page changes.
+- Scope: `miniprogram/pages/index/*` only 鈥?homepage WXML/WXSS/JS + explicit fixture file (`homepage-fixture.js`). No backend, database, auth, API contract, or other-page changes.
 - Data source: explicit local fixture matching `API_CONTRACT_V4.md` homepage contract structure. Zero legacy `/api/*` calls.
 - Fixture is clearly marked as mock in file header and code comments; no visible fixture banner on the rendered homepage.
-- Homepage structure accepted: family header (dual avatars + kitchen name + day/diners), four quick entries, weekly plan core area (Mon–Sun tabs, today highlighted, breakfast/lunch/dinner as compact horizontal rows with per-meal "加入本餐" button), ordered meal menu (horizontal cards with dish image/name/who-ordered + "继续添加"), five-tab bottom bar.
-- Business logic accepted: date + meal_type two-dimensional isolation for local meal selections; per-meal idempotent batch add; "查看本周" uses toast placeholder (Phase 2.5 marker) until menu page is built.
+- Homepage structure accepted: family header (dual avatars + kitchen name + day/diners), four quick entries, weekly plan core area (Mon鈥揝un tabs, today highlighted, breakfast/lunch/dinner as compact horizontal rows with per-meal "鍔犲叆鏈" button), ordered meal menu (horizontal cards with dish image/name/who-ordered + "缁х画娣诲姞"), five-tab bottom bar.
+- Business logic accepted: date + meal_type two-dimensional isolation for local meal selections; per-meal idempotent batch add; "鏌ョ湅鏈懆" uses toast placeholder (Phase 2.5 marker) until menu page is built.
 - WeChat DevTools (Stable 2.02.2608060) real compile on iPhone 15 Pro simulator: **0 error** (4 internal DevTools warnings unrelated to project code).
 - Homepage UI passed external Reviewer + user visual acceptance at commit `80e5c261599a34655b9c6340257b706006a39b33`.
 - **Important: this is fixture UI only. It does NOT represent real multi-user backend, real family sync, or production persistence. Those remain Phase 3+.**
@@ -196,7 +196,7 @@ Phase 3 backend foundation in `backend/v1/`:
 - Config fail-closed, WeChat code2Session adapter, short-lived JWT, `/api/v1/auth/wechat`, `/me`, `/me/families`, and membership gate.
 - Parameterized PostgreSQL identity/membership reads; four-table core migration with transactional runner/checksum lock.
 - Node tests and PostgreSQL CI service added. Local unit tests: 12 passed. Local integration: fails explicitly without TEST_DATABASE_URL (0 skipped); real PostgreSQL result must be recorded separately.
-- Real PostgreSQL 16 CI at implementation checkpoint: [run 33839190932](https://github.com/ruide92/our-kitchen-api/actions/runs/33839190932) completed successfully, including npm test (12 unit + 1 core integration). This validates only the four-table foundation, not full A01–A05/A46/A47 or production behavior.
+- Real PostgreSQL 16 CI at implementation checkpoint: [run 33839190932](https://github.com/ruide92/our-kitchen-api/actions/runs/33839190932) completed successfully, including npm test (12 unit + 1 core integration). This validates only the four-table foundation, not full A01鈥揂05/A46/A47 or production behavior.
 - The foundation checkpoint did not deliver family writes. Current Family slice adds them; all-resource isolation, seed, production secret rotation and deployment remain incomplete.
 - See `docs/PHASE3_BACKEND_PROGRESS.md` for scope, validation and remaining work.
 - Menu fixture commits through `27b3fcb` are preserved. No `miniprogram/**` modifications permitted in this slice; menu visual acceptance remains outstanding but not a backend blocker.
@@ -224,7 +224,7 @@ Baseline evidence remains:
 - Legacy `test-api.js` is not accepted as trustworthy.
 - Isolated JsonDatabase probe confirmed broken pagination/search/count/JOIN/COALESCE/update-expression behavior.
 
-Phase 2 consisted only of specification documents; no business code or production deployment was modified. Normative cross-check was performed across Product ↔ Data Model ↔ API ↔ Acceptance Tests plus KRP/Recommendation/Roadmap.
+Phase 2 consisted only of specification documents; no business code or production deployment was modified. Normative cross-check was performed across Product 鈫?Data Model 鈫?API 鈫?Acceptance Tests plus KRP/Recommendation/Roadmap.
 
 Phase 2.5 added homepage fixture UI only. WeChat DevTools real compile: 0 error. No backend, database, or auth code was touched.
 
@@ -239,9 +239,42 @@ V1 local checkpoint (2026-09-05): unit 38/38 PASS, PostgreSQL integration 19/19 
 
 ## Next first action
 
-1. **Mine visual acceptance** — open `pages/mine/mine` in DevTools and screenshot real V1 data (no fixture). Currently PENDING.
-2. **Public HTTPS V1 deployment** — deploy V1 backend to an HTTPS endpoint (localhost loopback is DevTools-only).
-3. **小程序切换到 HTTPS V1** — update `miniprogram/config/v1.js` baseUrl to the HTTPS endpoint.
-4. **第二个真实微信用户/糖糖加入** — invite and join with a second real WeChat account.
-5. **双用户 members=2 验收** — verify both users ACTIVE, roles correct, family shared.
+1. **Mine visual acceptance** 鈥?open `pages/mine/mine` in DevTools and screenshot real V1 data (no fixture). Currently PENDING.
+2. **Public HTTPS V1 deployment** 鈥?deploy V1 backend to an HTTPS endpoint (localhost loopback is DevTools-only).
+3. **灏忕▼搴忓垏鎹㈠埌 HTTPS V1** 鈥?update `miniprogram/config/v1.js` baseUrl to the HTTPS endpoint.
+4. **绗簩涓湡瀹炲井淇＄敤鎴?绯栫硸鍔犲叆** 鈥?invite and join with a second real WeChat account.
+5. **鍙岀敤鎴?members=2 楠屾敹** 鈥?verify both users ACTIVE, roles correct, family shared.
 6. Only after the above: begin Recipe / Weekly Plan / Fridge / Shopping real-backend cutover.
+
+### CORE KITCHEN REAL CUTOVER CHECKPOINT (2026-09-05)
+
+Backend core and frontend real-data wiring for Recipe/Meal/Fridge/Shopping loop.
+
+- **Database migrations 003-006**: **ADDED** — ingredients, ecipes, ecipe_ingredients, meals, meal_items, weekly_plans, ridge_items, pantry_staples, inventory_movements, shopping_lists, shopping_list_items
+- **Backend services**: **ADDED** — ecipe-service.js, meal-service.js, ridge-service.js, shopping-service.js (with calculation engine: meal→recipe ingredients→merge→deduct fridge→deduct pantry→missing)
+- **Kitchen routes**: **ADDED** — /families/:family_id/recipes, /meals, /fridge, /pantry-staples, /shopping-lists registered in kitchen-routes.js
+- **Seed data**: **ADDED** — seed-recipes.js with 20 ingredients + 10 base recipes (辣椒炒肉, 苦瓜炒蛋, 麻婆豆腐, etc.)
+- **Meal page**: **ADDED** — pages/meal/meal (本餐菜单正式页面, registered in app.json)
+- **Menu tab**: **WIRED** — recipes loaded from real API, + adds to real Meal via V1 API, mini-cart navigates to meal page, fixture fallback retained
+- **Fridge tab**: **WIRED** — inventory loaded from real API, add/delete call real V1 API, freshness computed client-side, fixture fallback retained
+- **Shopping tab**: **WIRED** — list loaded from real API, purchase toggle calls real API, complete purchase calls real API (入冰箱), fixture fallback retained
+- **Unit tests**: **38/38 PASS**
+- **Integration tests**: **19/19 PASS**
+- **DevTools compile**: **0 project error** (359.1 KB)
+
+**Explicitly NOT DONE at this checkpoint:**
+
+- Neon cloud migration 003-006: **PENDING** (local PG migrated; Neon needs re-run with new migrations)
+- Render redeploy with new backend code: **PENDING** (push done; Render auto-deploy may need manual trigger)
+- Public end-to-end real flow verification (点菜→本餐菜单→生成购物→购买入冰箱→重启持久化): **PENDING**
+- Weekly Plan real data / Recommendation Engine: **NOT DONE** (本周安排 still fixture)
+- Homepage real data: **NOT DONE** (still fixture)
+- Family isolation tests for new kitchen APIs: **PENDING**
+- Mine Visual Acceptance: **PENDING**
+- Second WeChat user / 糖糖 join: **NOT DONE**
+
+**Commits:**
+- \1f0056\ feat: add real recipe and meal flow with backend core
+- \164fb86\ feat: connect menu to real recipe and meal API
+- \ee50e15\ feat: connect fridge to real v1 api with fixture fallback
+- \1d8c637\ feat: connect shopping to real v1 api with fixture fallback
