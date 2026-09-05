@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Schema Contract Audit — checks migration schema against DATA_MODEL_V4 and SPEC_AMENDMENTs
-// Usage: node scripts/schema-contract-audit.js
+// Usage: node scripts/schema-contract-audit.js [--mode=governance|release]
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -8,6 +8,8 @@ const ROOT = path.resolve(__dirname, '..');
 const SQL_DIR = path.join(ROOT, 'backend', 'v1', 'sql');
 const DATA_MODEL = path.join(ROOT, 'docs', 'DATA_MODEL_V4.md');
 const AMENDMENT_DIR = path.join(ROOT, 'docs');
+
+const mode = process.argv.find(a => a.startsWith('--mode='))?.split('=')[1] || 'governance';
 
 function readFile(p) { return fs.readFileSync(p, 'utf8'); }
 
@@ -31,46 +33,53 @@ function extractAlterColumns(sql) {
   return cols;
 }
 
+function parseAmendment(filePath) {
+  const content = readFile(filePath);
+  const name = path.basename(filePath);
+  // Status must be explicit machine field: "Status: APPROVED" or "Status: DRAFT"
+  const statusMatch = content.match(/^Status:\s*(\w+)/m);
+  const status = statusMatch ? statusMatch[1].toUpperCase() : 'DRAFT';
+  return { name, content, status };
+}
+
 function main() {
   const dataModel = readFile(DATA_MODEL);
   const amendments = [];
   for (const f of fs.readdirSync(AMENDMENT_DIR)) {
     if (f.startsWith('SPEC_AMENDMENT') && f.endsWith('.md')) {
-      amendments.push({ name: f, content: readFile(path.join(AMENDMENT_DIR, f)) });
+      amendments.push(parseAmendment(path.join(AMENDMENT_DIR, f)));
     }
   }
 
   console.log('=== SCHEMA CONTRACT AUDIT ===');
-  console.log(`DATA_MODEL_V4 loaded: ${dataModel.length} chars`);
-  console.log(`SPEC_AMENDMENT files: ${amendments.map(a => a.name).join(', ') || 'none'}`);
+  console.log(`Mode: ${mode}`);
+  console.log(`DATA_MODEL_V4: ${dataModel.length} chars`);
+  console.log(`Amendments: ${amendments.map(a => `${a.name}(${a.status})`).join(', ') || 'none'}`);
 
   const sqlFiles = listSql();
-  const allTables = new Map(); // table -> source migration
+  const allTables = new Map();
   const allAlters = [];
 
   for (const f of sqlFiles) {
     const sql = readFile(path.join(SQL_DIR, f));
-    const tables = extractTables(sql);
-    const alters = extractAlterColumns(sql);
-    tables.forEach(t => allTables.set(t, f));
-    allAlters.push(...alters.map(a => ({ ...a, migration: f })));
+    extractTables(sql).forEach(t => allTables.set(t, f));
+    allAlters.push(...extractAlterColumns(sql).map(a => ({ ...a, migration: f })));
   }
 
   console.log(`\nSQL migrations: ${sqlFiles.join(', ')}`);
   console.log(`Total tables: ${allTables.size}`);
   console.log(`ALTER ADD COLUMN: ${allAlters.length}`);
 
-  // Check each table is referenced in DATA_MODEL or amendment
-  const unapproved = [];
+  // Check each table is referenced
+  const unapprovedTables = [];
   for (const [table, migration] of allTables) {
     const inDataModel = dataModel.includes(table);
     const inAmendment = amendments.some(a => a.content.includes(table));
     if (!inDataModel && !inAmendment) {
-      unapproved.push({ table, migration });
+      unapprovedTables.push({ table, migration });
     }
   }
 
-  // Check each ALTER column
   const unapprovedAlters = [];
   for (const alter of allAlters) {
     const inDataModel = dataModel.includes(alter.column);
@@ -83,44 +92,63 @@ function main() {
   }
 
   console.log(`\n--- Tables not in DATA_MODEL or amendments ---`);
-  if (unapproved.length === 0) console.log('  none');
-  else unapproved.forEach(u => console.log(`  - ${u.table} (from ${u.migration})`));
+  if (unapprovedTables.length === 0) console.log('  none');
+  else unapprovedTables.forEach(u => console.log(`  - ${u.table} (from ${u.migration})`));
 
   console.log(`\n--- ALTER columns not in DATA_MODEL or amendments ---`);
   if (unapprovedAlters.length === 0) console.log('  none');
   else unapprovedAlters.forEach(u => console.log(`  - ${u.table}.${u.column} (from ${u.migration})`));
 
+  // Check amendment approval status
+  const draftAmendments = amendments.filter(a => a.status !== 'APPROVED');
+  const approvedAmendments = amendments.filter(a => a.status === 'APPROVED');
+
+  console.log(`\n--- Amendment Status ---`);
+  console.log(`APPROVED: ${approvedAmendments.length}`);
+  console.log(`DRAFT/UNAPPROVED: ${draftAmendments.length}`);
+  draftAmendments.forEach(a => console.log(`  - ${a.name}: ${a.status}`));
+
   // Special check: 008 migration
   const has008 = sqlFiles.includes('008_full_closeout.sql');
+  let zeroZeroEightStatus = 'NOT_PRESENT';
   if (has008) {
-    console.log(`\n--- 008_full_closeout.sql special check ---`);
-    const sql008 = readFile(path.join(SQL_DIR, '008_full_closeout.sql'));
-    const tables008 = extractTables(sql008);
-    const alters008 = extractAlterColumns(sql008);
-    console.log(`  New tables: ${tables008.join(', ')}`);
-    console.log(`  Altered columns: ${alters008.map(a => `${a.table}.${a.column}`).join(', ')}`);
-
     const amendment12A = amendments.find(a => a.name === 'SPEC_AMENDMENT_12A.md');
     if (!amendment12A) {
-      console.log(`  WARNING: SPEC_AMENDMENT_12A.md not found — 008 schema unapproved`);
+      zeroZeroEightStatus = 'NO_AMENDMENT';
+    } else if (amendment12A.status === 'APPROVED') {
+      zeroZeroEightStatus = 'APPROVED';
     } else {
-      const approved = amendment12A.content.includes('[x]');
-      console.log(`  SPEC_AMENDMENT_12A approved: ${approved ? 'YES' : 'NO (DRAFT)'}`);
-      if (!approved) {
-        console.log(`  STATUS: UNAPPROVED_SCHEMA_CHANGE — do not apply to Neon`);
-      }
+      zeroZeroEightStatus = 'BLOCKED (DRAFT)';
+    }
+    console.log(`\n--- 008_full_closeout.sql ---`);
+    console.log(`  Status: ${zeroZeroEightStatus}`);
+    if (zeroZeroEightStatus === 'BLOCKED (DRAFT)') {
+      console.log(`  Action: DO NOT apply to Neon until SPEC_AMENDMENT_12A is APPROVED`);
     }
   }
 
-  const totalUnapproved = unapproved.length + unapprovedAlters.length;
+  const totalUnapproved = unapprovedTables.length + unapprovedAlters.length;
   console.log(`\n=== SUMMARY ===`);
   console.log(`UNAPPROVED_SCHEMA_CHANGES: ${totalUnapproved}`);
+  console.log(`DRAFT_AMENDMENTS: ${draftAmendments.length}`);
+  console.log(`008_STATUS: ${zeroZeroEightStatus}`);
 
-  if (totalUnapproved > 0) {
-    console.log('\nWARNING: unapproved schema changes found (may be intentional in amendments)');
-    // Don't exit 1 for warnings — amendments are the approval mechanism
+  // Governance mode: allow DRAFT, but report
+  if (mode === 'governance') {
+    if (totalUnapproved > 0) {
+      console.log('\nWARNING: unapproved schema changes (governance allows with tracking)');
+    }
+    console.log('\nPASS: schema audit complete (governance mode)');
+    process.exit(0);
   }
-  console.log('\nPASS: schema contract audit complete');
+
+  // Release mode: any DRAFT or unapproved = FAIL
+  if (draftAmendments.length > 0 || totalUnapproved > 0 || zeroZeroEightStatus.includes('BLOCKED')) {
+    console.log('\nFAIL: release requires all amendments APPROVED and no unapproved schema changes');
+    process.exit(1);
+  }
+
+  console.log('\nPASS: schema audit complete (release mode)');
   process.exit(0);
 }
 

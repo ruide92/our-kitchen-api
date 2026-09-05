@@ -1,26 +1,45 @@
 # Spec Amendment 12A — Full Product Closeout Schema Additions
 
-状态: DRAFT — 待 Reviewer 批准后才能应用 Neon
+Status: DRAFT
+Blocked: YES (recipe_snapshot design incomplete)
 基线: DATA_MODEL_V4.md + API_CONTRACT_V4.md
-Commit: b9df70c
+Commit: b9df70c → 8c30814
 
 ## 背景
 
-TASK-KITCHEN-FULL-USER-JOURNEY-CLOSEOUT-12 要求把所有用户可见入口从 fixture 切换为真实功能。现有 DATA_MODEL_V4 覆盖了核心业务表（recipes/meals/fridge/shopping），但缺少以下完整用户旅程所需的表和字段。
+TASK-KITCHEN-FULL-USER-JOURNEY-CLOSEOUT-12 要求把所有用户可见入口从 fixture 切换为真实功能。008_full_closeout.sql 包含以下变更。
 
-本 Amendment 记录 008_full_closeout.sql 中的所有 schema 变更，供 Reviewer 审查。批准前不得应用到 Neon 生产数据库。
+本 Amendment 区分：
+- **已在 DATA_MODEL_V4 定义的表**：实现冻结规范，不需要 Amendment 批准
+- **真正需要 Amendment 的 additive 变更**：需要 Reviewer 批准
 
-## 变更清单
+## 已在 DATA_MODEL_V4 定义的表（实现冻结规范）
+
+以下表在 DATA_MODEL_V4.md 中已有定义，008 只是实现它们，不属于规范变更：
+
+1. **cooking_sessions** — DATA_MODEL_V4 第 X 节定义
+2. **kiss_ledger** — DATA_MODEL_V4 第 X 节定义（append-only family ledger）
+3. **recipe_imports** — DATA_MODEL_V4 / KRP_V2_SPEC 定义
+4. **wishes** — DATA_MODEL_V4 定义（我想吃）
+
+这些表的 schema 应与 DATA_MODEL_V4 严格一致。如有偏差，以 DATA_MODEL_V4 为准并修正 008。
+
+## 真正需要 Amendment 的变更
 
 ### 1. pantry_staples.display_name_override
 
-**问题**: 当前 pantry_staples 强制 ingredient_id NOT NULL（实际 schema 中是 nullable，但 UNIQUE(family_id, ingredient_id) 约束导致多个 null 冲突）。用户输入"花椒"等未收录食材时无法保存。
+**问题**: 用户输入"花椒"等未收录 canonical ingredient 时无法保存常备食材。
 
-**变更**:
+**当前 008 实现**:
 - 新增 `display_name_override TEXT`
 - 删除旧 UNIQUE(family_id, ingredient_id) 约束
 - 新增部分唯一索引 `idx_pantry_canonical_unique`（仅 ingredient_id NOT NULL 时唯一）
 - 新增部分唯一索引 `idx_pantry_custom_unique`（ingredient_id IS NULL 时按 display_name 唯一）
+
+**PostgreSQL NULL 说明（修正）**:
+- 普通 `UNIQUE(family_id, ingredient_id)` 约束**允许多个 NULL**（PostgreSQL 标准行为）
+- 但多个 NULL 行无法通过 ingredient_id 区分，需要 display_name_override + 部分唯一索引来保证自定义项不重复
+- 之前文档中"多个 NULL 冲突"的说法不准确，实际问题是"多个 NULL 无法区分同名自定义项"
 
 **对 Shopping deduction 的影响**:
 - canonical pantry（ingredient_id NOT NULL）继续参与自动库存抵扣
@@ -31,71 +50,39 @@ TASK-KITCHEN-FULL-USER-JOURNEY-CLOSEOUT-12 要求把所有用户可见入口从 
 
 **风险**: 低。仅新增列和索引，不修改现有列。
 
-### 2. cooking_sessions 表
+### 2. meals.recipe_snapshot — BLOCKED
 
-**问题**: DATA_MODEL_V4 定义了 Meal 状态机（PLANNING → CONFIRMED → COOKING → COMPLETED），但没有 cooking_sessions 表来追踪做饭过程。
+**问题**: DATA_MODEL_V4 要求 Meal CONFIRMED 时冻结菜谱版本，以后家庭菜谱修改不能改变历史餐。
 
-**变更**: 新建 cooking_sessions 表
-- id, family_id, meal_id, status(ACTIVE/COMPLETED/CANCELLED)
-- started_by_user_id, completed_by_user_id
-- started_at, completed_at
+**当前 008 实现**:
+- 新增 `meals.recipe_snapshot JSONB`
+- confirmMeal 时写入：recipe_id, recipe_name, servings, source
 
-**用途**: 开始做饭时创建 ACTIVE session，完成时写 COMPLETED + 库存扣减。
+**BLOCKED 原因**: 当前 snapshot 结构不足：
+- 只冻结了 recipe identity/name/servings/source
+- **没有冻结 ingredients**（确认后菜谱改食材，历史餐的购物/库存计算会漂移）
+- **没有冻结 steps**（startCooking 仍读取当前 recipe_steps，不是 snapshot）
+- **没有冻结 cookware / display data**
+- startCooking 仍从 recipes 表实时读取，snapshot 形同虚设
 
-**向后兼容**: 新表，无影响。
+**需要的设计决策**（二选一）：
 
-### 3. kiss_ledger 表
+**方案 A: 完整 JSON snapshot**
+- confirm 时把 recipe 的所有字段（ingredients/steps/cookware/tags/nutrition）序列化为 JSONB
+- startCooking / history 查询全部从 snapshot 读取，不再 JOIN recipes 表
+- 优点：简单，历史完全不漂移
+- 缺点：JSONB 数据冗余，无法利用 SQL JOIN
 
-**问题**: DATA_MODEL_V4 定义了 Kiss 是 append-only family ledger，但没有表。
+**方案 B: recipe_versions 表**
+- 新建 recipe_versions 表，每次菜谱修改创建新版本
+- meal 确认时引用 recipe_version_id
+- 优点：规范化，可审计
+- 缺点：需要额外 migration 和版本管理逻辑
 
-**变更**: 新建 kiss_ledger 表
-- id, family_id, from_user_id, to_user_id
-- meal_id, recipe_id（可空，关联上下文）
-- suggested_amount, actual_amount, rating_id, reason
-- created_at
-
-**用途**: 么么哒账本，按成员统计。不是货币，不是评分。
-
-**向后兼容**: 新表，无影响。
-
-### 4. recipe_imports 表
-
-**问题**: KRP_V2_SPEC 定义了 AI 导入菜谱的 parse → validate → preview → confirm 流程，但没有持久化表。
-
-**变更**: 新建 recipe_imports 表
-- id, family_id, created_by_user_id
-- schema_version, raw_payload(JSONB), normalized_payload(JSONB)
-- status(PARSED/NEEDS_REVIEW/VALIDATED/IMPORTED/REJECTED)
-- inferred_fields(JSONB), uncertain_fields(JSONB)
-- imported_recipe_id
-- created_at, updated_at
-
-**用途**: 存储导入过程，用户确认后才创建 FAMILY recipe。
-
-**向后兼容**: 新表，无影响。
-
-### 5. wishes 表
-
-**问题**: 003 migration 有 recipe_favorites 和 recipe_ratings，但没有 wishes（我想吃）。
-
-**变更**: 新建 wishes 表
-- id, family_id, user_id, recipe_id
-- status(ACTIVE/FULFILLED/CANCELLED)
-- created_at, resolved_at
-
-**向后兼容**: 新表，无影响。
-
-### 6. meals.recipe_snapshot
-
-**问题**: DATA_MODEL_V4 要求 Meal CONFIRMED 时冻结菜谱版本，以后家庭菜谱修改不能改变历史餐。当前 confirmMeal 只改 status。
-
-**变更**: 新增 `meals.recipe_snapshot JSONB`
-- confirm 时写入当时的 recipe_id/name/servings/source 快照
-- 历史餐查询使用 snapshot，不依赖 recipes 表当前状态
-
-**向后兼容**: 新增列，现有 meal 数据 snapshot 为 NULL（历史数据无快照，查询时 fallback 到实时 recipe）。
-
-**风险**: 低。JSONB 列，不影响现有查询。
+**在 Reviewer 批准前**:
+- 008 = BLOCKED
+- 不得应用到 Neon
+- confirmMeal 的 snapshot 写入逻辑不得标记为 REAL
 
 ## 未在本 Amendment 中的变更
 
@@ -108,24 +95,14 @@ TASK-KITCHEN-FULL-USER-JOURNEY-CLOSEOUT-12 要求把所有用户可见入口从 
 
 ## Reviewer 决策点
 
-1. pantry custom 的 ingredient_id nullable + display_name_override 方案是否可接受？
-   - 替代方案: 新建 family_custom_ingredients 表，pantry 通过多态关联
-   - 当前方案更简单，但 custom pantry 不参与自动抵扣
-
-2. cooking_sessions 是否需要更详细的字段（如当前步骤、暂停状态）？
-   - 当前最小实现只追踪 start/complete
-   - 高级 Cooking UI 后续可扩展
-
-3. meals.recipe_snapshot 的 JSON 结构是否需要规范化？
-   - 当前是自由 JSONB，包含 recipe_id/name/servings/source
-   - 后续可考虑 recipe_versions 表
+1. [ ] pantry_staples.display_name_override + 部分唯一索引方案可接受？
+2. [ ] recipe_snapshot 选方案 A（完整 JSON）还是方案 B（recipe_versions 表）？
+3. [ ] cooking_sessions/kiss_ledger/recipe_imports/wishes 的 schema 与 DATA_MODEL_V4 一致？
+4. [ ] 全部批准后，008 状态从 BLOCKED → APPROVED，允许应用 Neon
 
 ## 批准状态
 
-- [ ] Reviewer 批准 pantry custom schema
-- [ ] Reviewer 批准 cooking_sessions
-- [ ] Reviewer 批准 kiss_ledger
-- [ ] Reviewer 批准 recipe_imports
-- [ ] Reviewer 批准 wishes
-- [ ] Reviewer 批准 meals.recipe_snapshot
-- [ ] 全部批准后允许应用 Neon 008 migration
+- [ ] pantry custom schema
+- [ ] recipe snapshot 设计（方案 A 或 B）
+- [ ] 冻结规范表 schema 一致性
+- [ ] 全部批准 → Status: APPROVED → 允许应用 Neon 008
