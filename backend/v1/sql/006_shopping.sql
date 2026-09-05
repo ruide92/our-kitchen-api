@@ -1,39 +1,37 @@
--- Shopping lists (购物清单)
-CREATE TABLE shopping_lists (
-  id uuid PRIMARY KEY,
-  family_id uuid NOT NULL REFERENCES families(id),
-  meal_id uuid REFERENCES meals(id),
-  status text NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN','COMPLETED','CANCELLED')),
-  generated_at timestamptz,
-  completed_at timestamptz,
-  created_by_user_id uuid REFERENCES users(id),
-  version integer NOT NULL DEFAULT 1 CHECK (version >= 1),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX shopping_lists_family_open ON shopping_lists(family_id) WHERE status = 'OPEN';
+-- 006: Shopping Lists
+-- Normative: docs/DATA_MODEL_V4.md sections 22-23
 
--- Shopping list items
-CREATE TABLE shopping_list_items (
-  id uuid PRIMARY KEY,
-  list_id uuid NOT NULL REFERENCES shopping_lists(id) ON DELETE CASCADE,
-  ingredient_id text REFERENCES ingredients(id),
-  name text NOT NULL CHECK (length(trim(name)) > 0),
-  category text NOT NULL DEFAULT 'OTHER',
-  source text NOT NULL DEFAULT 'GENERATED' CHECK (source IN ('GENERATED','MANUAL')),
-  required_quantity numeric(12,3),
-  required_quantity_text text,
-  unit_code text,
-  inventory_deducted numeric(12,3) NOT NULL DEFAULT 0,
-  pantry_deducted numeric(12,3) NOT NULL DEFAULT 0,
-  missing_quantity numeric(12,3),
-  missing_quantity_text text,
-  purchased_quantity numeric(12,3),
-  is_purchased boolean NOT NULL DEFAULT false,
-  needs_unit_confirmation boolean NOT NULL DEFAULT false,
-  note text,
-  calculation_evidence jsonb,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+-- ========== SHOPPING_LISTS ==========
+CREATE TABLE IF NOT EXISTS shopping_lists (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  meal_id UUID REFERENCES meals(id),
+  status TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN','COMPLETED','ARCHIVED')),
+  generated_at TIMESTAMPTZ,
+  created_by_user_id UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX shopping_list_items_list ON shopping_list_items(list_id);
+CREATE INDEX IF NOT EXISTS idx_shopping_lists_family ON shopping_lists(family_id);
+CREATE INDEX IF NOT EXISTS idx_shopping_lists_status ON shopping_lists(status);
+
+-- ========== SHOPPING_LIST_ITEMS ==========
+CREATE TABLE IF NOT EXISTS shopping_list_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  shopping_list_id UUID NOT NULL REFERENCES shopping_lists(id) ON DELETE CASCADE,
+  ingredient_id UUID REFERENCES ingredients(id),
+  display_name_override TEXT,
+  required_quantity DECIMAL(12,3),
+  required_quantity_text TEXT,
+  unit_code TEXT REFERENCES units(code),
+  purchased_quantity DECIMAL(12,3),
+  is_purchased BOOLEAN NOT NULL DEFAULT false,
+  source TEXT NOT NULL DEFAULT 'GENERATED' CHECK (source IN ('GENERATED','MANUAL')),
+  needs_unit_confirmation BOOLEAN NOT NULL DEFAULT false,
+  note TEXT,
+  created_by_user_id UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_shopping_list_items_list ON shopping_list_items(shopping_list_id);
+CREATE INDEX IF NOT EXISTS idx_shopping_list_items_ingredient ON shopping_list_items(ingredient_id);

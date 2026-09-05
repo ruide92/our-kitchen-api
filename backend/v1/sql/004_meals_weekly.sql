@@ -1,58 +1,65 @@
--- Meals (本餐菜单 - the real upstream for shopping/cooking/inventory)
-CREATE TABLE meals (
-  id uuid PRIMARY KEY,
-  family_id uuid NOT NULL REFERENCES families(id),
-  meal_date date NOT NULL,
-  meal_type text NOT NULL CHECK (meal_type IN ('BREAKFAST','LUNCH','DINNER')),
-  diners_count integer NOT NULL DEFAULT 2 CHECK (diners_count >= 1),
-  status text NOT NULL DEFAULT 'PLANNING' CHECK (status IN ('PLANNING','CONFIRMED','COOKING','COMPLETED','CANCELLED')),
-  source_weekly_plan_id uuid,
-  created_by_user_id uuid NOT NULL REFERENCES users(id),
-  version integer NOT NULL DEFAULT 1 CHECK (version >= 1),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE(family_id, meal_date, meal_type)
-);
-CREATE INDEX meals_family_date ON meals(family_id, meal_date);
+-- 004: Weekly Plans and Meals
+-- Normative: docs/DATA_MODEL_V4.md sections 16-19
 
--- Meal items (dishes in a meal)
-CREATE TABLE meal_items (
-  id uuid PRIMARY KEY,
-  meal_id uuid NOT NULL REFERENCES meals(id) ON DELETE CASCADE,
-  recipe_id text NOT NULL REFERENCES recipes(id),
-  servings integer NOT NULL DEFAULT 2 CHECK (servings >= 1),
-  source text NOT NULL DEFAULT 'MANUAL' CHECK (source IN ('MANUAL','WEEKLY_PLAN','RECOMMENDATION')),
-  selected_by_user_id uuid NOT NULL REFERENCES users(id),
-  locked boolean NOT NULL DEFAULT false,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE(meal_id, recipe_id)
+-- ========== WEEKLY_PLANS ==========
+CREATE TABLE IF NOT EXISTS weekly_plans (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  week_start_date DATE NOT NULL,
+  status TEXT NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT','ACTIVE','ARCHIVED')),
+  generation_mode TEXT,
+  created_by_user_id UUID REFERENCES users(id),
+  confirmed_by_user_id UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX meal_items_meal ON meal_items(meal_id);
+-- Partial unique: only one ACTIVE plan per family+week; DRAFT candidates allowed
+CREATE UNIQUE INDEX IF NOT EXISTS uq_weekly_plans_active
+  ON weekly_plans(family_id, week_start_date)
+  WHERE status = 'ACTIVE';
+CREATE INDEX IF NOT EXISTS idx_weekly_plans_family ON weekly_plans(family_id);
 
--- Weekly plans (计划/推荐, NOT the same as meals)
-CREATE TABLE weekly_plans (
-  id uuid PRIMARY KEY,
-  family_id uuid NOT NULL REFERENCES families(id),
-  week_start date NOT NULL,
-  status text NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT','ACTIVE','ARCHIVED')),
-  generated_by text NOT NULL DEFAULT 'MANUAL' CHECK (generated_by IN ('MANUAL','ENGINE','HYBRID')),
-  created_by_user_id uuid REFERENCES users(id),
-  version integer NOT NULL DEFAULT 1 CHECK (version >= 1),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE(family_id, week_start)
+-- ========== WEEKLY_PLAN_ITEMS ==========
+CREATE TABLE IF NOT EXISTS weekly_plan_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  weekly_plan_id UUID NOT NULL REFERENCES weekly_plans(id) ON DELETE CASCADE,
+  plan_date DATE NOT NULL,
+  meal_type TEXT NOT NULL CHECK (meal_type IN ('BREAKFAST','LUNCH','DINNER')),
+  recipe_id UUID NOT NULL REFERENCES recipes(id),
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  locked BOOLEAN NOT NULL DEFAULT false,
+  added_by_user_id UUID REFERENCES users(id),
+  source TEXT NOT NULL DEFAULT 'GENERATED' CHECK (source IN ('GENERATED','MANUAL','SWAP')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE INDEX IF NOT EXISTS idx_weekly_plan_items_plan ON weekly_plan_items(weekly_plan_id);
+CREATE INDEX IF NOT EXISTS idx_weekly_plan_items_date ON weekly_plan_items(plan_date, meal_type);
 
--- Weekly plan items (planned dishes for a day/meal slot)
-CREATE TABLE weekly_plan_items (
-  id uuid PRIMARY KEY,
-  plan_id uuid NOT NULL REFERENCES weekly_plans(id) ON DELETE CASCADE,
-  plan_date date NOT NULL,
-  meal_type text NOT NULL CHECK (meal_type IN ('BREAKFAST','LUNCH','DINNER')),
-  recipe_id text NOT NULL REFERENCES recipes(id),
-  sort_order integer NOT NULL DEFAULT 0,
-  locked boolean NOT NULL DEFAULT false,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE(plan_id, plan_date, meal_type, recipe_id)
+-- ========== MEALS ==========
+CREATE TABLE IF NOT EXISTS meals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  meal_date DATE NOT NULL,
+  meal_type TEXT NOT NULL CHECK (meal_type IN ('BREAKFAST','LUNCH','DINNER')),
+  diners_count INTEGER NOT NULL DEFAULT 2 CHECK (diners_count >= 1),
+  status TEXT NOT NULL DEFAULT 'PLANNING' CHECK (status IN ('PLANNING','CONFIRMED','COOKING','COMPLETED','CANCELLED')),
+  source_weekly_plan_id UUID REFERENCES weekly_plans(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (family_id, meal_date, meal_type)
 );
-CREATE INDEX weekly_plan_items_plan ON weekly_plan_items(plan_id, plan_date);
+CREATE INDEX IF NOT EXISTS idx_meals_family_date ON meals(family_id, meal_date);
+
+-- ========== MEAL_ITEMS ==========
+CREATE TABLE IF NOT EXISTS meal_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  meal_id UUID NOT NULL REFERENCES meals(id) ON DELETE CASCADE,
+  recipe_id UUID NOT NULL REFERENCES recipes(id),
+  selected_by_user_id UUID REFERENCES users(id),
+  source TEXT NOT NULL DEFAULT 'MANUAL' CHECK (source IN ('WEEKLY_PLAN','MANUAL','RANDOM','WISH')),
+  servings DECIMAL(6,2) NOT NULL DEFAULT 2,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (meal_id, recipe_id)
+);
+CREATE INDEX IF NOT EXISTS idx_meal_items_meal ON meal_items(meal_id);
