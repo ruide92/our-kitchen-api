@@ -321,6 +321,7 @@
 - `diners_count`
 - `status`：`PLANNING | CONFIRMED | COOKING | COMPLETED | CANCELLED`
 - `source_weekly_plan_id` nullable
+- `recipe_snapshot` JSONB nullable — PLANNING 可 null；CONFIRMED/COOKING/COMPLETED 逻辑必须为 schema_version=1 valid snapshot
 - `created_at`
 - `updated_at`
 
@@ -363,7 +364,8 @@
 
 - `id`
 - `family_id`
-- `ingredient_id`
+- `ingredient_id` nullable — NULL 表示自定义常备食材
+- `display_name_override` nullable — ingredient_id IS NULL 时 NULLIF(BTRIM(display_name_override),'') 必须非空
 - `quantity` nullable
 - `quantity_text` nullable
 - `unit_code` nullable

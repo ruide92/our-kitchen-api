@@ -456,7 +456,7 @@ test('Meal snapshot historical correctness + pantry custom', async t => {
   });
 
   // ===== S19: DATA_MODEL / SPEC approval consistency =====
-  await t.test('S19: amendment approval consistency', async () => {
+  await t.test('S19: amendment approval consistency (section-aware)', async () => {
     const fs = require('fs');
     const path = require('path');
     const amendmentPath = path.join(__dirname, '..', '..', 'docs', 'SPEC_AMENDMENT_12A.md');
@@ -465,25 +465,42 @@ test('Meal snapshot historical correctness + pantry custom', async t => {
     const blockedMatch = content.match(/^Blocked:\s*(.+)/m);
     const status = statusMatch ? statusMatch[1] : null;
 
+    function extractSection(md, heading) {
+      const re = new RegExp('## \\d+\\. ' + heading + '[\\s\\S]*?(?=## \\d+\\.|$)');
+      const m = md.match(re);
+      return m ? m[0] : '';
+    }
+
     if (status === 'APPROVED') {
-      // Blocked must be NO
       assert.ok(blockedMatch && blockedMatch[1].trim().startsWith('NO'),
         'APPROVED amendment must have Blocked: NO');
-      // Reviewer Decision Option A APPROVED
       assert.ok(content.includes('Option A') && content.includes('APPROVED'),
         'APPROVED amendment must document Reviewer Decision Option A');
-      // All checklist items checked
       const unchecked = content.match(/^\s*-\s*\[\s\]/m);
       assert.ok(!unchecked, 'APPROVED amendment must have all checklist items [x]');
-      // PRE-008 and POST-008 SQL files exist
+
       const preflightDir = path.join(__dirname, '..', '..', 'backend', 'v1', 'sql', 'preflight');
       assert.ok(fs.existsSync(path.join(preflightDir, '008_preflight.sql')), '008_preflight.sql must exist');
       assert.ok(fs.existsSync(path.join(preflightDir, '008_postcheck.sql')), '008_postcheck.sql must exist');
-      // DATA_MODEL must contain recipe_snapshot and display_name_override
+
+      // PRE-008 section must NOT reference 008-only columns
+      const preMatch = content.match(/PRE-008[\s\S]*?(?=POST-008|$)/);
+      if (preMatch) {
+        assert.ok(!preMatch[0].includes('recipe_snapshot IS NULL'),
+          'PRE-008 must not reference recipe_snapshot IS NULL (008-only column)');
+        assert.ok(!preMatch[0].includes('display_name_override'),
+          'PRE-008 must not reference display_name_override (008-only column)');
+      }
+
+      // DATA_MODEL Section-aware checks — NOT full-file substring
       const dataModelPath = path.join(__dirname, '..', '..', 'docs', 'DATA_MODEL_V4.md');
       const dm = fs.readFileSync(dataModelPath, 'utf8');
-      assert.ok(dm.includes('recipe_snapshot'), 'DATA_MODEL must contain recipe_snapshot');
-      assert.ok(dm.includes('display_name_override'), 'DATA_MODEL must contain display_name_override');
+      const section18 = extractSection(dm, 'meals');
+      const section21 = extractSection(dm, 'pantry_staples');
+      assert.ok(section18.includes('`recipe_snapshot`'),
+        'DATA_MODEL Section 18 (meals) field list must contain recipe_snapshot');
+      assert.ok(section21.includes('`display_name_override`'),
+        'DATA_MODEL Section 21 (pantry_staples) field list must contain display_name_override');
     } else if (status === 'DRAFT') {
       assert.ok(blockedMatch && blockedMatch[1].includes('YES'),
         'DRAFT amendment must be Blocked: YES');

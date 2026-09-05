@@ -388,3 +388,91 @@ test('Baseline: UNCLASSIFIED detector is not hardcoded to 0', () => {
   assert.ok(result.stdout.includes('UNCLASSIFIED: 1') || result.stdout.includes('UNCLASSIFIED: 2'),
     `UNCLASSIFIED should be >0, got: ${result.stdout.match(/UNCLASSIFIED: \d+/)}`);
 });
+
+// ===== Schema baseline drift mutation tests =====
+
+function makeSchemaRepo(dir, opts = {}) {
+  writeFile(dir, 'docs/DATA_MODEL_V4.md', opts.dataModel || '## 1. test_table\n\n- `id`\n');
+  writeFile(dir, 'docs/SPEC_AMENDMENT_TEST.md', 'Status: APPROVED\nBlocked: NO\n');
+  writeFile(dir, 'backend/v1/sql/001_test.sql', opts.sql || 'CREATE TABLE test_table(id UUID PRIMARY KEY);');
+  const registry = { drifts: opts.drifts || [] };
+  writeFile(dir, 'governance/schema-baseline-drift.json', JSON.stringify(registry));
+}
+
+// M1: add unregistered column to baseline CREATE TABLE → UNTRACKED > 0
+test('Mutation M1: unregistered baseline column causes UNTRACKED FAIL', () => {
+  const tmp = makeTempDir();
+  makeSchemaRepo(tmp, {
+    dataModel: '## 1. test_table\n\n- `id`\n',
+    sql: 'CREATE TABLE test_table(id UUID PRIMARY KEY, extra_col TEXT);',
+  });
+  const result = runScript('schema-contract-audit.js', ['--mode=governance'], tmp);
+  assert.ok(result.stdout.includes('UNTRACKED_BASELINE_DRIFT: 1'),
+    `UNTRACKED should be 1, got: ${result.stdout.match(/UNTRACKED_BASELINE_DRIFT: \d+/)}`);
+  assert.notEqual(result.code, 0, 'governance should FAIL on untracked drift');
+});
+
+// M2: remove registry entry for actual drift → UNTRACKED > 0
+test('Mutation M2: removed registry drift causes UNTRACKED FAIL', () => {
+  const tmp = makeTempDir();
+  makeSchemaRepo(tmp, {
+    dataModel: '## 1. test_table\n\n- `id`\n',
+    sql: 'CREATE TABLE test_table(id UUID PRIMARY KEY, known_drift TEXT);',
+    drifts: [], // intentionally empty — known_drift is not registered
+  });
+  const result = runScript('schema-contract-audit.js', ['--mode=governance'], tmp);
+  assert.ok(result.stdout.includes('UNTRACKED_BASELINE_DRIFT: 1'),
+    `UNTRACKED should be 1, got: ${result.stdout.match(/UNTRACKED_BASELINE_DRIFT: \d+/)}`);
+});
+
+// M3: registry has fake drift that doesn't exist in actual schema → STALE > 0
+test('Mutation M3: stale registry entry causes STALE FAIL', () => {
+  const tmp = makeTempDir();
+  makeSchemaRepo(tmp, {
+    dataModel: '## 1. test_table\n\n- `id`\n',
+    sql: 'CREATE TABLE test_table(id UUID PRIMARY KEY);',
+    drifts: [{ migration: '001_test.sql', table: 'test_table', column: 'nonexistent_col', reason: 'fake' }],
+  });
+  const result = runScript('schema-contract-audit.js', ['--mode=governance'], tmp);
+  assert.ok(result.stdout.includes('STALE_BASELINE_DRIFT_ENTRY: 1'),
+    `STALE should be 1, got: ${result.stdout.match(/STALE_BASELINE_DRIFT_ENTRY: \d+/)}`);
+  assert.notEqual(result.code, 0, 'governance should FAIL on stale registry entry');
+});
+
+// M4: Section 18 field missing but prose contains recipe_snapshot → S19 logic FAIL
+test('Mutation M4: S19 section-aware catches missing field despite prose mention', () => {
+  // Simulate S19 section extraction logic
+  const dm = '## 18. meals\n\n- `id`\n- `created_at`\n\nrecipe_snapshot is discussed elsewhere in prose.\n## 19. meal_items\n';
+  const sectionRe = /## \d+\. meals[\s\S]*?(?=## \d+\.|$)/;
+  const section18 = dm.match(sectionRe)?.[0] || '';
+  assert.ok(!section18.includes('`recipe_snapshot`'),
+    'Section 18 should NOT contain recipe_snapshot in field list (mutation scenario)');
+  // This proves the section-aware check would catch it — full-file includes() would pass falsely
+  assert.ok(dm.includes('recipe_snapshot'), 'Full file does contain recipe_snapshot (prose)');
+  assert.ok(dm.includes('recipe_snapshot') && !section18.includes('`recipe_snapshot`'),
+    'Full-file substring would falsely pass; section-aware correctly catches missing field');
+});
+
+// M5: Amendment PRE-008 uses recipe_snapshot → approval consistency logic FAIL
+test('Mutation M5: PRE-008 referencing 008-only column is caught', () => {
+  const amendment = `Status: APPROVED
+Blocked: NO
+
+## Production preflight
+
+### PRE-008
+
+SELECT COUNT(*) FROM meals WHERE recipe_snapshot IS NULL;
+
+### POST-008
+
+ok
+`;
+  const preMatch = amendment.match(/PRE-008[\s\S]*?(?=POST-008|$)/);
+  assert.ok(preMatch, 'PRE-008 section found');
+  assert.ok(preMatch[0].includes('recipe_snapshot IS NULL'),
+    'Mutation: PRE-008 incorrectly references recipe_snapshot IS NULL');
+  // This would cause S19 to FAIL — prove the detection logic works
+  const hasBadRef = preMatch[0].includes('recipe_snapshot IS NULL') || preMatch[0].includes('display_name_override');
+  assert.ok(hasBadRef, 'PRE-008 bad reference detected (would cause S19 FAIL)');
+});

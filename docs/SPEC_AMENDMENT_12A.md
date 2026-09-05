@@ -3,7 +3,7 @@
 Status: APPROVED
 Blocked: NO
 基线: DATA_MODEL_V4.md + API_CONTRACT_V4.md
-批准: 2026-09-06 — TASK-KITCHEN-12A-MIGRATION-READINESS-SEAL 完成后批准
+批准: 2026-09-06 — TASK-KITCHEN-12A-MIGRATION-TRUTH-FINAL-FIX 完成后批准
 
 ## Reviewer Decision
 
@@ -126,12 +126,30 @@ Item:
 
 ## Production preflight (未来 apply 008 前必须执行)
 
-在生产 Neon 应用 008 前，必须查询：
+分为两个阶段，禁止混淆。
 
-A. `SELECT COUNT(*) FROM meals WHERE status IN ('CONFIRMED','COOKING','COMPLETED') AND recipe_snapshot IS NULL`
-B. `SELECT COUNT(*) FROM pantry_staples WHERE ingredient_id IS NULL AND (display_name_override IS NULL OR BTRIM(display_name_override) = '')`
+### PRE-008（应用 008 之前，只读）
+
+SQL 文件：`backend/v1/sql/preflight/008_preflight.sql`
+
+因为 008 尚未应用，`recipe_snapshot` 和 `display_name_override` 列不存在，禁止查询这些列。
+
+A. `legacy_frozen_meals`: `SELECT COUNT(*) FROM meals WHERE status IN ('CONFIRMED','COOKING','COMPLETED')`
+   — 008 前所有 frozen meal 都没有 snapshot，全部是 legacy risk。
+B. `custom_pantry_without_name`: `SELECT COUNT(*) FROM pantry_staples WHERE ingredient_id IS NULL`
+   — 008 前没有 display_name_override 列，所有 custom pantry 都会违反新 CHECK。
 
 任何 count > 0 → STOP，交 Reviewer 决定 backfill strategy。禁止 silent historical fake backfill。
+
+### POST-008（应用 008 之后，只读验证）
+
+SQL 文件：`backend/v1/sql/preflight/008_postcheck.sql`
+
+A. `frozen_meals_missing_snapshot`: CONFIRMED+ AND recipe_snapshot IS NULL
+B. `custom_pantry_invalid_name`: ingredient_id IS NULL AND NULLIF(BTRIM(display_name_override),'') IS NULL
+C. 验证 008 表（cooking_sessions, kiss_ledger, recipe_imports, wishes）存在。
+
+任何 count > 0 → 数据完整性问题，调查后再标记 008 完成。
 
 ## Tests
 

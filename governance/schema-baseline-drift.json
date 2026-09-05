@@ -1,31 +1,31 @@
 {
-  "description": "Known baseline schema drift between 001-007 production migrations and DATA_MODEL_V4.md. These are historical, already-deployed mismatches. UNTRACKED drift (not in this registry) must FAIL schema audit.",
+  "description": "Known baseline schema drift between 001-007 production migrations and DATA_MODEL_V4.md. These are historical, already-deployed mismatches. UNTRACKED drift (not in this registry) must FAIL schema audit. STALE entries (registry has, actual schema doesn't) must also FAIL.",
   "drifts": [
     {
       "migration": "003_ingredients_recipes.sql",
       "table": "recipe_favorites",
       "column": null,
-      "normative": "Not documented in DATA_MODEL_V4",
+      "normative": "Not documented as independent section in DATA_MODEL_V4",
       "actual": "Table exists in production",
-      "reason": "Favorites table created in 003 but not added to normative model",
+      "reason": "Favorites table created in 003 but not added to normative model sections",
       "future_resolution": "Add to DATA_MODEL_V4 in next schema amendment"
     },
     {
       "migration": "003_ingredients_recipes.sql",
       "table": "recipe_ratings",
       "column": null,
-      "normative": "Not documented in DATA_MODEL_V4",
+      "normative": "Not documented as independent section in DATA_MODEL_V4",
       "actual": "Table exists in production",
-      "reason": "Ratings table created in 003 but not added to normative model",
+      "reason": "Ratings table created in 003 but not added to normative model sections",
       "future_resolution": "Add to DATA_MODEL_V4 in next schema amendment"
     },
     {
       "migration": "006_shopping.sql",
       "table": "shopping_list_items",
       "column": null,
-      "normative": "Not documented in DATA_MODEL_V4",
+      "normative": "Not documented as independent section in DATA_MODEL_V4",
       "actual": "Table exists in production",
-      "reason": "Shopping list items table created in 006 but not added to normative model",
+      "reason": "Shopping list items table created in 006 but not added to normative model sections",
       "future_resolution": "Add to DATA_MODEL_V4 in next schema amendment"
     },
     {
@@ -33,9 +33,72 @@
       "table": "shopping_list_items",
       "column": "sources",
       "normative": "Not documented in DATA_MODEL_V4",
-      "actual": "Column added via ALTER in 007",
+      "actual": "Column added via ALTER TABLE in 007",
       "reason": "Sources evidence column added in 007 but not added to normative model",
       "future_resolution": "Add to DATA_MODEL_V4 in next schema amendment"
+    },
+    {
+      "migration": "003_ingredients_recipes.sql",
+      "table": "recipe_nutrition",
+      "column": "id",
+      "normative": "Section 15 field list does not include id (uses recipe_id as implicit key)",
+      "actual": "id UUID PRIMARY KEY",
+      "reason": "Actual table has surrogate id key, normative model omits it",
+      "future_resolution": "Add id to DATA_MODEL Section 15 or document recipe_id as PK"
+    },
+    {
+      "migration": "003_ingredients_recipes.sql",
+      "table": "recipe_nutrition",
+      "column": "serving_size",
+      "normative": "Section 15 uses basis_servings, not serving_size",
+      "actual": "serving_size DECIMAL(10,3)",
+      "reason": "Normative model uses basis_servings; actual table uses serving_size",
+      "future_resolution": "Align naming in DATA_MODEL or migration"
+    },
+    {
+      "migration": "003_ingredients_recipes.sql",
+      "table": "recipe_nutrition",
+      "column": "serving_unit",
+      "normative": "Section 15 does not include serving_unit",
+      "actual": "serving_unit TEXT",
+      "reason": "Actual table has serving_unit, normative model omits it",
+      "future_resolution": "Add to DATA_MODEL Section 15"
+    },
+    {
+      "migration": "003_ingredients_recipes.sql",
+      "table": "recipe_nutrition",
+      "column": "source",
+      "normative": "Section 15 has status field, not source",
+      "actual": "source TEXT",
+      "reason": "Actual table uses source; normative model uses status with different semantics",
+      "future_resolution": "Align source/status naming in DATA_MODEL"
+    },
+    {
+      "migration": "003_ingredients_recipes.sql",
+      "table": "recipe_nutrition",
+      "column": "created_at",
+      "normative": "Section 15 does not include created_at",
+      "actual": "created_at TIMESTAMPTZ NOT NULL",
+      "reason": "Actual table has created_at, normative model omits audit fields",
+      "future_resolution": "Add audit fields to DATA_MODEL Section 15"
+    },
+    {
+      "migration": "004_meals_weekly.sql",
+      "table": "meal_items",
+      "column": "recipe_snapshot",
+      "normative": "Section 19 meal_items does not include recipe_snapshot (new design uses meals.recipe_snapshot)",
+      "actual": "recipe_snapshot JSONB nullable (legacy per-item snapshot)",
+      "reason": "004 created per-item recipe_snapshot; 008 redesign moved to meals-level snapshot. Legacy column remains in production.",
+      "future_resolution": "Document legacy column or drop in future migration after 008"
+    },
+    {
+      "migration": "003_ingredients_recipes.sql",
+      "table": "recipe_step_media",
+      "column": "url",
+      "normative": "DATA_MODEL line 240 describes asset_url, asset_id, generation_prompt, source_url",
+      "actual": "url TEXT NOT NULL (no asset_url/asset_id/generation_prompt/source_url columns)",
+      "reason": "Legacy 003 uses url; normative model describes richer media schema. Snapshot V1 compatibility maps url -> asset_url, other fields null.",
+      "future_resolution": "Add asset_url/asset_id/generation_prompt/source_url columns in future migration, or update DATA_MODEL to match actual"
     }
   ]
 }
