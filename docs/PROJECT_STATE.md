@@ -36,6 +36,35 @@ Local V1 environment and real WeChat login verified end-to-end on this machine.
 - Homepage / Menu / Fridge / Shopping List: still **fixture data**; not wired to real backend
 - Recipe / weekly plan / meal / inventory / shopping / recommendation cutover: **NOT DONE**
 
+### PUBLIC V1 DEPLOYMENT CHECKPOINT (2026-09-05)
+
+Public cloud V1 environment deployed and verified with real WeChat login.
+
+- Neon PostgreSQL (Free tier, aws-us-east-2): **PASS** — project `our-kitchen-v1`, branch `br-curly-queen-aejg97pm`, SSL connection string verified with Node pg
+- Cloud migration (`backend/v1/migrate-cli.js` against Neon): **PASS** — "Core migrations applied"; core tables `users`, `families`, `family_members`, `family_settings`, `family_cookware`, `schema_migrations` confirmed
+- Render Web Service (Free tier): **PASS** — `our-kitchen-v1`, branch `codex/kitchen-v4`, build `npm ci`, start `npm run start:v1`, deploy succeeded in 31.4s
+- Public HTTPS URL: **https://our-kitchen-v1.onrender.com**
+- Render environment variables: `DATABASE_URL` **PRESENT**, `WECHAT_APP_ID` **PRESENT**, `WECHAT_APP_SECRET` **PRESENT**, `JWT_SECRET` **PRESENT** (newly generated 64-hex-char secret, not reused from local)
+- Public `GET /api/v1/me` without token: **401 AUTH_REQUIRED** (not 404) — confirms HTTPS, V1 routing, and auth middleware
+- Public `POST /api/v1/auth/wechat` with invalid code: **401** — V1 auth endpoint exists and rejects bad codes
+- Public real WeChat login: **PUBLIC_LOGIN_ACCEPTED** — DevTools CLI recompile triggered `wx.login`; Neon `users` table shows 1 user created at 2026-09-05T01:26:05Z (first public login)
+- Public user: **PASS** — real WeChat openid stored, user row exists in Neon
+- Public family: **"我们的小厨房"** — created in Neon (first login had 0 families); invite_code generated; `header_mode=DUAL_AVATAR`
+- Public member: **ACTIVE / OWNER**, members=1
+- Public settings: **PASS** — `default_diners=2`, `breakfast_target_count=2`, `lunch_target_count=2`, `dinner_target_count=3`, `random_default_mode=BALANCED`
+- Mini program `config/v1.js`: baseUrl switched from `http://127.0.0.1:3101` to `https://our-kitchen-v1.onrender.com`
+- Mine Visual Acceptance: **PENDING** — DevTools GUI obstacle persists; not claimed as visual PASS
+- No secrets recorded in this document. No AppSecret, database password, DATABASE_URL, Neon connection string, openid, token, or JWT secret.
+
+**Explicitly NOT DONE at this checkpoint:**
+
+- Second WeChat user / 糖糖 join: **NOT DONE**
+- Two-user members=2 verification: **NOT DONE**
+- Homepage / Menu / Fridge / Shopping List: still **fixture data**; not wired to real public backend
+- Recipe / weekly plan / meal / inventory / shopping / recommendation cutover: **NOT DONE**
+- WeChat official request domain whitelist for `onrender.com`: **NOT DONE** (current DevTools uses debug mode; production release requires compliant HTTPS domain)
+- Render free instance cold-start latency (up to 50s) accepted for dev; not optimized
+
 ### TASK-REAL-AUTH-FAMILY-CUTOVER-01 (2026-09-04)
 
 - Handoff gate passed: local = remote = `c40c6db20d0e8e839a22ecb65ebe19edb08b70b3`, clean worktree after fetch.
