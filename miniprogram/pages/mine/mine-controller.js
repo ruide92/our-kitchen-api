@@ -38,10 +38,16 @@ function createMinePage({ app, wxAdapter }) {
       this._unsubscribe = this._session.subscribe(state => this.applySession(state))
     },
     onShow() {
-      if (typeof this.getTabBar === 'function') { const bar = this.getTabBar(); if (bar) bar.setData({ selected: 4 }) }
+      if (typeof this.getTabBar === 'function') { const bar = this.getTabBar(); if (bar) bar.setData({ selected: 4, hidden: false }) }
       return this.refreshPage()
     },
-    onUnload() { if (this._unsubscribe) this._unsubscribe(); this._unloaded = true },
+    onHide() { this._setTabBarHidden(false) },
+    onUnload() { this._setTabBarHidden(false); if (this._unsubscribe) this._unsubscribe(); this._unloaded = true },
+    _setTabBarHidden(hidden) {
+      if (typeof this.getTabBar === 'function') { const bar = this.getTabBar(); if (bar) bar.setData({ hidden }) }
+    },
+    _openSheet(name) { this.setData({ sheet: name }); this._setTabBarHidden(true) },
+    _closeSheet() { this.setData({ sheet: '' }); this._setTabBarHidden(false) },
     applySession(state) {
       const changed = this.data.active_family_id !== state.active_family_id
       const authenticated = state.status === 'authenticated'
@@ -58,6 +64,7 @@ function createMinePage({ app, wxAdapter }) {
         ['强避重复（天）', settings.repeat_strong_days], ['重复惩罚（天）', settings.repeat_penalty_days],
         ['恢复周期（天）', settings.repeat_recover_days]
       ].map(([label,value]) => ({ label, value: value === undefined || value === null ? '—' : value })) : []
+      const shouldClearSheet = !authenticated || changed
       this.setData({ status: state.status, authenticated, user: state.user,
         displayName: state.user && state.user.nickname || (authenticated ? '微信用户' : ''),
         avatarUrl: avatar(state.user && state.user.avatar_url), family: state.activeFamily,
@@ -67,8 +74,9 @@ function createMinePage({ app, wxAdapter }) {
         familyStatus: state.familyStatus,
         errorMessage: state.error && state.error.message || state.familyError && state.familyError.message || '',
         environmentBlocked: state.status === 'authFailed' && /^http:\/\/127\.0\.0\.1/.test(config.baseUrl),
-        sheet: !authenticated || changed ? '' : this.data.sheet
+        sheet: shouldClearSheet ? '' : this.data.sheet
       })
+      if (shouldClearSheet) this._setTabBarHidden(false)
     },
     refreshPage() {
       if (this._refreshPromise) return this._refreshPromise
@@ -89,15 +97,15 @@ function createMinePage({ app, wxAdapter }) {
       if (this.accountReady() && this.data.familyStatus === 'ready' && this.data.family) return true
       toast('请先选择并加载家庭'); return false
     },
-    openProfileSheet() { if (this.accountReady()) this.setData({ sheet: 'profile', fieldText: this.data.user.nickname || '' }) },
-    openCreateSheet() { if (this.accountReady()) this.setData({ sheet: 'create', fieldText: '我们的小厨房' }) },
-    openJoinSheet() { if (this.accountReady()) this.setData({ sheet: 'join', fieldText: '' }) },
-    openSelectSheet() { if (this.accountReady()) this.setData({ sheet: 'select' }) },
-    openFamilySheet() { if (this.familyReady()) this.setData({ sheet: 'family' }) },
-    openInviteSheet() { if (this.familyReady()) this.setData({ sheet: 'invite' }) },
-    openKitchenSettingsSheet() { if (this.familyReady()) this.setData({ sheet: 'kitchen' }) },
-    openSettingsSheet() { this.setData({ sheet: 'settings' }) },
-    closeSheet() { if (!this.data.busy) this.setData({ sheet: '' }) },
+    openProfileSheet() { if (this.accountReady()) { this.setData({ fieldText: this.data.user.nickname || '' }); this._openSheet('profile') } },
+    openCreateSheet() { if (this.accountReady()) { this.setData({ fieldText: '我们的小厨房' }); this._openSheet('create') } },
+    openJoinSheet() { if (this.accountReady()) { this.setData({ fieldText: '' }); this._openSheet('join') } },
+    openSelectSheet() { if (this.accountReady()) this._openSheet('select') },
+    openFamilySheet() { if (this.familyReady()) this._openSheet('family') },
+    openInviteSheet() { if (this.familyReady()) this._openSheet('invite') },
+    openKitchenSettingsSheet() { if (this.familyReady()) this._openSheet('kitchen') },
+    openSettingsSheet() { this._openSheet('settings') },
+    closeSheet() { if (!this.data.busy) this._closeSheet() },
     onFieldInput(e) { this.setData({ fieldText: e.detail.value }) },
     async submitFamily() {
       if (this.data.busy || !this.accountReady()) return
@@ -107,15 +115,16 @@ function createMinePage({ app, wxAdapter }) {
       this.setData({ busy: true, pageError: '' })
       try {
         await this._session[mode === 'create' ? 'createFamily' : 'joinFamily'](value)
-        this.setData({ sheet: '' }); toast(mode === 'create' ? '家庭已创建' : '已加入家庭')
+        this._closeSheet(); toast(mode === 'create' ? '家庭已创建' : '已加入家庭')
       } catch (error) {
-        if (error.mutationSucceeded) this.setData({ sheet: '' })
+        if (error.mutationSucceeded) this._closeSheet()
         toast(error.mutationSucceeded ? '家庭操作已成功，请刷新加载数据' : error.code === 'INVALID_INVITE' ? '邀请码无效' : error.message || '操作失败')
       } finally { this.setData({ busy: false }) }
     },
     async selectFamily(e) {
       if (this.data.busy) return
-      this.setData({ busy: true, sheet: '', pageError: '' })
+      this.setData({ busy: true, pageError: '' })
+      this._closeSheet()
       try { await this._session.selectFamily(e.currentTarget.dataset.id) }
       catch (error) { this.setData({ pageError: error.message || '家庭加载失败' }) }
       finally { this.setData({ busy: false }) }
@@ -125,9 +134,9 @@ function createMinePage({ app, wxAdapter }) {
       const nickname = this.data.fieldText.trim()
       if (!nickname) { toast('昵称不能为空'); return }
       this.setData({ busy: true })
-      try { await this._session.updateNickname(nickname); this.setData({ sheet: '' }); toast('昵称已保存') }
+      try { await this._session.updateNickname(nickname); this._closeSheet(); toast('昵称已保存') }
       catch (error) {
-        if (error.mutationSucceeded) this.setData({ sheet: '' })
+        if (error.mutationSucceeded) this._closeSheet()
         toast(error.mutationSucceeded ? '昵称已保存，成员信息请刷新' : error.message || '保存失败')
       } finally { this.setData({ busy: false }) }
     },
