@@ -17,24 +17,28 @@
       <text class="state-icon">⏳</text>
       <text class="state-text">加载本周安排...</text>
     </view>
-    <view wx:elif="{{weeklyError}}" class="state-error">
+    <view wx:elif="{{weeklyStatus === 'error'}}" class="state-error">
       <text class="state-icon">⚠️</text>
       <text class="state-text">{{weeklyError}}</text>
       <view class="state-retry" bindtap="retryWeekly"><text>重新加载</text></view>
     </view>
-    <view wx:elif="{{!weeklyPlan}}" class="state-empty">
+    <view wx:elif="{{weeklyStatus === 'empty'}}" class="state-empty">
       <text class="state-icon">📅</text>
       <text class="state-text">本周还没有生成计划</text>
-      <text class="state-hint">智能周菜谱功能稍后开放</text>
+      <view class="state-btn" bindtap="generateWeekly"><text>生成本周菜谱</text></view>
     </view>
-    <block wx:else>
+    <block wx:elif="{{weeklyStatus === 'active' || weeklyStatus === 'draft'}}">
 
     <view class="weekly-header">
       <view class="weekly-title-row">
-        <text class="weekly-title">本周安排</text>
+        <text class="weekly-title">{{weeklyStatus === 'draft' ? '本周安排 · 待确认' : '本周安排'}}</text>
         <text class="weekly-range">{{weekRangeText}}</text>
       </view>
-      <view class="weekly-rearrange" bindtap="rearrangeWeek">
+      <view wx:if="{{weeklyStatus === 'draft'}}" class="weekly-draft-actions">
+        <view class="weekly-btn weekly-btn-ghost" bindtap="discardDraft"><text>放弃修改</text></view>
+        <view class="weekly-btn weekly-btn-primary" bindtap="confirmWeekly"><text>确认本周安排</text></view>
+      </view>
+      <view wx:elif="{{canEditWeekly}}" class="weekly-rearrange" bindtap="rearrangeWeek">
         <text class="weekly-rearrange-text">重新安排本周</text>
       </view>
     </view>
@@ -61,7 +65,7 @@
             <text class="meal-count">{{item.count}}项</text>
           </view>
           <view class="meal-header-right">
-            <text class="meal-rearrange" data-meal-key="{{item.key}}" catchtap="rearrangeMeal">重新安排</text>
+            <text wx:if="{{canEditWeekly}}" class="meal-rearrange" data-meal-key="{{item.key}}" catchtap="rearrangeMeal">重新安排</text>
           </view>
         </view>
         <view class="meal-dishes">
@@ -74,7 +78,7 @@
               <view wx:if="{{dish.locked}}" class="plan-dish-lock">🔒</view>
             </view>
             <text class="plan-dish-name">{{dish.name}}</text>
-            <view class="plan-dish-actions">
+            <view wx:if="{{canEditWeekly}}" class="plan-dish-actions">
               <text class="dish-action" data-item-id="{{dish.id}}" catchtap="toggleLock">{{dish.locked ? '解锁' : '锁定'}}</text>
               <text class="dish-action" data-item-id="{{dish.id}}" catchtap="swapDish">换一道</text>
               <text class="dish-action dish-action-del" data-item-id="{{dish.id}}" catchtap="removePlanItem">删除</text>
@@ -88,7 +92,7 @@
       </view>
     </view>
 
-    <view class="rearrange-day-btn" bindtap="rearrangeDay">
+    <view wx:if="{{canEditWeekly}}" class="rearrange-day-btn" bindtap="rearrangeDay">
       <text>重新安排今天</text>
     </view>
 

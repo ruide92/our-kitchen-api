@@ -626,3 +626,37 @@
   color: #FFFFFF;
   font-size: 26rpx;
 }
+.state-btn {
+  margin-top: 24rpx;
+  padding: 16rpx 48rpx;
+  background: #7CB342;
+  border-radius: 32rpx;
+}
+.state-btn text {
+  color: #FFFFFF;
+  font-size: 28rpx;
+  font-weight: 500;
+}
+.weekly-draft-actions {
+  display: flex;
+  gap: 16rpx;
+  align-items: center;
+}
+.weekly-btn {
+  padding: 10rpx 24rpx;
+  border-radius: 24rpx;
+  font-size: 24rpx;
+}
+.weekly-btn-primary {
+  background: #7CB342;
+}
+.weekly-btn-primary text {
+  color: #FFFFFF;
+}
+.weekly-btn-ghost {
+  background: transparent;
+  border: 1rpx solid #A1887F;
+}
+.weekly-btn-ghost text {
+  color: #5D4037;
+}

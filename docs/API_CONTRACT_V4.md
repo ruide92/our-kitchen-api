@@ -317,7 +317,7 @@ OWNER/ADMIN/MEMBER 可新建家庭菜谱；请求使用与 detail 相同的 reci
 {"scope":"MEAL|DAY|WEEK","plan_date":"2026-09-09","meal_type":"DINNER"}
 ```
 
-返回新的 DRAFT；保留 locked item。
+返回**新的 DRAFT**，原 plan 不变。scope 外 items 完整复制；scope 内 locked 保留；scope 内 unlocked 重新推荐（source=SWAP）。可选 `swap_item_id` 仅换指定一道。仅 DRAFT 可 regenerate。
 
 ## 11. Meals / 本餐菜单
 

@@ -157,7 +157,7 @@
       "kind": "wxml-handler",
       "handler": "rearrangeWeek",
       "label": "重新安排周",
-      "status": "BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -175,7 +175,7 @@
       "kind": "wxml-handler",
       "handler": "rearrangeMeal",
       "label": "重新安排餐",
-      "status": "BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -184,7 +184,7 @@
       "kind": "wxml-handler",
       "handler": "toggleLock",
       "label": "锁定菜谱",
-      "status": "BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -193,7 +193,7 @@
       "kind": "wxml-handler",
       "handler": "swapDish",
       "label": "交换菜品",
-      "status": "BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -202,7 +202,7 @@
       "kind": "wxml-handler",
       "handler": "removePlanItem",
       "label": "移除计划项",
-      "status": "BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -220,7 +220,7 @@
       "kind": "wxml-handler",
       "handler": "rearrangeDay",
       "label": "重新安排天",
-      "status": "BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -346,6 +346,33 @@
       "kind": "wxml-handler",
       "handler": "confirmCustomDate",
       "label": "确认自选日期",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-25",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "generateWeekly",
+      "label": "生成本周菜谱",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-26",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "confirmWeekly",
+      "label": "确认本周安排",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-27",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "discardDraft",
+      "label": "放弃修改",
       "status": "REAL",
       "final": "REAL"
     },

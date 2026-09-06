@@ -90,6 +90,10 @@ function createV1Api({ wxAdapter, baseUrl = config.baseUrl, timeoutMs = config.t
     generateRandomMeal: (id, data) => dataRequest(familyPath(id) + '/recommendations/random-meal', { method: 'POST', data }),
     generateWeeklyPlan: (id, data) => dataRequest(familyPath(id) + '/weekly-plans/generate', { method: 'POST', data }),
     confirmWeeklyPlan: (id, planId) => dataRequest(familyPath(id) + '/weekly-plans/' + planId + '/confirm', { method: 'POST' }),
+    addWeeklyPlanItem: (id, planId, data) => dataRequest(familyPath(id) + '/weekly-plans/' + planId + '/items', { method: 'POST', data }),
+    updateWeeklyPlanItem: (id, planId, itemId, data) => dataRequest(familyPath(id) + '/weekly-plans/' + planId + '/items/' + itemId, { method: 'PATCH', data }),
+    deleteWeeklyPlanItem: (id, planId, itemId) => dataRequest(familyPath(id) + '/weekly-plans/' + planId + '/items/' + itemId, { method: 'DELETE' }),
+    regenerateWeeklyPlan: (id, planId, data) => dataRequest(familyPath(id) + '/weekly-plans/' + planId + '/regenerate', { method: 'POST', data }),
     getFridgeCooking: id => dataRequest(familyPath(id) + '/recommendations/fridge-cooking'),
     // Cooking
     startCooking: (id, mealId) => dataRequest(familyPath(id) + '/meals/' + mealId + '/cooking-sessions', { method: 'POST' }),

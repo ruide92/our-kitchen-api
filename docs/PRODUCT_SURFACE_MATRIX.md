@@ -9,11 +9,11 @@
 
 | Status | Count |
 |---|---|
-| REAL | 166 |
-| BROKEN | 15 |
+| REAL | 175 |
+| BROKEN | 9 |
 | PLANNED_DISABLED | 2 |
 | HIDDEN | 19 |
-| **Total** | **202** |
+| **Total** | **205** |
 
 ## Surfaces
 
@@ -155,14 +155,14 @@
 |---|---|---|---|---|
 | MENU-01 | wxml-handler | switchTab | REAL | REAL |
 | MENU-02 | wxml-handler | retryWeekly | REAL | REAL |
-| MENU-03 | wxml-handler | rearrangeWeek | BROKEN | REAL |
+| MENU-03 | wxml-handler | rearrangeWeek | REAL | REAL |
 | MENU-04 | wxml-handler | selectDay | REAL | REAL |
-| MENU-05 | wxml-handler | rearrangeMeal | BROKEN | REAL |
-| MENU-06 | wxml-handler | toggleLock | BROKEN | REAL |
-| MENU-07 | wxml-handler | swapDish | BROKEN | REAL |
-| MENU-08 | wxml-handler | removePlanItem | BROKEN | REAL |
+| MENU-05 | wxml-handler | rearrangeMeal | REAL | REAL |
+| MENU-06 | wxml-handler | toggleLock | REAL | REAL |
+| MENU-07 | wxml-handler | swapDish | REAL | REAL |
+| MENU-08 | wxml-handler | removePlanItem | REAL | REAL |
 | MENU-09 | wxml-handler | addToMeal | REAL | REAL |
-| MENU-10 | wxml-handler | rearrangeDay | BROKEN | REAL |
+| MENU-10 | wxml-handler | rearrangeDay | REAL | REAL |
 | MENU-11 | wxml-handler | openTargetPicker | REAL | REAL |
 | MENU-12 | wxml-handler | onSearchInput | REAL | REAL |
 | MENU-13 | wxml-handler | selectCategory | REAL | REAL |
@@ -177,6 +177,9 @@
 | MENU-22 | wxml-handler | onCustomDateChange | REAL | REAL |
 | MENU-23 | wxml-handler | onCustomMealTypeChange | REAL | REAL |
 | MENU-24 | wxml-handler | confirmCustomDate | REAL | REAL |
+| MENU-25 | wxml-handler | generateWeekly | REAL | REAL |
+| MENU-26 | wxml-handler | confirmWeekly | REAL | REAL |
+| MENU-27 | wxml-handler | discardDraft | REAL | REAL |
 | MENU-DOCK-01 | dock | mini-cart | REAL | REAL |
 | MENU-NAV-01 | navigation | navigateTo | REAL | REAL |
 | MENU-OVERLAY-01 | overlay | 目标餐次选择器 Sheet | REAL | REAL |

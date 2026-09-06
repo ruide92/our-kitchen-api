@@ -129,6 +129,19 @@ function installKitchenRoutes(app, services) {
   app.post('/api/v1/families/:family_id/weekly-plans/:plan_id/confirm', asyncRoute(async (req, res) => {
     res.json({ data: await recommendation.confirmWeeklyPlan(familyId(req), req.user.id, req.params.plan_id), meta: {} });
   }));
+  app.post('/api/v1/families/:family_id/weekly-plans/:plan_id/items', asyncRoute(async (req, res) => {
+    res.status(201).json({ data: await recommendation.addWeeklyPlanItem(familyId(req), req.user.id, req.params.plan_id, req.body), meta: {} });
+  }));
+  app.patch('/api/v1/families/:family_id/weekly-plans/:plan_id/items/:item_id', asyncRoute(async (req, res) => {
+    res.json({ data: await recommendation.updateWeeklyPlanItem(familyId(req), req.user.id, req.params.plan_id, req.params.item_id, req.body), meta: {} });
+  }));
+  app.delete('/api/v1/families/:family_id/weekly-plans/:plan_id/items/:item_id', asyncRoute(async (req, res) => {
+    res.json({ data: await recommendation.deleteWeeklyPlanItem(familyId(req), req.user.id, req.params.plan_id, req.params.item_id), meta: {} });
+  }));
+  app.post('/api/v1/families/:family_id/weekly-plans/:plan_id/regenerate', asyncRoute(async (req, res) => {
+    if (req.body && req.body._seed != null) throw new ApiError(400, 'INVALID_REQUEST', '_seed is test-only and not accepted in production API');
+    res.status(201).json({ data: await recommendation.regenerateWeeklyPlan(familyId(req), req.user.id, req.params.plan_id, req.body), meta: {} });
+  }));
   app.get('/api/v1/families/:family_id/recommendations/fridge-cooking', asyncRoute(async (req, res) => {
     res.json({ data: await recommendation.getFridgeCooking(familyId(req), req.user.id), meta: {} });
   }));

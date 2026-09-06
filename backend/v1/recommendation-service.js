@@ -513,11 +513,28 @@ function createRecommendationService(pool, options = {}) {
   // Generate weekly plan
   async function generateWeeklyPlan(familyId, userId, params) {
     return access(familyId, userId, ['OWNER', 'ADMIN'], true, async tx => {
-      const { week_start, mode = 'BALANCED', preserve_locked_from_plan_id } = params;
+      const { week_start, mode = 'BALANCED', preserve_locked_from_plan_id, copy_from_plan_id } = params;
 
       const settings = await fetchSettings(tx, familyId);
       const activeMembers = await fetchActiveMembers(tx, familyId);
       const activeMemberIds = activeMembers.map(m => m.user_id);
+
+      // Copy mode: create DRAFT that is exact copy of source plan (for DRAFT workspace)
+      if (copy_from_plan_id) {
+        const source = await _fetchPlan(tx, copy_from_plan_id, familyId);
+        if (!source) throw new ApiError(404, 'PLAN_NOT_FOUND', '来源周计划不存在或不属于当前家庭');
+        await tx.query("UPDATE weekly_plans SET status='ARCHIVED', updated_at=now() WHERE family_id=$1 AND week_start_date=$2 AND status='DRAFT'", [familyId, source.week_start_date]);
+        const newPlanId = randomUUID();
+        await tx.query(`INSERT INTO weekly_plans(id,family_id,week_start_date,status,generation_mode,created_by_user_id)
+          VALUES($1,$2,$3,'DRAFT',$4,$5)`, [newPlanId, familyId, source.week_start_date, source.generation_mode || mode, userId]);
+        let so = 0;
+        for (const item of source.items) {
+          await tx.query(`INSERT INTO weekly_plan_items(id,weekly_plan_id,plan_date,meal_type,recipe_id,sort_order,locked,added_by_user_id,source)
+            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+            [randomUUID(), newPlanId, item.plan_date, item.meal_type, item.recipe_id, so++, item.locked, item.added_by_user_id || userId, item.source]);
+        }
+        return _fetchPlan(tx, newPlanId, familyId);
+      }
 
       const breakfastCount = settings.breakfast_target_count || 2;
       const lunchCount = settings.lunch_target_count || 2;
@@ -707,7 +724,195 @@ function createRecommendationService(pool, options = {}) {
     });
   }
 
-  return { generateRandomMeal, generateWeeklyPlan, confirmWeeklyPlan, getFridgeCooking };
+  // Shared helper: pick recipes for one meal slot, respecting locked items
+  async function _pickMealRecipes(tx, familyId, mealType, targetCount, lockedItems, context, settings, activeMemberIds, realHistory, inPlanHistory, inventory, pantry, unitsMap, dislikedSet, warnings) {
+    const { candidates } = await prepareEligibleCandidates(tx, familyId, mealType, activeMemberIds, warnings);
+    const ingredientMap = await fetchRecipeIngredients(tx, candidates.map(c => c.id));
+    const weeklyDiners = settings.default_diners || 2;
+    const weeklyValid = [];
+    for (const c of candidates) {
+      const scale = getServingScale(c, weeklyDiners);
+      if (scale === null) {
+        warnings.push({ code: 'INVALID_BASE_SERVINGS', recipe_id: c.id, recipe_name: c.name, detail: 'base_servings 必须为大于 0 的有限数值' });
+        continue;
+      }
+      c._ingredient_ids = (ingredientMap[c.id] || []).map(i => i.ingredient_id).filter(Boolean);
+      c._invMatch = computeInventoryMatch(c, ingredientMap, inventory, pantry, unitsMap, scale);
+      weeklyValid.push(c);
+    }
+    const lockedIds = lockedItems.map(i => i.recipe_id);
+    for (const lid of lockedIds) {
+      if (!weeklyValid.some(c => c.id === lid)) {
+        throw new ApiError(422, 'INVALID_LOCKED_RECIPES', `锁定菜谱 ${lid} 不符合当前餐次过滤条件`);
+      }
+    }
+    const combinedHistory = combineHistory(realHistory, inPlanHistory);
+    const ctx = { ...context, history: combinedHistory, meal_type: mealType, settings, diners_count: weeklyDiners, ingredientMap, dislikedSet };
+    const remaining = weeklyValid.filter(c => !lockedIds.includes(c.id));
+    const scored = remaining.map(c => {
+      const { score } = scoreRecipe(c, ctx);
+      return { recipe: c, score };
+    }).sort((a, b) => b.score - a.score);
+    const selected = scored.slice(0, Math.max(0, targetCount - lockedItems.length));
+    return { locked: lockedItems, selected };
+  }
+
+  // Fetch plan with items (family-isolated)
+  async function _fetchPlan(tx, planId, familyId) {
+    const plan = (await tx.query('SELECT * FROM weekly_plans WHERE id=$1 AND family_id=$2', [planId, familyId])).rows[0];
+    if (!plan) return null;
+    plan.items = (await tx.query(`
+      SELECT wpi.*, r.name as recipe_name
+      FROM weekly_plan_items wpi
+      LEFT JOIN recipes r ON r.id = wpi.recipe_id
+      WHERE wpi.weekly_plan_id = $1 ORDER BY wpi.plan_date, wpi.meal_type, wpi.sort_order`, [planId])).rows;
+    return plan;
+  }
+
+  // Add manual item to DRAFT plan
+  async function addWeeklyPlanItem(familyId, userId, planId, body) {
+    return access(familyId, userId, ['OWNER', 'ADMIN'], true, async tx => {
+      const plan = (await tx.query('SELECT * FROM weekly_plans WHERE id=$1 AND family_id=$2', [planId, familyId])).rows[0];
+      if (!plan) throw new ApiError(404, 'PLAN_NOT_FOUND', '周计划不存在');
+      if (plan.status !== 'DRAFT') throw new ApiError(409, 'PLAN_NOT_DRAFT', '只能编辑 DRAFT 状态的周计划');
+      const { plan_date, meal_type, recipe_id, sort_order } = body;
+      if (!plan_date || !meal_type || !recipe_id) throw new ApiError(400, 'INVALID_REQUEST', 'plan_date, meal_type, recipe_id 必填');
+      if (!['BREAKFAST', 'LUNCH', 'DINNER'].includes(meal_type)) throw new ApiError(400, 'INVALID_REQUEST', 'meal_type 非法');
+      const recipe = (await tx.query("SELECT id FROM recipes WHERE id=$1 AND deleted_at IS NULL AND (kind='BASE' OR (kind='FAMILY' AND family_id=$2))", [recipe_id, familyId])).rows[0];
+      if (!recipe) throw new ApiError(404, 'RECIPE_NOT_FOUND', '菜谱不存在或不可访问');
+      const so = sort_order != null ? sort_order : (await tx.query('SELECT COALESCE(MAX(sort_order),-1)+1 as next FROM weekly_plan_items WHERE weekly_plan_id=$1 AND plan_date=$2 AND meal_type=$3', [planId, plan_date, meal_type])).rows[0].next;
+      const itemId = randomUUID();
+      await tx.query(`INSERT INTO weekly_plan_items(id,weekly_plan_id,plan_date,meal_type,recipe_id,sort_order,locked,added_by_user_id,source)
+        VALUES($1,$2,$3,$4,$5,$6,false,$7,'MANUAL')`, [itemId, planId, plan_date, meal_type, recipe_id, so, userId]);
+      return (await tx.query('SELECT * FROM weekly_plan_items WHERE id=$1', [itemId])).rows[0];
+    });
+  }
+
+  // Update item (locked, sort_order only) — DRAFT only
+  async function updateWeeklyPlanItem(familyId, userId, planId, itemId, body) {
+    return access(familyId, userId, ['OWNER', 'ADMIN'], true, async tx => {
+      const plan = (await tx.query('SELECT * FROM weekly_plans WHERE id=$1 AND family_id=$2', [planId, familyId])).rows[0];
+      if (!plan) throw new ApiError(404, 'PLAN_NOT_FOUND', '周计划不存在');
+      if (plan.status !== 'DRAFT') throw new ApiError(409, 'PLAN_NOT_DRAFT', '只能编辑 DRAFT 状态的周计划');
+      const item = (await tx.query('SELECT * FROM weekly_plan_items WHERE id=$1 AND weekly_plan_id=$2', [itemId, planId])).rows[0];
+      if (!item) throw new ApiError(404, 'ITEM_NOT_FOUND', '计划项不存在');
+      const updates = [];
+      const params = [];
+      let pi = 1;
+      if (body.locked != null && typeof body.locked === 'boolean') { updates.push(`locked=$${pi++}`); params.push(body.locked); }
+      if (body.sort_order != null && Number.isFinite(body.sort_order)) { updates.push(`sort_order=$${pi++}`); params.push(body.sort_order); }
+      if (updates.length === 0) throw new ApiError(400, 'INVALID_REQUEST', '仅允许修改 locked, sort_order');
+      params.push(itemId);
+      await tx.query(`UPDATE weekly_plan_items SET ${updates.join(',')} WHERE id=$${pi}`, params);
+      return (await tx.query('SELECT * FROM weekly_plan_items WHERE id=$1', [itemId])).rows[0];
+    });
+  }
+
+  // Delete item — DRAFT only
+  async function deleteWeeklyPlanItem(familyId, userId, planId, itemId) {
+    return access(familyId, userId, ['OWNER', 'ADMIN'], true, async tx => {
+      const plan = (await tx.query('SELECT * FROM weekly_plans WHERE id=$1 AND family_id=$2', [planId, familyId])).rows[0];
+      if (!plan) throw new ApiError(404, 'PLAN_NOT_FOUND', '周计划不存在');
+      if (plan.status !== 'DRAFT') throw new ApiError(409, 'PLAN_NOT_DRAFT', '只能编辑 DRAFT 状态的周计划');
+      const result = await tx.query('DELETE FROM weekly_plan_items WHERE id=$1 AND weekly_plan_id=$2', [itemId, planId]);
+      return { deleted: result.rowCount };
+    });
+  }
+
+  // Regenerate — creates NEW DRAFT, preserves locked + scope-outside items
+  async function regenerateWeeklyPlan(familyId, userId, planId, body) {
+    return access(familyId, userId, ['OWNER', 'ADMIN'], true, async tx => {
+      const source = await _fetchPlan(tx, planId, familyId);
+      if (!source) throw new ApiError(404, 'PLAN_NOT_FOUND', '周计划不存在');
+      const { scope, plan_date, meal_type, swap_item_id } = body;
+      if (!['MEAL', 'DAY', 'WEEK'].includes(scope)) throw new ApiError(400, 'INVALID_REQUEST', 'scope 必须为 MEAL/DAY/WEEK');
+
+      const settings = await fetchSettings(tx, familyId);
+      const activeMembers = await fetchActiveMembers(tx, familyId);
+      const activeMemberIds = activeMembers.map(m => m.user_id);
+      const realHistory = await fetchRecentHistory(tx, familyId, settings.repeat_recover_days);
+      const inventory = await fetchInventory(tx, familyId);
+      const pantry = await fetchPantry(tx, familyId);
+      const unitsMap = await loadUnitsMap(tx);
+      const dislikedSet = await fetchDislikedIngredients(tx, familyId, activeMemberIds);
+      const mode = source.generation_mode || 'BALANCED';
+
+      // Archive superseded DRAFTs for same family+week
+      await tx.query("UPDATE weekly_plans SET status='ARCHIVED', updated_at=now() WHERE family_id=$1 AND week_start_date=$2 AND status='DRAFT' AND id != $3", [familyId, source.week_start_date, planId]);
+
+      const newPlanId = randomUUID();
+      await tx.query(`INSERT INTO weekly_plans(id,family_id,week_start_date,status,generation_mode,created_by_user_id)
+        VALUES($1,$2,$3,'DRAFT',$4,$5)`, [newPlanId, familyId, source.week_start_date, mode, userId]);
+
+      // Determine items to preserve vs regenerate
+      const inScope = (item) => {
+        if (scope === 'WEEK') return true;
+        if (scope === 'DAY') return item.plan_date === plan_date;
+        if (scope === 'MEAL') return item.plan_date === plan_date && item.meal_type === meal_type;
+        return false;
+      };
+
+      const toPreserve = [];
+      const mealSlots = new Map(); // key = date|meal -> {lockedItems, totalCount, sortOrders, plan_date, meal_type}
+
+      for (const item of source.items) {
+        if (!inScope(item)) {
+          toPreserve.push(item);
+        } else if (item.locked) {
+          toPreserve.push(item);
+        } else if (swap_item_id && item.id === swap_item_id) {
+          const key = `${item.plan_date}|${item.meal_type}`;
+          if (!mealSlots.has(key)) mealSlots.set(key, { lockedItems: [], totalCount: 0, sortOrders: [], plan_date: item.plan_date, meal_type: item.meal_type });
+          mealSlots.get(key).totalCount++;
+          mealSlots.get(key).sortOrders.push(item.sort_order);
+        } else if (swap_item_id) {
+          toPreserve.push(item);
+        } else {
+          const key = `${item.plan_date}|${item.meal_type}`;
+          if (!mealSlots.has(key)) mealSlots.set(key, { lockedItems: [], totalCount: 0, sortOrders: [], plan_date: item.plan_date, meal_type: item.meal_type });
+          mealSlots.get(key).totalCount++;
+          mealSlots.get(key).sortOrders.push(item.sort_order);
+        }
+      }
+
+      // Copy preserved items with original sort_order
+      const inPlanHistory = [];
+      for (const item of toPreserve) {
+        await tx.query(`INSERT INTO weekly_plan_items(id,weekly_plan_id,plan_date,meal_type,recipe_id,sort_order,locked,added_by_user_id,source)
+          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+          [randomUUID(), newPlanId, item.plan_date, item.meal_type, item.recipe_id, item.sort_order, item.locked, item.added_by_user_id || userId, item.source]);
+        inPlanHistory.push({ recipe_id: item.recipe_id, meal_date: item.plan_date });
+      }
+
+      // Regenerate each meal slot
+      const breakfastCount = settings.breakfast_target_count || 2;
+      const lunchCount = settings.lunch_target_count || 2;
+      const dinnerCount = settings.dinner_target_count || 3;
+      const defaultCount = { BREAKFAST: breakfastCount, LUNCH: lunchCount, DINNER: dinnerCount };
+
+      for (const slot of mealSlots.values()) {
+        const count = slot.totalCount > 0 ? slot.totalCount : (defaultCount[slot.meal_type] || 2);
+        const warnings = [];
+        const { selected } = await _pickMealRecipes(
+          tx, familyId, slot.meal_type, count, slot.lockedItems,
+          { mode, randomFn }, settings, activeMemberIds, realHistory, inPlanHistory,
+          inventory, pantry, unitsMap, dislikedSet, warnings
+        );
+        for (let idx = 0; idx < selected.length; idx++) {
+          const s = selected[idx];
+          const so = slot.sortOrders[idx] != null ? slot.sortOrders[idx] : 1000 + idx;
+          await tx.query(`INSERT INTO weekly_plan_items(id,weekly_plan_id,plan_date,meal_type,recipe_id,sort_order,locked,added_by_user_id,source)
+            VALUES($1,$2,$3,$4,$5,$6,false,$7,'SWAP')`,
+            [randomUUID(), newPlanId, slot.plan_date, slot.meal_type, s.recipe.id, so, userId]);
+          inPlanHistory.push({ recipe_id: s.recipe.id, meal_date: slot.plan_date });
+        }
+      }
+
+      return _fetchPlan(tx, newPlanId, familyId);
+    });
+  }
+
+  return { generateRandomMeal, generateWeeklyPlan, confirmWeeklyPlan, getFridgeCooking, addWeeklyPlanItem, updateWeeklyPlanItem, deleteWeeklyPlanItem, regenerateWeeklyPlan };
 }
 
 module.exports = { createRecommendationService };
