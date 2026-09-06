@@ -134,7 +134,8 @@
           </view>
         </view>
         <view class="rating-hint">点击星级完成评分</view>
-        <view class="rating-close" bindtap="onCloseRating">取消</view>
+        <view wx:if="{{currentRating > 0}}" class="rating-delete" bindtap="onDeleteRating">取消评分</view>
+        <view class="rating-close" bindtap="onCloseRating">关闭</view>
       </view>
     </view>
   </view>

@@ -23,7 +23,7 @@ function createRecipeService(pool) {
       tx.query('SELECT * FROM recipe_steps WHERE recipe_id=$1 ORDER BY step_no', [recipeId]),
       tx.query('SELECT * FROM recipe_media WHERE recipe_id=$1 ORDER BY sort_order', [recipeId]),
       tx.query('SELECT 1 FROM recipe_favorites WHERE user_id=$1 AND recipe_id=$2', [userId, recipeId]),
-      tx.query('SELECT rating FROM recipe_ratings WHERE user_id=$1 AND recipe_id=$2 AND family_id=$3', [userId, recipeId, familyId])
+      tx.query('SELECT rating FROM recipe_ratings WHERE user_id=$1 AND recipe_id=$2 AND family_id=$3 AND meal_id IS NULL', [userId, recipeId, familyId])
     ]);
     return {
       meal_types: mealTypes.rows.map(r => r.meal_type),
@@ -252,8 +252,9 @@ function createRecipeService(pool) {
       if (recipe.kind === 'FAMILY' && recipe.family_id !== familyId) throw forbidden();
 
       // meal_id integrity: if provided, must belong to this family and contain this recipe
-      if (mealId != null) {
-        const meal = (await tx.query('SELECT id, family_id, status FROM meals WHERE id=$1', [mealId])).rows[0];
+      const targetMealId = mealId != null ? mealId : null;
+      if (targetMealId != null) {
+        const meal = (await tx.query('SELECT id, family_id, status FROM meals WHERE id=$1', [targetMealId])).rows[0];
         if (!meal || meal.family_id !== familyId) {
           throw new ApiError(422, 'INVALID_RATING_CONTEXT', 'meal_id 不属于当前家庭');
         }
@@ -261,20 +262,60 @@ function createRecipeService(pool) {
           throw new ApiError(422, 'INVALID_RATING_CONTEXT', 'meal 状态不允许评分');
         }
         const inMeal = (await tx.query(
-          'SELECT 1 FROM meal_items WHERE meal_id=$1 AND recipe_id=$2', [mealId, recipeId]
+          'SELECT 1 FROM meal_items WHERE meal_id=$1 AND recipe_id=$2', [targetMealId, recipeId]
         )).rows.length > 0;
         if (!inMeal) {
           throw new ApiError(422, 'INVALID_RATING_CONTEXT', 'recipe 不在该 meal 中');
         }
       }
 
-      const existing = (await tx.query('SELECT id FROM recipe_ratings WHERE user_id=$1 AND recipe_id=$2', [userId, recipeId])).rows[0];
-      if (existing) {
-        await tx.query('UPDATE recipe_ratings SET rating=$1, meal_id=$2, updated_at=now() WHERE id=$3', [r, mealId || null, existing.id]);
+      // Family-scoped identity: general (meal_id IS NULL) or meal-specific
+      if (targetMealId == null) {
+        const existing = (await tx.query(
+          'SELECT id FROM recipe_ratings WHERE family_id=$1 AND user_id=$2 AND recipe_id=$3 AND meal_id IS NULL',
+          [familyId, userId, recipeId]
+        )).rows[0];
+        if (existing) {
+          await tx.query('UPDATE recipe_ratings SET rating=$1, updated_at=now() WHERE id=$2', [r, existing.id]);
+        } else {
+          await tx.query(
+            'INSERT INTO recipe_ratings(family_id,user_id,recipe_id,meal_id,rating) VALUES($1,$2,$3,NULL,$4)',
+            [familyId, userId, recipeId, r]
+          );
+        }
       } else {
-        await tx.query('INSERT INTO recipe_ratings(family_id,user_id,recipe_id,meal_id,rating) VALUES($1,$2,$3,$4,$5)', [familyId, userId, recipeId, mealId || null, r]);
+        const existing = (await tx.query(
+          'SELECT id FROM recipe_ratings WHERE family_id=$1 AND user_id=$2 AND recipe_id=$3 AND meal_id=$4',
+          [familyId, userId, recipeId, targetMealId]
+        )).rows[0];
+        if (existing) {
+          await tx.query('UPDATE recipe_ratings SET rating=$1, updated_at=now() WHERE id=$2', [r, existing.id]);
+        } else {
+          await tx.query(
+            'INSERT INTO recipe_ratings(family_id,user_id,recipe_id,meal_id,rating) VALUES($1,$2,$3,$4,$5)',
+            [familyId, userId, recipeId, targetMealId, r]
+          );
+        }
       }
-      return { recipe_id: recipeId, rating: r };
+      return { recipe_id: recipeId, rating: r, meal_id: targetMealId };
+    });
+  }
+
+  async function deleteRating(familyId, userId, recipeId, mealId) {
+    return access(familyId, userId, null, true, async tx => {
+      const targetMealId = mealId != null ? mealId : null;
+      if (targetMealId == null) {
+        await tx.query(
+          'DELETE FROM recipe_ratings WHERE family_id=$1 AND user_id=$2 AND recipe_id=$3 AND meal_id IS NULL',
+          [familyId, userId, recipeId]
+        );
+      } else {
+        await tx.query(
+          'DELETE FROM recipe_ratings WHERE family_id=$1 AND user_id=$2 AND recipe_id=$3 AND meal_id=$4',
+          [familyId, userId, recipeId, targetMealId]
+        );
+      }
+      return { recipe_id: recipeId, meal_id: targetMealId, deleted: true };
     });
   }
 
@@ -284,7 +325,8 @@ function createRecipeService(pool) {
         SELECT rr.*, r.name as recipe_name
         FROM recipe_ratings rr
         JOIN recipes r ON r.id = rr.recipe_id
-        WHERE rr.user_id = $1 AND rr.family_id = $2
+        WHERE rr.user_id = $1 AND rr.family_id = $2 AND rr.meal_id IS NULL
+          AND r.deleted_at IS NULL
         ORDER BY rr.updated_at DESC
       `, [userId, familyId])).rows;
       return rows;
@@ -309,7 +351,7 @@ function createRecipeService(pool) {
     });
   }
 
-  return { listRecipes, getRecipe, createRecipe, setFavorite, listFavorites, setRating, listRatings, getUserStats };
+  return { listRecipes, getRecipe, createRecipe, setFavorite, listFavorites, setRating, deleteRating, listRatings, getUserStats };
 }
 
 module.exports = { createRecipeService };

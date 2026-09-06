@@ -9,11 +9,11 @@
 
 | Status | Count |
 |---|---|
-| REAL | 142 |
+| REAL | 151 |
 | BROKEN | 19 |
 | PLANNED_DISABLED | 2 |
-| HIDDEN | 22 |
-| **Total** | **185** |
+| HIDDEN | 20 |
+| **Total** | **192** |
 
 ## Surfaces
 
@@ -42,6 +42,7 @@
 | DETAIL-07 | wxml-handler | startCooking | REAL | REAL |
 | DETAIL-08 | wxml-handler | onCloseRating | REAL | REAL |
 | DETAIL-09 | wxml-handler | onSetRating | REAL | REAL |
+| DETAIL-10 | wxml-handler | onDeleteRating | REAL | REAL |
 | DETAIL-10 | wxml-handler | retryLoad | REAL | REAL |
 | DETAIL-OVERLAY-01 | overlay | 评分弹窗 | REAL | REAL |
 
@@ -55,7 +56,10 @@
 
 | ID | Kind | Handler/Label | Status | Final |
 |---|---|---|---|---|
-| PAGE-04 | page | 收藏页 | HIDDEN | REAL |
+| FAVORITES-01 | wxml-handler | retryLoad | REAL | REAL |
+| FAVORITES-02 | wxml-handler | goDetail | REAL | REAL |
+| FAVORITES-03 | wxml-handler | removeFavorite | REAL | REAL |
+| PAGE-04 | page | 收藏页 | REAL | REAL |
 
 ### fridge
 
@@ -234,7 +238,10 @@
 
 | ID | Kind | Handler/Label | Status | Final |
 |---|---|---|---|---|
-| PAGE-07 | page | 评分页 | HIDDEN | REAL |
+| PAGE-07 | page | 评分页 | REAL | REAL |
+| RATINGS-01 | wxml-handler | removeRating | REAL | REAL |
+| RATINGS-02 | wxml-handler | retryLoad | REAL | REAL |
+| RATINGS-03 | wxml-handler | goDetail | REAL | REAL |
 
 ### recycle
 

@@ -1338,6 +1338,15 @@
       "final": "REAL"
     },
     {
+      "id": "DETAIL-10",
+      "page": "detail",
+      "kind": "wxml-handler",
+      "handler": "onDeleteRating",
+      "label": "取消评分",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
       "id": "PAGE-01",
       "page": "add-recipe",
       "kind": "page",
@@ -1366,7 +1375,34 @@
       "page": "favorites",
       "kind": "page",
       "label": "收藏页",
-      "status": "HIDDEN",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FAVORITES-01",
+      "page": "favorites",
+      "kind": "wxml-handler",
+      "handler": "retryLoad",
+      "label": "收藏页重试加载",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FAVORITES-02",
+      "page": "favorites",
+      "kind": "wxml-handler",
+      "handler": "goDetail",
+      "label": "收藏页进入菜谱详情",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FAVORITES-03",
+      "page": "favorites",
+      "kind": "wxml-handler",
+      "handler": "removeFavorite",
+      "label": "收藏页取消收藏",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -1390,7 +1426,34 @@
       "page": "ratings",
       "kind": "page",
       "label": "评分页",
-      "status": "HIDDEN",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "RATINGS-01",
+      "page": "ratings",
+      "kind": "wxml-handler",
+      "handler": "removeRating",
+      "label": "评分页取消评分",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "RATINGS-02",
+      "page": "ratings",
+      "kind": "wxml-handler",
+      "handler": "retryLoad",
+      "label": "评分页重试加载",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "RATINGS-03",
+      "page": "ratings",
+      "kind": "wxml-handler",
+      "handler": "goDetail",
+      "label": "评分页进入菜谱详情",
+      "status": "REAL",
       "final": "REAL"
     },
     {

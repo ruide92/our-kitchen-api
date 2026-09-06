@@ -226,3 +226,50 @@ test('Q14 favorites stale response guard', async () => {
   // Should still have new data, not old
   assert.equal(page.data.dishes[0].id, 'new');
 });
+
+// Q15: Detail currentRating>0 shows delete rating entry
+test('Q15 detail shows delete rating when currentRating>0', () => {
+  const wxml = fs.readFileSync(DETAIL_WXML, 'utf8');
+  assert.ok(wxml.includes('onDeleteRating'), 'detail should have onDeleteRating handler');
+  assert.ok(wxml.includes('取消评分'), 'detail should show 取消评分 text');
+  assert.ok(wxml.includes('currentRating > 0'), 'delete rating should be conditional on currentRating>0');
+});
+
+// Q16: Detail deleteRating success → currentRating=0
+test('Q16 detail deleteRating success clears rating', async () => {
+  const env = loadDetailPage();
+  const page = makePage(env.captured, { currentRating: 4, ratingBusy: false, showRatingPanel: true });
+  page.recipeId = 'r1';
+  page.familyId = 'f1';
+  let called = false;
+  page._api = { deleteRating: async () => { called = true; return {}; } };
+  await page.onDeleteRating();
+  assert.equal(called, true);
+  assert.equal(page.data.currentRating, 0);
+  assert.equal(page.data.showRatingPanel, false);
+});
+
+// Q17: Ratings Page delete uses V1 deleteRating, not legacy
+test('Q17 ratings page delete uses V1 deleteRating', () => {
+  const js = fs.readFileSync(RATINGS_JS, 'utf8');
+  assert.ok(js.includes('deleteRating'), 'ratings.js should call deleteRating');
+  assert.ok(!js.includes("require('../../utils/api.js')"), 'ratings.js should not import legacy api');
+  const wxml = fs.readFileSync(RATINGS_WXML, 'utf8');
+  assert.ok(wxml.includes('removeRating'), 'ratings.wxml should have removeRating handler');
+});
+
+// Q18: Ratings delete success removes/reloads
+test('Q18 ratings delete success reloads list', async () => {
+  const env = loadRatingsPage();
+  const page = makePage(env.captured, { familyId: 'f1', dishes: [{ recipe_id: 'r1', rating: 4 }] });
+  let deleteCalled = false;
+  let loadCalled = false;
+  page._api = {
+    deleteRating: async () => { deleteCalled = true; return {}; },
+    listRatings: async () => { loadCalled = true; return []; }
+  };
+  await page.removeRating({ currentTarget: { dataset: { id: 'r1' } } });
+  assert.equal(deleteCalled, true);
+  assert.equal(loadCalled, true);
+  assert.equal(page.data.dishes.length, 0);
+});

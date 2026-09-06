@@ -160,4 +160,165 @@ test('Favorites & Ratings integration against real PostgreSQL', async t => {
     assert.equal(r.status, 422);
     assert.equal(r.body.error.code, 'INVALID_RATING_CONTEXT');
   });
+
+  // P12: Same user multi-family — ratings must not overwrite each other
+  await t.test('P12 same user multi-family rating isolation', async () => {
+    // Add user A to family B as MEMBER
+    await pool.query('INSERT INTO family_members(id,family_id,user_id,role,joined_at) VALUES($1,$2,$3,\'MEMBER\',now())', [randomUUID(), familyB.id, userA.id]);
+    // Family A: rating 4
+    await request('A', 'PUT', `/families/${familyA.id}/recipes/${recipeBase}/rating`, { rating: 4 });
+    // Family B: rating 2 (same user, same recipe, different family)
+    await request('A', 'PUT', `/families/${familyB.id}/recipes/${recipeBase}/rating`, { rating: 2 });
+    // DB: two rows
+    const { rows } = await pool.query(
+      'SELECT family_id, rating FROM recipe_ratings WHERE user_id=$1 AND recipe_id=$2 AND meal_id IS NULL ORDER BY family_id',
+      [userA.id, recipeBase]
+    );
+    assert.equal(rows.length, 2);
+    assert.equal(rows[0].rating, 2); // familyB
+    assert.equal(rows[1].rating, 4); // familyA
+    // GET Detail A: viewer.rating=4
+    const detailA = await request('A', 'GET', `/families/${familyA.id}/recipes/${recipeBase}`);
+    assert.equal(detailA.body.data.viewer.rating, 4);
+    // GET Detail B: viewer.rating=2
+    const detailB = await request('A', 'GET', `/families/${familyB.id}/recipes/${recipeBase}`);
+    assert.equal(detailB.body.data.viewer.rating, 2);
+    // listRatings A: 4
+    const listA = await request('A', 'GET', `/families/${familyA.id}/ratings`);
+    assert.equal(listA.body.data[0].rating, 4);
+    // listRatings B: 2
+    const listB = await request('A', 'GET', `/families/${familyB.id}/ratings`);
+    assert.equal(listB.body.data[0].rating, 2);
+  });
+
+  // P13: General vs Meal rating — must coexist, viewer.rating stays general
+  await t.test('P13 general and meal rating coexist', async () => {
+    // Create a meal with recipeBase, confirm it
+    const meal = (await request('A', 'PUT', `/families/${familyA.id}/meals/current`, { meal_date: '2026-09-07', meal_type: 'DINNER', diners_count: 2 })).body.data;
+    await request('A', 'POST', `/families/${familyA.id}/meals/${meal.id}/items`, { recipe_id: recipeBase, servings: 2 });
+    await request('A', 'POST', `/families/${familyA.id}/meals/${meal.id}/confirm`, {});
+    // General rating: 4
+    await request('A', 'PUT', `/families/${familyA.id}/recipes/${recipeBase}/rating`, { rating: 4 });
+    // Meal-specific rating: 5
+    await request('A', 'PUT', `/families/${familyA.id}/recipes/${recipeBase}/rating`, { rating: 5, meal_id: meal.id });
+    // DB: two rows
+    const { rows } = await pool.query(
+      'SELECT meal_id, rating FROM recipe_ratings WHERE user_id=$1 AND recipe_id=$2 AND family_id=$3 ORDER BY meal_id NULLS FIRST',
+      [userA.id, recipeBase, familyA.id]
+    );
+    assert.equal(rows.length, 2);
+    assert.equal(rows[0].meal_id, null);
+    assert.equal(rows[0].rating, 4);
+    assert.equal(rows[1].rating, 5);
+    // viewer.rating still = 4 (general)
+    const detail = await request('A', 'GET', `/families/${familyA.id}/recipes/${recipeBase}`);
+    assert.equal(detail.body.data.viewer.rating, 4);
+  });
+
+  // P14: DELETE general (no meal_id) — meal rating remains
+  await t.test('P14 delete general preserves meal rating', async () => {
+    const meal = (await request('A', 'GET', `/families/${familyA.id}/meals/current?date=2026-09-07&meal_type=DINNER`)).body.data;
+    await request('A', 'DELETE', `/families/${familyA.id}/recipes/${recipeBase}/rating`);
+    const { rows } = await pool.query(
+      'SELECT meal_id, rating FROM recipe_ratings WHERE user_id=$1 AND recipe_id=$2 AND family_id=$3',
+      [userA.id, recipeBase, familyA.id]
+    );
+    assert.equal(rows.length, 1);
+    assert.ok(rows[0].meal_id);
+    assert.equal(rows[0].rating, 5);
+  });
+
+  // P15: DELETE meal-specific — general rating remains (recreate general first)
+  await t.test('P15 delete meal-specific preserves general', async () => {
+    const meal = (await request('A', 'GET', `/families/${familyA.id}/meals/current?date=2026-09-07&meal_type=DINNER`)).body.data;
+    // Recreate general
+    await request('A', 'PUT', `/families/${familyA.id}/recipes/${recipeBase}/rating`, { rating: 4 });
+    // Delete meal-specific
+    await request('A', 'DELETE', `/families/${familyA.id}/recipes/${recipeBase}/rating?meal_id=${meal.id}`);
+    const { rows } = await pool.query(
+      'SELECT meal_id, rating FROM recipe_ratings WHERE user_id=$1 AND recipe_id=$2 AND family_id=$3',
+      [userA.id, recipeBase, familyA.id]
+    );
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].meal_id, null);
+    assert.equal(rows[0].rating, 4);
+  });
+
+  // P16: DELETE idempotent — twice is safe
+  await t.test('P16 delete idempotent', async () => {
+    await request('A', 'DELETE', `/families/${familyA.id}/recipes/${recipeBase}/rating`);
+    const r2 = await request('A', 'DELETE', `/families/${familyA.id}/recipes/${recipeBase}/rating`);
+    assert.equal(r2.status, 200);
+    const { rows } = await pool.query(
+      'SELECT COUNT(*) as cnt FROM recipe_ratings WHERE user_id=$1 AND recipe_id=$2 AND family_id=$3 AND meal_id IS NULL',
+      [userA.id, recipeBase, familyA.id]
+    );
+    assert.equal(parseInt(rows[0].cnt), 0);
+  });
+
+  // P17: Cross-family DELETE — family A delete does not affect family B
+  await t.test('P17 cross-family delete isolation', async () => {
+    // Family B still has rating 2 from P12
+    await request('A', 'DELETE', `/families/${familyA.id}/recipes/${recipeBase}/rating`);
+    const { rows } = await pool.query(
+      'SELECT family_id, rating FROM recipe_ratings WHERE user_id=$1 AND recipe_id=$2 AND meal_id IS NULL',
+      [userA.id, recipeBase]
+    );
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].family_id, familyB.id);
+    assert.equal(rows[0].rating, 2);
+  });
+
+  // P18: 009 migration — partial unique indexes exist
+  await t.test('P18 009 partial unique indexes exist', async () => {
+    const { rows } = await pool.query(`
+      SELECT indexname FROM pg_indexes
+      WHERE schemaname = current_schema() AND indexname IN ('idx_ratings_general_unique','idx_ratings_meal_unique')
+    `);
+    assert.equal(rows.length, 2);
+  });
+
+  // P19: duplicate general rating rejected by DB
+  await t.test('P19 duplicate general rating rejected', async () => {
+    // Insert one general row directly
+    await pool.query(
+      'INSERT INTO recipe_ratings(family_id,user_id,recipe_id,meal_id,rating) VALUES($1,$2,$3,NULL,3)',
+      [familyA.id, userA.id, recipeBase]
+    );
+    // Try to insert another — should fail
+    await assert.rejects(
+      pool.query(
+        'INSERT INTO recipe_ratings(family_id,user_id,recipe_id,meal_id,rating) VALUES($1,$2,$3,NULL,4)',
+        [familyA.id, userA.id, recipeBase]
+      ),
+      /duplicate|unique/i
+    );
+    // Cleanup
+    await pool.query('DELETE FROM recipe_ratings WHERE family_id=$1 AND user_id=$2 AND recipe_id=$3 AND meal_id IS NULL', [familyA.id, userA.id, recipeBase]);
+  });
+
+  // P20: duplicate meal-specific rejected; different family allowed
+  await t.test('P20 duplicate meal-specific rejected, different family allowed', async () => {
+    const meal = (await request('A', 'GET', `/families/${familyA.id}/meals/current?date=2026-09-07&meal_type=DINNER`)).body.data;
+    // Insert one meal-specific row
+    await pool.query(
+      'INSERT INTO recipe_ratings(family_id,user_id,recipe_id,meal_id,rating) VALUES($1,$2,$3,$4,3)',
+      [familyA.id, userA.id, recipeBase, meal.id]
+    );
+    // Duplicate should fail
+    await assert.rejects(
+      pool.query(
+        'INSERT INTO recipe_ratings(family_id,user_id,recipe_id,meal_id,rating) VALUES($1,$2,$3,$4,4)',
+        [familyA.id, userA.id, recipeBase, meal.id]
+      ),
+      /duplicate|unique/i
+    );
+    // Different family same meal_id should be allowed (different family_id in unique key)
+    await pool.query(
+      'INSERT INTO recipe_ratings(family_id,user_id,recipe_id,meal_id,rating) VALUES($1,$2,$3,$4,3)',
+      [familyB.id, userA.id, recipeBase, meal.id]
+    );
+    // Cleanup
+    await pool.query('DELETE FROM recipe_ratings WHERE recipe_id=$1 AND meal_id=$2', [recipeBase, meal.id]);
+  });
 });

@@ -357,7 +357,7 @@ test('Meal snapshot historical correctness + pantry custom', async t => {
   });
 
   // ===== S14: 001 -> 008 fresh migration replay =====
-  await t.test('S14: 001-008 fresh migration replay PASS', async () => {
+  await t.test('S14: 001-009 fresh migration replay PASS', async () => {
     const cols = (await pool.query(`
       SELECT column_name FROM information_schema.columns
       WHERE table_schema=current_schema() AND table_name='pantry_staples' AND column_name='display_name_override'
@@ -377,7 +377,7 @@ test('Meal snapshot historical correctness + pantry custom', async t => {
     const migs = await loadMigrations(path.join(__dirname, '../../backend/v1/sql'));
     const migNames = migs.map(m => m.name);
     assert.ok(!migNames.some(n => n.includes('preflight')), 'preflight SQL files must not be loaded as migrations');
-    assert.equal(migNames.length, 8, 'exactly 8 migrations (001-008)');
+    assert.equal(migNames.length, 9, 'exactly 9 migrations (001-009)');
   });
 
   // ===== S15: History CONFIRMED snapshot missing → MEAL_SNAPSHOT_MISSING =====

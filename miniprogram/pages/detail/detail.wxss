@@ -476,3 +476,5 @@
 .rating-hint { font-size: 24rpx; color: #999; margin-bottom: 32rpx; }
 .rating-close { font-size: 28rpx; color: #666; padding: 16rpx; }
 .action-favorited { background: #FFF0F0; color: #E53935; border: 1rpx solid #FFCDD2; }
+
+.rating-delete { font-size: 26rpx; color: #E53935; padding: 12rpx; margin-top: 8rpx; }

@@ -47,4 +47,15 @@ Page({
   goDetail(e) {
     wx.navigateTo({ url: `/pages/detail/detail?id=${e.currentTarget.dataset.id}` });
   },
+
+  async removeRating(e) {
+    const id = e.currentTarget.dataset.id;
+    try {
+      await this._api.deleteRating(this.data.familyId, id);
+      wx.showToast({ title: '已取消评分', icon: 'success' });
+      this.loadRatings();
+    } catch (err) {
+      wx.showToast({ title: err.message || '操作失败', icon: 'none' });
+    }
+  },
 });

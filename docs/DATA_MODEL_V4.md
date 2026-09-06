@@ -447,7 +447,7 @@
 `ratings`：
 
 - `id, family_id, user_id, recipe_id, meal_id nullable, rating(1..5), created_at, updated_at`
-- 同一 user 对同一 meal+recipe 最多一条；无 meal 的菜谱评分按 user+recipe 唯一。
+- 无 meal 的菜谱评分按 family+user+recipe 唯一；meal rating 按 family+user+meal+recipe 唯一。两者不得互相覆盖。
 
 `wishes`：
 

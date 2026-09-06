@@ -15,7 +15,7 @@
         <text class="dish-name">{{item.name}}</text>
         <view class="stars">{{item.stars}}</view>
       </view>
-      <text class="rating-value">{{item.rating}}星</text>
+      <view class="rating-remove" data-id="{{item.recipe_id}}" catchtap="removeRating">取消</view>
     </view>
     <view wx:if="{{dishes.length === 0}}" class="empty">
       <text class="empty-icon">⭐</text>

@@ -203,6 +203,20 @@ Page({
     }
   },
 
+  async onDeleteRating() {
+    if (this.data.ratingBusy) return;
+    this.setData({ ratingBusy: true });
+    try {
+      await this._api.deleteRating(this.familyId, this.recipeId);
+      this.setData({ currentRating: 0, showRatingPanel: false });
+      wx.showToast({ title: '已取消评分', icon: 'success' });
+    } catch (err) {
+      wx.showToast({ title: err.message || '取消失败', icon: 'none' });
+    } finally {
+      this.setData({ ratingBusy: false });
+    }
+  },
+
   goBack() {
     wx.navigateBack();
   },

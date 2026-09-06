@@ -176,6 +176,9 @@ function installKitchenRoutes(app, services) {
   app.put('/api/v1/families/:family_id/recipes/:recipe_id/rating', asyncRoute(async (req, res) => {
     res.json({ data: await recipes.setRating(familyId(req), req.user.id, req.params.recipe_id, req.body.rating, req.body.meal_id), meta: {} });
   }));
+  app.delete('/api/v1/families/:family_id/recipes/:recipe_id/rating', asyncRoute(async (req, res) => {
+    res.json({ data: await recipes.deleteRating(familyId(req), req.user.id, req.params.recipe_id, req.query.meal_id), meta: {} });
+  }));
   app.get('/api/v1/families/:family_id/ratings', asyncRoute(async (req, res) => {
     res.json({ data: await recipes.listRatings(familyId(req), req.user.id), meta: {} });
   }));
