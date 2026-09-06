@@ -362,7 +362,11 @@ Page({
     })
   },
 
-  goDetail() { wx.showToast({ title: '菜品详情接入后启用', icon: 'none' }) },
+  goDetail(e) {
+    const id = e.currentTarget.dataset.id;
+    if (!id) return;
+    wx.navigateTo({ url: `/pages/detail/detail?id=${id}` });
+  },
 
   noop() {},
 

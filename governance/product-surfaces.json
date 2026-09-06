@@ -265,7 +265,7 @@
       "kind": "wxml-handler",
       "handler": "goDetail",
       "label": "菜谱详情",
-      "status": "PARTIAL",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -419,7 +419,7 @@
       "kind": "wxml-handler",
       "handler": "confirmMenu",
       "label": "确认菜单",
-      "status": "BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -428,7 +428,7 @@
       "kind": "wxml-handler",
       "handler": "startCooking",
       "label": "开始做饭",
-      "status": "BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -1305,9 +1305,9 @@
       "id": "DETAIL-06",
       "page": "detail",
       "kind": "wxml-handler",
-      "handler": "addToToday",
-      "label": "加入今天",
-      "status": "BROKEN",
+      "handler": "addToMeal",
+      "label": "加入本餐",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -1316,7 +1316,7 @@
       "kind": "wxml-handler",
       "handler": "startCooking",
       "label": "开始做饭",
-      "status": "BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -1585,6 +1585,33 @@
       "kind": "dock",
       "handler": "mini-cart",
       "label": "菜单 mini-cart Dock",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "DETAIL-10",
+      "page": "detail",
+      "kind": "wxml-handler",
+      "handler": "retryLoad",
+      "label": "重新加载",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "DETAIL-11",
+      "page": "detail",
+      "kind": "wxml-handler",
+      "handler": "onDisabledFeature",
+      "label": "未开放功能提示",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MEAL-09",
+      "page": "meal",
+      "kind": "wxml-handler",
+      "handler": "exitCooking",
+      "label": "退出做饭视图",
       "status": "REAL",
       "final": "REAL"
     }

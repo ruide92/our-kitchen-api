@@ -1,53 +1,98 @@
 <view class="page">
-  <view class="header">
-    <view class="header-left">
-      <text class="header-title">{{pageTitle}}</text>
-      <view class="header-sub">
-        <text class="header-date">{{dateLabel}}</text>
-        <view class="diners-control">
-          <text class="diners-btn" bindtap="decreaseDiners">−</text>
-          <text class="diners-count">{{dinersCount}}人</text>
-          <text class="diners-btn" bindtap="increaseDiners">＋</text>
+  <!-- Cooking view (COOKING state) -->
+  <view wx:if="{{cooking}}" class="cooking-view">
+    <view class="cooking-header">
+      <text class="cooking-title">正在做饭</text>
+      <text class="cooking-sub">{{pageTitle}}</text>
+      <text class="cooking-session">会话 {{cooking.session_id}}</text>
+    </view>
+    <scroll-view class="cooking-steps" scroll-y>
+      <view wx:for="{{cookingSteps}}" wx:key="id" class="cooking-step">
+        <view class="cooking-step-recipe" wx:if="{{item.recipeName}}">{{item.recipeName}}</view>
+        <view class="cooking-step-num">{{item.step_no || (index + 1)}}</view>
+        <view class="cooking-step-content">
+          <text wx:if="{{item.title}}" class="cooking-step-title">{{item.title}}</text>
+          <text class="cooking-step-text">{{item.instruction}}</text>
+          <text wx:if="{{item.durationText}}" class="cooking-step-time">⏱ {{item.durationText}}</text>
+          <text wx:if="{{item.tip}}" class="cooking-step-tip">💡 {{item.tip}}</text>
         </view>
       </view>
+      <view wx:if="{{cookingSteps.length === 0}}" class="empty-tip">暂无步骤</view>
+    </scroll-view>
+    <view class="cooking-footer">
+      <view class="action-btn action-secondary" bindtap="exitCooking">返回菜单</view>
     </view>
-    <view class="header-add" bindtap="goAddRecipes">
-      <text class="header-add-icon">＋</text>
-      <text class="header-add-text">加菜</text>
-    </view>
   </view>
 
-  <view wx:if="{{loading}}" class="loading">加载中...</view>
-
-  <view wx:elif="{{mealError}}" class="empty">
-    <text class="empty-icon">⚠️</text>
-    <text class="empty-title">加载失败</text>
-    <text class="empty-sub">{{mealError}}</text>
-    <view class="empty-btn" bindtap="retryLoad">重新加载</view>
-  </view>
-
-  <view wx:elif="{{items.length === 0}}" class="empty">
-    <text class="empty-icon">🍽</text>
-    <text class="empty-title">这顿饭还没有菜</text>
-    <text class="empty-sub">去全部菜品选几道吧</text>
-    <view class="empty-btn" bindtap="goAddRecipes">去选菜</view>
-  </view>
-
-  <scroll-view wx:else class="meal-list" scroll-y>
-    <view wx:for="{{items}}" wx:key="id" class="meal-item">
-      <view class="meal-item-info">
-        <text class="meal-item-name">{{item.recipe_name}}</text>
-        <text class="meal-item-meta">{{item.servings}}人份 · {{item.sourceLabel}} · {{item.selectedByLabel}}</text>
+  <!-- Normal meal view -->
+  <view wx:else>
+    <view class="header">
+      <view class="header-left">
+        <text class="header-title">{{pageTitle}}</text>
+        <view class="header-sub">
+          <text class="header-date">{{dateLabel}}</text>
+          <view class="diners-control" wx:if="{{meal.status === 'PLANNING'}}">
+            <text class="diners-btn" bindtap="decreaseDiners">−</text>
+            <text class="diners-count">{{dinersCount}}人</text>
+            <text class="diners-btn" bindtap="increaseDiners">＋</text>
+          </view>
+          <text wx:else class="diners-count-fixed">{{dinersCount}}人</text>
+        </view>
       </view>
-      <view class="meal-item-remove" bindtap="removeItem" data-id="{{item.id}}">删除</view>
+      <view class="header-add" wx:if="{{meal.status === 'PLANNING'}}" bindtap="goAddRecipes">
+        <text class="header-add-icon">＋</text>
+        <text class="header-add-text">加菜</text>
+      </view>
+      <view class="header-status" wx:elif="{{meal.status}}">
+        <text class="status-tag status-{{meal.status}}">{{meal.status}}</text>
+      </view>
     </view>
-    <view class="list-bottom-space"></view>
-  </scroll-view>
 
-  <view wx:if="{{items.length > 0 && !loading && !mealError}}" class="action-bar">
-    <view class="action-count">{{items.length}} 道菜</view>
-    <view class="action-btn" bindtap="generateShopping">生成购物清单</view>
+    <view wx:if="{{loading}}" class="loading">加载中...</view>
+
+    <view wx:elif="{{mealError}}" class="empty">
+      <text class="empty-icon">⚠️</text>
+      <text class="empty-title">加载失败</text>
+      <text class="empty-sub">{{mealError}}</text>
+      <view class="empty-btn" bindtap="retryLoad">重新加载</view>
+    </view>
+
+    <view wx:elif="{{items.length === 0}}" class="empty">
+      <text class="empty-icon">🍽</text>
+      <text class="empty-title">这顿饭还没有菜</text>
+      <text class="empty-sub">去全部菜品选几道吧</text>
+      <view class="empty-btn" bindtap="goAddRecipes">去选菜</view>
+    </view>
+
+    <scroll-view wx:else class="meal-list" scroll-y>
+      <view wx:for="{{items}}" wx:key="id" class="meal-item">
+        <view class="meal-item-info">
+          <text class="meal-item-name">{{item.recipe_name}}</text>
+          <text class="meal-item-meta">{{item.servings}}人份 · {{item.sourceLabel}} · {{item.selectedByLabel}}</text>
+        </view>
+        <view wx:if="{{meal.status === 'PLANNING'}}" class="meal-item-remove" bindtap="removeItem" data-id="{{item.id}}">删除</view>
+      </view>
+      <view class="list-bottom-space"></view>
+    </scroll-view>
+
+    <!-- Action bar: PLANNING -->
+    <view wx:if="{{items.length > 0 && !loading && !mealError && meal.status === 'PLANNING'}}" class="action-bar">
+      <view class="action-count">{{items.length}} 道菜</view>
+      <view class="action-btn action-secondary" bindtap="generateShopping">生成购物清单</view>
+      <view class="action-btn action-primary {{busy ? 'btn-busy' : ''}}" bindtap="confirmMenu">确认菜单</view>
+    </view>
+
+    <!-- Action bar: CONFIRMED -->
+    <view wx:if="{{items.length > 0 && !loading && !mealError && meal.status === 'CONFIRMED'}}" class="action-bar">
+      <view class="action-count">{{items.length}} 道菜 · 已确认</view>
+      <view class="action-btn action-primary {{busy ? 'btn-busy' : ''}}" bindtap="startCooking">开始做饭</view>
+    </view>
+
+    <!-- Action bar: COOKING -->
+    <view wx:if="{{items.length > 0 && !loading && !mealError && meal.status === 'COOKING'}}" class="action-bar">
+      <view class="action-count">{{items.length}} 道菜 · 做饭中</view>
+    </view>
+
+    <view class="bottom-space"></view>
   </view>
-
-  <view class="bottom-space"></view>
 </view>

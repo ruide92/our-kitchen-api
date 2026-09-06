@@ -134,3 +134,57 @@
 
 .header-sub { display: flex; align-items: center; gap: 16rpx; margin-top: 8rpx; }
 .header-date { font-size: 24rpx; color: #8D6E63; }
+
+/* Status tags */
+.header-status { display: flex; align-items: center; }
+.status-tag { font-size: 22rpx; padding: 6rpx 16rpx; border-radius: 16rpx; font-weight: 600; }
+.status-PLANNING { background: #FFF3E0; color: #F57C00; }
+.status-CONFIRMED { background: #E8F5E9; color: #388E3C; }
+.status-COOKING { background: #E3F2FD; color: #1976D2; }
+.status-COMPLETED { background: #F3E5F5; color: #7B1FA2; }
+
+.diners-count-fixed { font-size: 24rpx; color: #5D4037; font-weight: 500; }
+
+/* Cooking view */
+.cooking-view {
+  min-height: 100vh;
+  background: #FFF9F0;
+  display: flex;
+  flex-direction: column;
+}
+.cooking-header {
+  padding: 32rpx 24rpx 20rpx;
+  background: linear-gradient(135deg, #7CB342, #558B2F);
+}
+.cooking-title { font-size: 40rpx; font-weight: 700; color: #FFF; display: block; }
+.cooking-sub { font-size: 26rpx; color: #DCEDC8; margin-top: 6rpx; display: block; }
+.cooking-session { font-size: 20rpx; color: #AED581; margin-top: 4rpx; display: block; word-break: break-all; }
+.cooking-steps { flex: 1; padding: 24rpx; }
+.cooking-step {
+  display: flex;
+  background: #FFF;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+  box-shadow: 0 2rpx 12rpx rgba(92,74,58,0.06);
+}
+.cooking-step-recipe { font-size: 24rpx; color: #7CB342; font-weight: 600; margin-bottom: 8rpx; width: 100%; }
+.cooking-step-num {
+  width: 56rpx; height: 56rpx; border-radius: 50%;
+  background: #7CB342; color: #FFF;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28rpx; font-weight: 700; flex-shrink: 0; margin-right: 20rpx;
+}
+.cooking-step-content { flex: 1; }
+.cooking-step-title { font-size: 28rpx; color: #3E2723; font-weight: 600; display: block; }
+.cooking-step-text { font-size: 26rpx; color: #5D4037; margin-top: 6rpx; display: block; line-height: 1.6; }
+.cooking-step-time { font-size: 22rpx; color: #FF8F00; margin-top: 8rpx; display: block; }
+.cooking-step-tip { font-size: 22rpx; color: #00897B; margin-top: 6rpx; display: block; }
+.cooking-footer {
+  padding: 20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom));
+  background: #FFF;
+  box-shadow: 0 -2rpx 12rpx rgba(92,74,58,0.08);
+}
+.cooking-footer .action-btn { text-align: center; }
+
+.btn-busy { opacity: 0.5; pointer-events: none; }

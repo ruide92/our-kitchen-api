@@ -449,3 +449,20 @@
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+
+/* V1 additions */
+.recipe-content { min-height: 100vh; }
+.hero-placeholder { display: flex; align-items: center; justify-content: center; font-size: 80rpx; background: #FFE0B2; }
+.action-disabled { opacity: 0.4; pointer-events: none; }
+.btn-busy { opacity: 0.5; pointer-events: none; }
+.cookware-row { display: flex; align-items: center; flex-wrap: wrap; margin-top: 12rpx; gap: 8rpx; }
+.cookware-label { font-size: 22rpx; color: #8D6E63; }
+.cookware-tag { font-size: 20rpx; background: #EFEBE9; color: #5D4037; padding: 4rpx 12rpx; border-radius: 8rpx; }
+.allergens-row { display: flex; align-items: center; flex-wrap: wrap; margin-top: 8rpx; gap: 8rpx; }
+.allergens-label { font-size: 22rpx; color: #8D6E63; }
+.allergen-tag { font-size: 20rpx; background: #FFEBEE; color: #C62828; padding: 4rpx 12rpx; border-radius: 8rpx; }
+.ing-type { font-size: 18rpx; color: #BDBDBD; margin-left: 8rpx; }
+.nutrition-line { display: block; font-size: 24rpx; color: #5D4037; margin-bottom: 8rpx; }
+.step-title { font-size: 26rpx; color: #3E2723; font-weight: 600; display: block; margin-bottom: 4rpx; }
+.step-tip { font-size: 22rpx; color: #00897B; margin-top: 6rpx; display: block; }

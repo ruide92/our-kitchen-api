@@ -9,12 +9,11 @@
 
 | Status | Count |
 |---|---|
-| REAL | 120 |
-| PARTIAL | 1 |
-| BROKEN | 31 |
+| REAL | 128 |
+| BROKEN | 27 |
 | PLANNED_DISABLED | 2 |
 | HIDDEN | 22 |
-| **Total** | **176** |
+| **Total** | **179** |
 
 ## Surfaces
 
@@ -39,10 +38,12 @@
 | DETAIL-03 | wxml-handler | showRatingPanel | BROKEN | REAL |
 | DETAIL-04 | wxml-handler | switchTab | REAL | REAL |
 | DETAIL-05 | wxml-handler | wantToEat | BROKEN | REAL |
-| DETAIL-06 | wxml-handler | addToToday | BROKEN | REAL |
-| DETAIL-07 | wxml-handler | startCooking | BROKEN | REAL |
+| DETAIL-06 | wxml-handler | addToMeal | REAL | REAL |
+| DETAIL-07 | wxml-handler | startCooking | REAL | REAL |
 | DETAIL-08 | wxml-handler | hideRatingPanel | BROKEN | REAL |
 | DETAIL-09 | wxml-handler | setRating | BROKEN | REAL |
+| DETAIL-10 | wxml-handler | retryLoad | REAL | REAL |
+| DETAIL-11 | wxml-handler | onDisabledFeature | REAL | REAL |
 | DETAIL-OVERLAY-01 | overlay | 评分弹窗 | BROKEN | REAL |
 
 ### family
@@ -123,8 +124,9 @@
 | MEAL-04 | wxml-handler | retryLoad | REAL | REAL |
 | MEAL-05 | wxml-handler | removeItem | REAL | REAL |
 | MEAL-06 | wxml-handler | generateShopping | REAL | REAL |
-| MEAL-07 | wxml-handler | confirmMenu | BROKEN | REAL |
-| MEAL-08 | wxml-handler | startCooking | BROKEN | REAL |
+| MEAL-07 | wxml-handler | confirmMenu | REAL | REAL |
+| MEAL-08 | wxml-handler | startCooking | REAL | REAL |
+| MEAL-09 | wxml-handler | exitCooking | REAL | REAL |
 | MEAL-NAV-01 | navigation | switchTab | REAL | REAL |
 | MEAL-NAV-02 | navigation | switchTab | REAL | REAL |
 
@@ -146,7 +148,7 @@
 | MENU-12 | wxml-handler | onSearchInput | REAL | REAL |
 | MENU-13 | wxml-handler | selectCategory | REAL | REAL |
 | MENU-14 | wxml-handler | retryRecipes | REAL | REAL |
-| MENU-15 | wxml-handler | goDetail | PARTIAL | REAL |
+| MENU-15 | wxml-handler | goDetail | REAL | REAL |
 | MENU-16 | wxml-handler | addRecipeToMeal | REAL | REAL |
 | MENU-17 | wxml-handler | goTodayMenu | REAL | REAL |
 | MENU-18 | wxml-handler | closeTargetPicker | REAL | REAL |
