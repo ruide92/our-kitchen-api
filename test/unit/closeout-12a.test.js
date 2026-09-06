@@ -269,6 +269,16 @@ test('T16: Shopping onHide clears all show*Sheet states', () => {
   assert.deepEqual(page.data.purchasedItems, []);
 });
 
+// ===== T17: WXML must not call Page method, controller has no duplicate helper =====
+test('T17: mine.wxml uses data boolean not Page method; controller has no duplicate helper', () => {
+  const wxml = fs.readFileSync(path.join(__dirname, '..', '..', 'miniprogram', 'pages', 'mine', 'mine.wxml'), 'utf8');
+  assert.ok(!wxml.includes('canEditKitchenSettings('), 'WXML must not call canEditKitchenSettings() method');
+  assert.ok(wxml.includes("canEditKitchenSettings ? '可编辑' : '只读'"), 'WXML must use data boolean with ternary');
+  const controller = fs.readFileSync(path.join(__dirname, '..', '..', 'miniprogram', 'pages', 'mine', 'mine-controller.js'), 'utf8');
+  assert.ok(!controller.includes('canEditKitchenSettings() {'), 'controller must not define duplicate canEditKitchenSettings() method');
+  assert.ok(controller.includes('canEditKitchenSettings: state.activeFamily'), 'controller must compute canEditKitchenSettings in applySession');
+});
+
 // ===== Existing tests (kept) =====
 test('A9: ADMIN can edit kitchen settings', () => {
   const h = mineHarness({ activeFamily: { id: 'f', name: 'Test', role: 'ADMIN', invite_code: 'C' } });

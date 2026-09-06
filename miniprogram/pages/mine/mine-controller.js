@@ -154,10 +154,6 @@ function createMinePage({ app, wxAdapter }) {
       wxAdapter.setStorageSync('v1_fridge_target_tab', 'pantry')
       wxAdapter.switchTab({ url: '/pages/fridge/fridge' })
     },
-    canEditKitchenSettings() {
-      const role = this.data.family && this.data.family.role
-      return role === 'OWNER' || role === 'ADMIN'
-    },
     openKitchenSettingsSheet() {
       if (!this.familyReady()) return
       const s = this.data.settings
