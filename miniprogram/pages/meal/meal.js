@@ -183,7 +183,7 @@ Page({
         this.setData({
           cookingData,
           cookingSteps: this._normalizeSteps(sessionData.steps),
-          consumptionCandidates: sessionData.consumption_candidates || [],
+          consumptionCandidates: this._normalizeCandidates(sessionData.consumption_candidates || []),
           cookingUnavailable: false,
         });
       } else if (sessionData && sessionData.status === 'COMPLETED') {
@@ -335,7 +335,7 @@ Page({
       this.setData({
         cookingData,
         cookingSteps: this._normalizeSteps(result.steps),
-        consumptionCandidates: candidates,
+        consumptionCandidates: this._normalizeCandidates(candidates),
         showCooking: true,
         cookingUnavailable: false,
         meal: { ...this.data.meal, status: 'COOKING' },
@@ -369,6 +369,14 @@ Page({
   },
 
   // ===== MEAL-11: Show completion sheet =====
+  // Normalize server candidates with stable unique UI identity
+  _normalizeCandidates(candidates) {
+    return (candidates || []).map(c => ({
+      ...c,
+      candidate_key: `${c.ingredient_id}|${c.unit_code || 'null'}`,
+    }));
+  },
+
   showCompletionSheet() {
     if (!this.data.cookingData) return;
     // Reset quantities: auto-deductable items default to suggested, non-deductable default to 0

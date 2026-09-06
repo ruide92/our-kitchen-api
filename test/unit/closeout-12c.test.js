@@ -249,3 +249,30 @@ test('F16: WXML shows non-auto-deductable label for non-deductable candidates', 
   assert.ok(mealWxml.includes('auto_deductable'),
     'WXML must branch on auto_deductable field');
 });
+
+// ===== F17: candidate_key unique identity for same ingredient different units =====
+test('F17: same ingredient different units get distinct candidate_key and WXML uses it', () => {
+  const mealWxml = fs.readFileSync(MEAL_WXML, 'utf8');
+  // WXML must use candidate_key, not ingredient_id
+  assert.ok(mealWxml.includes('wx:key="candidate_key"'),
+    'WXML completion list must use wx:key="candidate_key"');
+  assert.ok(!mealWxml.includes('wx:key="ingredient_id"'),
+    'WXML must not use wx:key="ingredient_id" for candidates (non-unique)');
+
+  // Behavioral: _normalizeCandidates produces distinct keys
+  const env = mockPageEnv();
+  delete require.cache[require.resolve(MEAL_JS)];
+  require(MEAL_JS);
+  const page = makePage(env.captured, {});
+  const result = page._normalizeCandidates([
+    { ingredient_id: 'garlic', unit_code: 'piece', name: '大蒜' },
+    { ingredient_id: 'garlic', unit_code: 'root', name: '大蒜' },
+  ]);
+  assert.equal(result.length, 2);
+  assert.equal(result[0].candidate_key, 'garlic|piece');
+  assert.equal(result[1].candidate_key, 'garlic|root');
+  assert.notEqual(result[0].candidate_key, result[1].candidate_key);
+  // null unit gets 'null' suffix
+  const nullUnit = page._normalizeCandidates([{ ingredient_id: 'x', unit_code: null }]);
+  assert.equal(nullUnit[0].candidate_key, 'x|null');
+});

@@ -586,4 +586,27 @@ test('12C Cooking completion + inventory deduction against real PostgreSQL', asy
     assert.ok(Math.abs(Number(details.requested) - 1.5) < 0.001, `requested should be 1.5kg, got ${details.requested}`);
     assert.equal(details.remaining_unit, 'kg', 'remaining_unit should match requested_unit');
   });
+
+  // D27: negative consumption quantity → INVALID_CONSUMPTION (not silently skipped)
+  await t.test('D27: negative quantity rejected as INVALID_CONSUMPTION, not treated as zero', async () => {
+    const { sessionId } = await setupCookingSession();
+    const fridgeId = randomUUID();
+    await pool.query(`INSERT INTO fridge_items(id,family_id,ingredient_id,quantity,unit_code,storage_location,created_by_user_id)
+      VALUES ($1,$2,$3,1,'kg','REFRIGERATED',$4)`, [fridgeId, family.id, ingPork, user.id]);
+    const res = await request('POST', `/families/${family.id}/cooking-sessions/${sessionId}/complete`, {
+      consumption: [{ ingredient_id: ingPork, quantity: -500, unit_code: 'g' }],
+    });
+    assert.equal(res.status, 422);
+    assert.equal(res.body.error.code, 'INVALID_CONSUMPTION');
+    // Fridge unchanged
+    const fi = (await pool.query('SELECT quantity FROM fridge_items WHERE id=$1', [fridgeId])).rows[0];
+    assert.equal(Number(fi.quantity), 1, 'fridge should still be 1kg');
+    // No movements
+    const mvs = (await pool.query("SELECT COUNT(*)::int as n FROM inventory_movements WHERE movement_type='COOK_OUT'")).rows[0].n;
+    assert.equal(mvs, 0, 'no movements after invalid consumption');
+    // Session still ACTIVE, meal still COOKING
+    const sess = await request('GET', `/families/${family.id}/cooking-sessions/${sessionId}`);
+    assert.equal(sess.body.data.status, 'ACTIVE');
+    assert.equal(sess.body.data.meal.status, 'COOKING');
+  });
 });

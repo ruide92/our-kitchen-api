@@ -227,15 +227,18 @@ function createCookingService(pool) {
       const validItems = [];
       for (const cons of consumption || []) {
         const { ingredient_id, quantity, unit_code } = cons;
-        if (quantity == null || Number(quantity) <= 0) continue; // skip zero-quantity
+        // Explicit zero or null = skip (user chose not to deduct this item)
+        if (quantity == null || Number(quantity) === 0) continue;
+
+        const qty = Number(quantity);
+        // Non-finite or negative = invalid, NOT silently skipped
+        if (!Number.isFinite(qty) || qty < 0) {
+          throw new ApiError(422, 'INVALID_CONSUMPTION', `用量必须是非负数`, { ingredient_id, quantity });
+        }
 
         if (!ingredient_id || !allowedIngredientIds.has(ingredient_id)) {
           throw new ApiError(422, 'INGREDIENT_NOT_IN_SNAPSHOT',
             `食材 ${ingredient_id || '未知'} 不在本餐冻结菜谱中，不能扣库存`, { ingredient_id });
-        }
-        const qty = Number(quantity);
-        if (!Number.isFinite(qty) || qty <= 0) {
-          throw new ApiError(422, 'INVALID_CONSUMPTION', `用量必须是正数`, { ingredient_id });
         }
         if (!unit_code) {
           throw new ApiError(422, 'INVALID_CONSUMPTION', `缺少单位`, { ingredient_id });
