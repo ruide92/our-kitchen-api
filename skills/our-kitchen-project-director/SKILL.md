@@ -235,6 +235,10 @@ Including: product surface audit, matrix sync, overlay contract, schema contract
 
 The skill is the "construction director". Existing gates are "hard enforcement". Both must be used together.
 
+### No governance nesting
+
+Once a real failure mode has (1) been fixed on the production path, (2) received a targeted regression test, (3) been caught by the existing governance/checkpoint mechanism, and (4) been independently verified, seal that failure mode by default. Do not create audit-of-audit, gate-of-gate, or registry-of-registry unless a new real escape case proves the existing enforcement insufficient. Governance serves product delivery. Governance is not the product.
+
 ## 18. Skill selfcheck
 
 ```bash
