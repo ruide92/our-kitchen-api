@@ -56,14 +56,19 @@ Page({
         instruction: s.operation || s.title || '',
         durationText: s.duration_text || (s.duration_seconds ? `${Math.round(s.duration_seconds / 60)}分钟` : ''),
       }));
+      // Backend returns extras as string[]: cookware=['WOK'], tags=['HOME_STYLE'], allergens=['PEANUT'], meal_types=['LUNCH']
+      const cookware = (data.cookware || []).map(c => typeof c === 'string' ? c : (c.cookware_code || c.code || ''));
+      const tags = (data.tags || []).map(t => typeof t === 'string' ? t : (t.tag_code || t.code || ''));
+      const allergens = (data.allergens || []).map(a => typeof a === 'string' ? a : (a.allergen_code || a.code || ''));
+      const mealTypes = (data.meal_types || []).map(m => typeof m === 'string' ? m : (m.meal_type_code || m.code || ''));
       this.setData({
         recipe,
         ingredients,
         steps,
-        cookware: data.cookware || [],
-        mealTypes: data.meal_types || [],
-        tags: data.tags || [],
-        allergens: data.allergens || [],
+        cookware,
+        mealTypes,
+        tags,
+        allergens,
         nutrition: data.nutrition || null,
         media: data.media || [],
         loading: false,
@@ -149,12 +154,6 @@ Page({
     } catch (err) {
       wx.showToast({ title: err.message || '操作失败', icon: 'none' });
     }
-  },
-
-  // ===== Disabled features (kept explicit, not placeholderToast) =====
-  onDisabledFeature(e) {
-    const name = e.currentTarget.dataset.name || '该功能';
-    wx.showToast({ title: `${name}暂未开放`, icon: 'none' });
   },
 
   goBack() {

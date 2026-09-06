@@ -1598,20 +1598,20 @@
       "final": "REAL"
     },
     {
-      "id": "DETAIL-11",
-      "page": "detail",
-      "kind": "wxml-handler",
-      "handler": "onDisabledFeature",
-      "label": "未开放功能提示",
-      "status": "REAL",
-      "final": "REAL"
-    },
-    {
       "id": "MEAL-09",
       "page": "meal",
       "kind": "wxml-handler",
       "handler": "exitCooking",
       "label": "退出做饭视图",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MEAL-10",
+      "page": "meal",
+      "kind": "wxml-handler",
+      "handler": "resumeCooking",
+      "label": "继续做饭",
       "status": "REAL",
       "final": "REAL"
     }

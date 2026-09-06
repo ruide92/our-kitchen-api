@@ -126,6 +126,10 @@ function createRecipeService(pool) {
         ingredients: extras.ingredients,
         steps: extras.steps,
         media: extras.media,
+        meal_types: extras.meal_types,
+        tags: extras.tags,
+        cookware: extras.cookware,
+        allergens: extras.allergens,
         nutrition: null,
         inventory_summary: null,
         viewer: {

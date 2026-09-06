@@ -3,6 +3,11 @@ const { createMealTarget } = require('../../utils/meal-target');
 
 const MEAL_LABELS = { BREAKFAST: '早餐', LUNCH: '午餐', DINNER: '晚餐' };
 const SOURCE_LABELS = { MANUAL: '手工点', WEEKLY_PLAN: '周计划', RANDOM: '随机', WISH: '想吃' };
+const COOKING_STORAGE_PREFIX = 'v1_cooking_state_';
+
+function cookingStorageKey(familyId, mealId) {
+  return COOKING_STORAGE_PREFIX + familyId + '_' + mealId;
+}
 
 Page({
   data: {
@@ -17,9 +22,11 @@ Page({
     pageTitle: '',
     dateLabel: '',
     busy: false,
-    // Cooking state
-    cooking: null,       // { session_id, meal, steps }
-    cookingSteps: [],    // flattened steps with recipe_name
+    // Cooking state — separated persistent data vs view visibility
+    cookingData: null,    // { session_id, meal_id, family_id, steps } persisted locally
+    cookingSteps: [],     // normalized steps for display
+    showCooking: false,   // whether cooking view is visible
+    cookingUnavailable: false, // server COOKING but no local state
     autoStart: false,
   },
 
@@ -65,6 +72,33 @@ Page({
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   },
 
+  _normalizeSteps(steps) {
+    return (steps || []).map(s => ({
+      ...s,
+      recipeName: s.recipe_name || '',
+      instruction: s.operation || s.title || '',
+      durationText: s.duration_text || (s.duration_seconds ? `${Math.round(s.duration_seconds / 60)}分钟` : ''),
+    }));
+  },
+
+  _loadLocalCooking(mealId) {
+    try {
+      const key = cookingStorageKey(this.data.familyId, mealId);
+      const stored = wx.getStorageSync(key);
+      if (stored && stored.session_id && stored.steps) {
+        return stored;
+      }
+    } catch (_) {}
+    return null;
+  },
+
+  _saveLocalCooking(mealId, data) {
+    try {
+      const key = cookingStorageKey(this.data.familyId, mealId);
+      wx.setStorageSync(key, data);
+    } catch (_) {}
+  },
+
   async loadMeal() {
     this.setData({ loading: true });
     try {
@@ -75,6 +109,23 @@ Page({
         selectedByLabel: it.selected_by_nickname || '家庭成员',
       }));
       this.setData({ meal, items, loading: false, dinersCount: meal?.diners_count || 2 });
+
+      // Handle COOKING state — check local resume
+      if (meal?.status === 'COOKING') {
+        const local = this._loadLocalCooking(meal.id);
+        if (local) {
+          this.setData({
+            cookingData: local,
+            cookingSteps: this._normalizeSteps(local.steps),
+            cookingUnavailable: false,
+          });
+        } else {
+          this.setData({ cookingUnavailable: true, cookingData: null, cookingSteps: [] });
+        }
+      } else {
+        this.setData({ cookingUnavailable: false });
+      }
+
       // Auto-start cooking if requested and meal is CONFIRMED
       if (this.data.autoStart && meal?.status === 'CONFIRMED') {
         this.setData({ autoStart: false });
@@ -165,18 +216,15 @@ Page({
     }
     this.setData({ busy: true });
     try {
+      // Preserve existing items — backend confirm response does NOT include items
+      const existingItems = this.data.items;
       const confirmed = await this._api.confirmMeal(this.data.familyId, this.data.meal.id);
       // Verify snapshot exists
       const snapshot = confirmed?.recipe_snapshot;
       if (!snapshot || snapshot.schema_version !== 1) {
         throw new Error('MEAL_SNAPSHOT_MISSING');
       }
-      const items = (confirmed.items || []).map(it => ({
-        ...it,
-        sourceLabel: SOURCE_LABELS[it.source] || it.source || '手工点',
-        selectedByLabel: it.selected_by_nickname || '家庭成员',
-      }));
-      this.setData({ meal: confirmed, items, busy: false });
+      this.setData({ meal: confirmed, items: existingItems, busy: false });
       wx.showToast({ title: '菜单已确认', icon: 'success' });
     } catch (err) {
       this.setData({ busy: false });
@@ -202,17 +250,26 @@ Page({
     this.setData({ busy: true });
     try {
       const result = await this._api.startCooking(this.data.familyId, this.data.meal.id);
-      // result = { session_id, meal, steps } — steps from frozen snapshot
-      const cookingSteps = (result.steps || []).map(s => ({
-        ...s,
-        recipeName: s.recipe_name || '',
-        instruction: s.operation || s.title || '',
-        durationText: s.duration_text || (s.duration_seconds ? `${Math.round(s.duration_seconds / 60)}分钟` : ''),
-      }));
+      // result = { session_id, meal, steps } — backend returns meal as UPDATE-before (status CONFIRMED)
+      // Server transaction has set status=COOKING; frontend must reflect that.
+      const cookingData = {
+        session_id: result.session_id,
+        meal_id: this.data.meal.id,
+        family_id: this.data.familyId,
+        meal_date: this.data.mealDate,
+        meal_type: this.data.mealType,
+        steps: result.steps || [],
+        saved_at: new Date().toISOString(),
+      };
+      // Persist local ephemeral resume state
+      this._saveLocalCooking(this.data.meal.id, cookingData);
       this.setData({
-        cooking: result,
-        cookingSteps,
-        meal: result.meal || this.data.meal,
+        cookingData,
+        cookingSteps: this._normalizeSteps(result.steps),
+        showCooking: true,
+        cookingUnavailable: false,
+        // Backend returns meal with status CONFIRMED (pre-update), but server state is COOKING
+        meal: { ...this.data.meal, status: 'COOKING' },
         busy: false,
       });
       wx.showToast({ title: '开始做饭', icon: 'success' });
@@ -226,9 +283,18 @@ Page({
     }
   },
 
-  // Exit cooking view (does NOT complete cooking — that's next phase)
+  // ===== MEAL-10: Resume cooking from local state (no POST) =====
+  resumeCooking() {
+    if (!this.data.cookingData) {
+      wx.showToast({ title: '没有可恢复的做饭步骤', icon: 'none' });
+      return;
+    }
+    this.setData({ showCooking: true });
+  },
+
+  // Exit cooking view — does NOT delete frozen steps (local resume preserved)
   exitCooking() {
-    this.setData({ cooking: null, cookingSteps: [] });
+    this.setData({ showCooking: false });
   },
 
   async generateShopping() {

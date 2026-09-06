@@ -28,7 +28,7 @@
       <view class="dish-tags">
         <text wx:if="{{recipe.category_code}}" class="tag tag-green">{{recipe.category_code}}</text>
         <text wx:for="{{mealTypes}}" wx:key="*this" class="tag tag-blue">{{item}}</text>
-        <text wx:for="{{tags}}" wx:key="tag_code" class="tag tag-gray">{{item.tag_code}}</text>
+        <text wx:for="{{tags}}" wx:key="*this" class="tag tag-gray">{{item}}</text>
       </view>
       <view class="dish-stats">
         <view class="stat-item">
@@ -50,11 +50,11 @@
       </view>
       <view class="cookware-row" wx:if="{{cookware.length > 0}}">
         <text class="cookware-label">厨具：</text>
-        <text wx:for="{{cookware}}" wx:key="cookware_code" class="cookware-tag">{{item.cookware_code}}</text>
+        <text wx:for="{{cookware}}" wx:key="*this" class="cookware-tag">{{item}}</text>
       </view>
       <view class="allergens-row" wx:if="{{allergens.length > 0}}">
         <text class="allergens-label">过敏原：</text>
-        <text wx:for="{{allergens}}" wx:key="allergen_code" class="allergen-tag">{{item.allergen_code}}</text>
+        <text wx:for="{{allergens}}" wx:key="*this" class="allergen-tag">{{item}}</text>
       </view>
     </view>
 
@@ -104,9 +104,9 @@
 
     <!-- Bottom actions -->
     <view class="bottom-actions safe-bottom">
-      <view class="action-btn action-disabled" data-name="收藏" bindtap="onDisabledFeature">
-        <text class="action-icon">❤️</text>
-        <text class="action-text">收藏</text>
+      <view class="action-btn action-disabled">
+        <text class="action-icon">🤍</text>
+        <text class="action-text">收藏 · 暂未开放</text>
       </view>
       <view class="action-btn action-secondary {{busy ? 'btn-busy' : ''}}" bindtap="addToMeal">
         <text class="action-icon">📋</text>

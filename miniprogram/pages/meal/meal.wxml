@@ -1,10 +1,10 @@
 <view class="page">
   <!-- Cooking view (COOKING state) -->
-  <view wx:if="{{cooking}}" class="cooking-view">
+  <view wx:if="{{showCooking && cookingData}}" class="cooking-view">
     <view class="cooking-header">
       <text class="cooking-title">正在做饭</text>
       <text class="cooking-sub">{{pageTitle}}</text>
-      <text class="cooking-session">会话 {{cooking.session_id}}</text>
+      <text class="cooking-session">会话 {{cookingData.session_id}}</text>
     </view>
     <scroll-view class="cooking-steps" scroll-y>
       <view wx:for="{{cookingSteps}}" wx:key="id" class="cooking-step">
@@ -75,6 +75,19 @@
       <view class="list-bottom-space"></view>
     </scroll-view>
 
+    <!-- COOKING but no local state -->
+    <view wx:if="{{meal.status === 'COOKING' && cookingUnavailable}}" class="cooking-unavailable">
+      <text class="empty-icon">🍳</text>
+      <text class="empty-title">这顿饭已经开始制作</text>
+      <text class="empty-sub">本机没有可恢复的做饭步骤。请在开始做饭的设备上继续，或联系家人确认进度。</text>
+    </view>
+
+    <!-- COOKING with local state — show resume button -->
+    <view wx:if="{{meal.status === 'COOKING' && cookingData && !showCooking}}" class="action-bar">
+      <view class="action-count">{{items.length}} 道菜 · 做饭中</view>
+      <view class="action-btn action-primary" bindtap="resumeCooking">继续做饭</view>
+    </view>
+
     <!-- Action bar: PLANNING -->
     <view wx:if="{{items.length > 0 && !loading && !mealError && meal.status === 'PLANNING'}}" class="action-bar">
       <view class="action-count">{{items.length}} 道菜</view>
@@ -86,11 +99,6 @@
     <view wx:if="{{items.length > 0 && !loading && !mealError && meal.status === 'CONFIRMED'}}" class="action-bar">
       <view class="action-count">{{items.length}} 道菜 · 已确认</view>
       <view class="action-btn action-primary {{busy ? 'btn-busy' : ''}}" bindtap="startCooking">开始做饭</view>
-    </view>
-
-    <!-- Action bar: COOKING -->
-    <view wx:if="{{items.length > 0 && !loading && !mealError && meal.status === 'COOKING'}}" class="action-bar">
-      <view class="action-count">{{items.length}} 道菜 · 做饭中</view>
     </view>
 
     <view class="bottom-space"></view>

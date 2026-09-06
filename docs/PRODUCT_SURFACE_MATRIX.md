@@ -43,7 +43,6 @@
 | DETAIL-08 | wxml-handler | hideRatingPanel | BROKEN | REAL |
 | DETAIL-09 | wxml-handler | setRating | BROKEN | REAL |
 | DETAIL-10 | wxml-handler | retryLoad | REAL | REAL |
-| DETAIL-11 | wxml-handler | onDisabledFeature | REAL | REAL |
 | DETAIL-OVERLAY-01 | overlay | 评分弹窗 | BROKEN | REAL |
 
 ### family
@@ -127,6 +126,7 @@
 | MEAL-07 | wxml-handler | confirmMenu | REAL | REAL |
 | MEAL-08 | wxml-handler | startCooking | REAL | REAL |
 | MEAL-09 | wxml-handler | exitCooking | REAL | REAL |
+| MEAL-10 | wxml-handler | resumeCooking | REAL | REAL |
 | MEAL-NAV-01 | navigation | switchTab | REAL | REAL |
 | MEAL-NAV-02 | navigation | switchTab | REAL | REAL |
 
