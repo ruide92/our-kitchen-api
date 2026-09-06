@@ -55,6 +55,18 @@
     {
       "input": "跑一下测试",
       "reason": "AUDIT/VERIFY, must run actual tests"
+    },
+    {
+      "input": "下一步做什么",
+      "reason": "AUDIT, must discover current state and blockers"
+    },
+    {
+      "input": "这个回执靠谱吗",
+      "reason": "AUDIT, REPORTED != FACT, independent verify"
+    },
+    {
+      "input": "现在能继续了吗",
+      "reason": "AUDIT, verify gates and blockers before continuation"
     }
   ],
   "should_not_trigger": [

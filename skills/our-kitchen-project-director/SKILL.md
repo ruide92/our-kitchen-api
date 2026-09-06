@@ -186,7 +186,17 @@ Production public auth evidence cannot use forged JWT in place of real wx.login/
 
 Any schema change: compare with `docs/DATA_MODEL_V4.md`. True frozen model change requires Spec Amendment. DRAFT/BLOCKED cannot deploy.
 
-Current: `backend/v1/sql/008_full_closeout.sql` is **BLOCKED**. Do not apply to Neon without approved `SPEC_AMENDMENT_12A`. Especially `recipe_snapshot` design is unapproved. Historical Meal must not drift from future Recipe edits.
+Schema tasks must dynamically discover current truth — never rely on hardcoded state stored in this Skill:
+
+- Current repository HEAD and migration files on disk
+- `docs/DATA_MODEL_V4.md` actual sections
+- Spec Amendment current Status / Blocked fields
+- Production `schema_migrations` ledger (what is actually applied)
+- Production `information_schema.columns` reality
+- PRE-migration and POST-migration evidence files
+- Fresh migration replay result
+
+Historical Meal must not drift from future Recipe edits. If a snapshot/versioning design exists, verify it against actual code and tests, not against Skill-stored assumptions.
 
 ## 13. User operation principle
 

@@ -1,5 +1,12 @@
 # Project Contract
 
+> **MUTABLE CURRENT STATE IS NOT AUTHORITATIVE HERE.**
+> This file stores only relatively stable project identity and permanent rules.
+> Current phase, migration applied state, deploy commit, release gate status,
+> visual gate status — all must be rediscovered from: preflight, actual repo,
+> actual DB, actual deploy, current gate runs. `docs/PROJECT_STATE.md` is
+> historical/context input only and never overrides current actual evidence.
+
 ## Repository
 
 - Repo: ruide92/our-kitchen-api
@@ -24,34 +31,34 @@
 ### Auth
 
 - Real wx.login → POST /api/v1/auth/wechat → token
-- Synthetic JWT only for isolated tests, must be labeled
-- Production user: 张锐, family: 我们的小厨房 (OWNER)
+- Synthetic JWT only for isolated tests, must be labeled SYNTHETIC AUTH
+- Production owner identity is discovered from actual session/DB, not hardcoded here
 
-### Infrastructure
+### Infrastructure (identity only — current state must be rediscovered)
 
 - Backend: Node.js, Express, PostgreSQL
-- Neon DB: ep-dry-paper-ael6cis1-pooler, migrations 001-007 applied, 008 BLOCKED
-- Render: our-kitchen-v1, srv-dadmub0u01pc73bgup20
+- Neon DB: ep-dry-paper-ael6cis1-pooler (migration state from schema_migrations, not this file)
+- Render: our-kitchen-v1, srv-dadmub0u01pc73bgup20 (deployed commit from Render API/dashboard, not this file)
 - Mini Program: AppID wxbd67ce4437e3ea3b
 - DevTools CLI: D:\微信web开发者工具\cli.bat
 - Public API: https://our-kitchen-v1.onrender.com
 
-### Governance
+### Governance authority
 
 - Surface registry: governance/product-surfaces.json (single machine authority)
-- Matrix: docs/PRODUCT_SURFACE_MATRIX.md (DERIVED view)
+- Matrix: docs/PRODUCT_SURFACE_MATRIX.md (DERIVED view, not authoritative)
 - Journeys: docs/USER_JOURNEY_ACCEPTANCE.md
 - Review rules: docs/REVIEW_GATE.md
 - Gates: npm run test:governance-gate, npm run test:release-gate
 
-### Current state
+## Completion state layers (never conflate)
 
-- CODE GATE: PASS
-- PUBLIC CORE E2E: PASS
-- VISUAL GATE: FAIL (11A/11B fixes pending owner retest)
-- 008 migration: BLOCKED (recipe_snapshot unapproved)
-- 12A business: backend skeleton done, frontend not started
-- 12B-12F: not started
+- DESIGN APPROVED — reviewer accepted the design/schema direction
+- IMPLEMENTATION VERIFIED — code + tests pass locally
+- DEPLOYMENT READY / DEPLOYED — release gate green + actually deployed
+- USER ACCEPTED — real user confirmed on device
+
+A task report may only claim the layer it actually verified.
 
 ## High-risk regressions (never reintroduce)
 

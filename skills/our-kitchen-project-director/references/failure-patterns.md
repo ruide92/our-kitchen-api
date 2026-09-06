@@ -111,3 +111,51 @@
 **Detection**: git status --short, separate tracked clean vs untracked count.
 
 **Rule**: Report tracked clean: yes/no, untracked count: N.
+
+## Pattern 15: Whole-file substring false positive
+
+**Symptom**: Claim "Section 18 contains recipe_snapshot" verified by `wholeFile.includes('recipe_snapshot')`, but the word only appears in Section 19 prose.
+
+**Detection**: Section-aware test that deletes the field from Section 18 but keeps it in Section 19 — test must still FAIL.
+
+**Rule**: Verification scope must equal claim scope. Parse the target section, not the whole file.
+
+## Pattern 16: Stale Skill / stale project-contract current state
+
+**Symptom**: Skill or project-contract hardcodes "008 BLOCKED", "12A not started", "VISUAL GATE FAIL" — all mutable state that has since changed.
+
+**Detection**: Grep Skill/references for current-phase, migration-applied, deploy-commit, gate-status hardcoded values.
+
+**Rule**: Skill stores only permanent rules. Current state rediscovered from preflight, actual repo, actual DB, actual deploy, current gates.
+
+## Pattern 17: Stub test proves stronger claim than it covers
+
+**Symptom**: Test mocks `api.updateSettings()` and asserts controller called it, then report claims "DB persistence E2E PASS".
+
+**Detection**: Check whether test invokes real backend/DB path or only stubbed client. Label test by actual coverage level.
+
+**Rule**: Stub/mock = controller orchestration only. To claim production path, test must invoke real controller/page/helper production code.
+
+## Pattern 18: Command evidence mislabeled
+
+**Symptom**: `cli open --project` returns success → report says "COMPILE PASS". Or deploy succeeded → "public API works".
+
+**Detection**: Map each command to exactly what it proves. open ≠ compile, deploy ≠ runtime verified, governance ≠ release.
+
+**Rule**: Report the exact command result. If compile artifact/result not obtained, COMPILE = UNVERIFIED.
+
+## Pattern 19: Evidence grade inflation
+
+**Symptom**: Synthetic JWT test reported as "REAL AUTH". Another agent's claim reported as FACT without independent verification. INFERENCE used as completion evidence.
+
+**Detection**: Check auth method (wx.login vs forged JWT). Check whether reviewer independently accessed the evidence source. Check whether completion GRADE is FACT/REPORTED/UNVERIFIED.
+
+**Rule**: Synthetic = SYNTHETIC AUTH. Executor evidence = FACT for executor, REPORTED for independent reviewer. INFERENCE is analysis only, never completion evidence.
+
+## Pattern 20: Stage confusion
+
+**Symptom**: PRE-migration query references POST-only columns (recipe_snapshot IS NULL before 008 applied). Design approval reported as "migration ready". Engineering closeout reported as "whole app Release PASS".
+
+**Detection**: Check whether the query/claim matches the current lifecycle stage. PRE queries must only use pre-existing columns. DESIGN APPROVED ≠ DEPLOYMENT READY ≠ USER ACCEPTED.
+
+**Rule**: Separate DESIGN APPROVED / IMPLEMENTATION VERIFIED / DEPLOYMENT READY / USER ACCEPTED. Only claim the layer actually verified.
