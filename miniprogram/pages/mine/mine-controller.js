@@ -20,8 +20,8 @@ function createMinePage({ app, wxAdapter }) {
         ] },
         { title: '我的吃饭记录', items: [
           { icon: '📋', name: '本餐菜单 / 历史', action: 'goHistory' },
-          { icon: '⭐', name: '我的收藏', action: 'placeholderToast', badge: '待接入' },
-          { icon: '❤️', name: '我的评分', action: 'placeholderToast', badge: '待接入' },
+          { icon: '⭐', name: '我的收藏', action: 'goFavorites' },
+          { icon: '❤️', name: '我的评分', action: 'goRatings' },
           { icon: '📖', name: '我的菜谱', action: 'placeholderToast', badge: '待接入' }
         ] },
         { title: '创作与分享', items: [
@@ -158,6 +158,14 @@ function createMinePage({ app, wxAdapter }) {
       if (!this.familyReady()) return
       wxAdapter.navigateTo({ url: '/pages/history/history' })
     },
+    goFavorites() {
+      if (!this.familyReady()) return
+      wxAdapter.navigateTo({ url: '/pages/favorites/favorites' })
+    },
+    goRatings() {
+      if (!this.familyReady()) return
+      wxAdapter.navigateTo({ url: '/pages/ratings/ratings' })
+    },
     openKitchenSettingsSheet() {
       if (!this.familyReady()) return
       const s = this.data.settings
@@ -250,7 +258,7 @@ function createMinePage({ app, wxAdapter }) {
     onMenuTap(e) {
       const action = e.currentTarget.dataset.action
       if (!action) return
-      if (['openFamilySheet','openKitchenSettingsSheet','openSettingsSheet','placeholderToast','goPantry','goHistory'].includes(action)) this[action]()
+      if (['openFamilySheet','openKitchenSettingsSheet','openSettingsSheet','placeholderToast','goPantry','goHistory','goFavorites','goRatings'].includes(action)) this[action]()
     },
     noop() {},
   }

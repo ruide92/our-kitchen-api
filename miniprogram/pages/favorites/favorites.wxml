@@ -1,14 +1,27 @@
 <view class="page">
   <view class="header"><text class="title">我的收藏</text></view>
-  <view class="list">
-    <view wx:for="{{dishes}}" wx:key="id" class="dish-card" data-id="{{item.dish_id || item.id}}" bindtap="goDetail">
-      <image class="dish-img" src="{{item.image || item.dish_image}}" mode="aspectFill"></image>
+
+  <view wx:if="{{loading}}" class="loading">加载中...</view>
+
+  <view wx:elif="{{loadError}}" class="loading">
+    <text class="empty-icon">⚠️</text>
+    <text class="empty-text">{{loadError}}</text>
+    <view class="empty-btn" bindtap="retryLoad">重新加载</view>
+  </view>
+
+  <view wx:else class="list">
+    <view wx:for="{{dishes}}" wx:key="id" class="dish-card" data-id="{{item.id}}" bindtap="goDetail">
+      <image wx:if="{{item.cover_image_url}}" class="dish-img" src="{{item.cover_image_url}}" mode="aspectFill"></image>
+      <view wx:else class="dish-img dish-placeholder">🍽</view>
       <view class="dish-info">
-        <text class="dish-name">{{item.name || item.dish_name}}</text>
-        <text class="dish-desc">{{item.category || '家常菜'}}</text>
+        <text class="dish-name">{{item.name}}</text>
+        <text class="dish-desc">{{item.kind === 'BASE' ? '基础菜谱' : '家庭菜谱'}}</text>
       </view>
       <view class="fav-btn" data-id="{{item.id}}" catchtap="removeFavorite">❤️</view>
     </view>
-    <view wx:if="{{dishes.length === 0}}" class="empty"><text class="empty-icon">⭐</text><text class="empty-text">还没有收藏的菜品</text></view>
+    <view wx:if="{{dishes.length === 0}}" class="empty">
+      <text class="empty-icon">⭐</text>
+      <text class="empty-text">还没有收藏的菜谱</text>
+    </view>
   </view>
 </view>

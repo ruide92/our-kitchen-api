@@ -1178,8 +1178,8 @@
       "page": "mine",
       "kind": "menu-action",
       "label": "我的收藏",
-      "action": "placeholderToast",
-      "status": "BROKEN",
+      "action": "goFavorites",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -1187,8 +1187,8 @@
       "page": "mine",
       "kind": "menu-action",
       "label": "我的评分",
-      "action": "placeholderToast",
-      "status": "BROKEN",
+      "action": "goRatings",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -1260,9 +1260,9 @@
       "id": "DETAIL-01",
       "page": "detail",
       "kind": "wxml-handler",
-      "handler": "toggleFavorite",
+      "handler": "onToggleFavorite",
       "label": "收藏",
-      "status": "BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -1278,9 +1278,9 @@
       "id": "DETAIL-03",
       "page": "detail",
       "kind": "wxml-handler",
-      "handler": "showRatingPanel",
+      "handler": "onOpenRating",
       "label": "评分面板",
-      "status": "BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -1323,18 +1323,18 @@
       "id": "DETAIL-08",
       "page": "detail",
       "kind": "wxml-handler",
-      "handler": "hideRatingPanel",
+      "handler": "onCloseRating",
       "label": "关闭评分",
-      "status": "BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
       "id": "DETAIL-09",
       "page": "detail",
       "kind": "wxml-handler",
-      "handler": "setRating",
+      "handler": "onSetRating",
       "label": "设置评分",
-      "status": "BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -1513,7 +1513,7 @@
       "kind": "overlay",
       "surface_id": "DETAIL-OVERLAY-01",
       "label": "评分弹窗",
-      "status": "BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {

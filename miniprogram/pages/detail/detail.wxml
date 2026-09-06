@@ -104,9 +104,13 @@
 
     <!-- Bottom actions -->
     <view class="bottom-actions safe-bottom">
-      <view class="action-btn action-disabled">
-        <text class="action-icon">🤍</text>
-        <text class="action-text">收藏 · 暂未开放</text>
+      <view class="action-btn {{isFavorite ? 'action-favorited' : 'action-secondary'}} {{favoriteBusy ? 'btn-busy' : ''}}" bindtap="onToggleFavorite">
+        <text class="action-icon">{{isFavorite ? '❤️' : '🤍'}}</text>
+        <text class="action-text">{{isFavorite ? '已收藏' : '收藏'}}</text>
+      </view>
+      <view class="action-btn action-secondary {{ratingBusy ? 'btn-busy' : ''}}" bindtap="onOpenRating">
+        <text class="action-icon">⭐</text>
+        <text class="action-text">{{currentRating > 0 ? currentRating + '星' : '评分'}}</text>
       </view>
       <view class="action-btn action-secondary {{busy ? 'btn-busy' : ''}}" bindtap="addToMeal">
         <text class="action-icon">📋</text>
@@ -115,6 +119,22 @@
       <view class="action-btn action-primary {{busy ? 'btn-busy' : ''}}" bindtap="startCooking">
         <text class="action-icon">👨‍🍳</text>
         <text class="action-text">开始做饭</text>
+      </view>
+    </view>
+
+    <!-- Rating panel -->
+    <view wx:if="{{showRatingPanel}}" class="sheet-mask-no-tabbar" data-surface-id="DETAIL-OVERLAY-01" bindtap="onCloseRating">
+      <view class="sheet-panel-no-tabbar rating-panel" data-surface-id="DETAIL-OVERLAY-01" catchtap="">
+        <view class="rating-title">给这道菜评分</view>
+        <view class="rating-stars">
+          <view wx:for="{{[1,2,3,4,5]}}" wx:key="*this"
+            class="rating-star {{item <= currentRating ? 'star-active' : ''}}"
+            data-rating="{{item}}" bindtap="onSetRating">
+            {{item <= currentRating ? '★' : '☆'}}
+          </view>
+        </view>
+        <view class="rating-hint">点击星级完成评分</view>
+        <view class="rating-close" bindtap="onCloseRating">取消</view>
       </view>
     </view>
   </view>

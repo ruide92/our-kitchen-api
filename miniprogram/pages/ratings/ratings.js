@@ -1,21 +1,50 @@
-const api = require('../../utils/api.js')
-const util = require('../../utils/util.js')
+// Ratings Page — V1 API cutover
+const { createV1Api } = require('../../utils/v1-api');
+
 Page({
-  data: { dishes: [] },
-  onLoad() { this.loadRatings() },
-  async loadRatings() {
-    try {
-      const data = await api.getRatings()
-      const dishes = (data.list || data).map(item => ({
-        ...item,
-        stars: '★'.repeat(item.score || 5) + '☆'.repeat(5 - (item.score || 5))
-      }))
-      this.setData({ dishes })
-    } catch (err) {}
+  data: {
+    dishes: [],
+    loading: true,
+    loadError: null,
+    familyId: '',
+    _requestEpoch: 0,
   },
-  goDetail(e) { wx.navigateTo({ url: `/pages/detail/detail?id=${e.currentTarget.dataset.id}` }) },
-  removeRating(e) {
-    const id = e.currentTarget.dataset.id
-    api.removeRating(id).then(() => { util.showSuccess('已取消评分'); this.loadRatings() })
-  }
-})
+
+  onLoad() {
+    this._api = createV1Api({ wxAdapter: wx });
+  },
+
+  onShow() {
+    this.loadRatings();
+  },
+
+  async loadRatings() {
+    const familyId = wx.getStorageSync('v1_active_family_id') || '';
+    const epoch = ++this.data._requestEpoch;
+    this.setData({ familyId, loading: true, loadError: null });
+    try {
+      const data = await this._api.listRatings(familyId);
+      if (epoch !== this.data._requestEpoch) return; // stale response guard
+      const dishes = (data || []).map(item => ({
+        id: item.recipe_id,
+        recipe_id: item.recipe_id,
+        name: item.recipe_name || '未命名菜谱',
+        rating: item.rating,
+        stars: '★'.repeat(item.rating || 0) + '☆'.repeat(5 - (item.rating || 0)),
+        updated_at: item.updated_at,
+      }));
+      this.setData({ dishes, loading: false });
+    } catch (err) {
+      if (epoch !== this.data._requestEpoch) return;
+      this.setData({ loading: false, loadError: err.message || '加载失败' });
+    }
+  },
+
+  retryLoad() {
+    this.loadRatings();
+  },
+
+  goDetail(e) {
+    wx.navigateTo({ url: `/pages/detail/detail?id=${e.currentTarget.dataset.id}` });
+  },
+});

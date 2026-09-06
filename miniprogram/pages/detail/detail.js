@@ -23,9 +23,13 @@ Page({
     loadError: null,
     currentTab: 'ingredients',
     busy: false,
+    // Favorite / Rating (real this phase)
+    isFavorite: false,
+    currentRating: 0,
+    showRatingPanel: false,
+    favoriteBusy: false,
+    ratingBusy: false,
     // Features not implemented this phase — kept as explicit disabled state
-    favoriteDisabled: true,
-    ratingDisabled: true,
     wishDisabled: true,
     editDisabled: true,
   },
@@ -71,6 +75,8 @@ Page({
         allergens,
         nutrition: data.nutrition || null,
         media: data.media || [],
+        isFavorite: data.viewer?.is_favorite === true,
+        currentRating: data.viewer?.rating || 0,
         loading: false,
       });
     } catch (err) {
@@ -153,6 +159,47 @@ Page({
       });
     } catch (err) {
       wx.showToast({ title: err.message || '操作失败', icon: 'none' });
+    }
+  },
+
+  // ===== DETAIL-01: Toggle favorite (V1) =====
+  async onToggleFavorite() {
+    if (this.data.favoriteBusy) return;
+    this.setData({ favoriteBusy: true });
+    const next = !this.data.isFavorite;
+    try {
+      await this._api.setFavorite(this.familyId, this.recipeId, next);
+      this.setData({ isFavorite: next });
+      wx.showToast({ title: next ? '已收藏' : '已取消收藏', icon: 'success' });
+    } catch (err) {
+      wx.showToast({ title: err.message || '操作失败', icon: 'none' });
+    } finally {
+      this.setData({ favoriteBusy: false });
+    }
+  },
+
+  // ===== DETAIL-03/08/09: Rating (V1) =====
+  onOpenRating() {
+    this.setData({ showRatingPanel: true });
+  },
+
+  onCloseRating() {
+    this.setData({ showRatingPanel: false });
+  },
+
+  async onSetRating(e) {
+    if (this.data.ratingBusy) return;
+    const rating = Number(e.currentTarget.dataset.rating);
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) return;
+    this.setData({ ratingBusy: true });
+    try {
+      await this._api.setRating(this.familyId, this.recipeId, rating, null);
+      this.setData({ currentRating: rating, showRatingPanel: false });
+      wx.showToast({ title: '评分成功', icon: 'success' });
+    } catch (err) {
+      wx.showToast({ title: err.message || '评分失败', icon: 'none' });
+    } finally {
+      this.setData({ ratingBusy: false });
     }
   },
 

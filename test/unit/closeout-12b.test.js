@@ -529,25 +529,23 @@ test('C10: detail normalizes string[] extras and WXML renders them', async () =>
   assert.ok(wxml.includes('wx:for="{{tags}}" wx:key="*this"'), 'tags must use *this key for string[]');
 });
 
-// ===== C11: disabled favorite has no bindtap =====
-test('C11: disabled favorite button has no bindtap or data-name', () => {
+// ===== C11: favorite button is real (12D) =====
+test('C11: favorite button has real bindtap, no onDisabledFeature', () => {
   const wxml = fs.readFileSync(DETAIL_WXML, 'utf8');
-  // Find the disabled favorite section
-  const disabledSection = wxml.match(/action-disabled[\s\S]*?<\/view>/);
-  assert.ok(disabledSection, 'must have disabled action button');
-  assert.ok(!disabledSection[0].includes('bindtap'), 'disabled button must NOT have bindtap');
-  assert.ok(!disabledSection[0].includes('data-name'), 'disabled button must NOT have data-name');
+  // Favorite button must have real bindtap
+  assert.ok(wxml.includes('onToggleFavorite'), 'favorite button must have bindtap onToggleFavorite');
   assert.ok(!wxml.includes('onDisabledFeature'), 'onDisabledFeature handler must be removed');
+  assert.ok(!wxml.includes('收藏 · 暂未开放'), 'favorite should not be disabled placeholder');
 });
 
-// ===== C12: registry does not contain fake DETAIL-11 =====
-test('C12: registry does not contain fake DETAIL-11 onDisabledFeature', () => {
+// ===== C12: registry DETAIL-01 is REAL (12D) =====
+test('C12: registry DETAIL-01 favorite is REAL, no fake DETAIL-11', () => {
   const r = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../governance/product-surfaces.json'), 'utf8'));
   const detail11 = r.surfaces.find(s => s.id === 'DETAIL-11');
   assert.ok(!detail11, 'DETAIL-11 fake REAL surface must be removed');
   const detail01 = r.surfaces.find(s => s.id === 'DETAIL-01');
   assert.ok(detail01, 'DETAIL-01 must still exist');
-  assert.equal(detail01.status, 'BROKEN', 'DETAIL-01 favorite must remain BROKEN');
+  assert.equal(detail01.status, 'REAL', 'DETAIL-01 favorite must be REAL after 12D');
   // MEAL-10 resumeCooking must exist and be REAL
   const meal10 = r.surfaces.find(s => s.id === 'MEAL-10');
   assert.ok(meal10, 'MEAL-10 resumeCooking must be registered');

@@ -466,3 +466,13 @@
 .nutrition-line { display: block; font-size: 24rpx; color: #5D4037; margin-bottom: 8rpx; }
 .step-title { font-size: 26rpx; color: #3E2723; font-weight: 600; display: block; margin-bottom: 4rpx; }
 .step-tip { font-size: 22rpx; color: #00897B; margin-top: 6rpx; display: block; }
+
+/* Rating panel */
+.rating-panel { padding: 40rpx 32rpx; text-align: center; }
+.rating-title { font-size: 32rpx; font-weight: 600; margin-bottom: 32rpx; color: #333; }
+.rating-stars { display: flex; justify-content: center; gap: 16rpx; margin-bottom: 24rpx; }
+.rating-star { font-size: 64rpx; color: #E0E0E0; padding: 8rpx; }
+.rating-star.star-active { color: #FFB300; }
+.rating-hint { font-size: 24rpx; color: #999; margin-bottom: 32rpx; }
+.rating-close { font-size: 28rpx; color: #666; padding: 16rpx; }
+.action-favorited { background: #FFF0F0; color: #E53935; border: 1rpx solid #FFCDD2; }

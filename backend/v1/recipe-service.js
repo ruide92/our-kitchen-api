@@ -14,7 +14,7 @@ function createRecipeService(pool) {
   }
 
   async function loadRecipeExtras(tx, recipeId, familyId, userId) {
-    const [mealTypes, tags, cookware, allergens, ingredients, steps, media, fav] = await Promise.all([
+    const [mealTypes, tags, cookware, allergens, ingredients, steps, media, fav, rating] = await Promise.all([
       tx.query('SELECT meal_type FROM recipe_meal_types WHERE recipe_id=$1', [recipeId]),
       tx.query('SELECT tag_code FROM recipe_tags WHERE recipe_id=$1', [recipeId]),
       tx.query('SELECT cookware_code FROM recipe_cookware WHERE recipe_id=$1', [recipeId]),
@@ -22,7 +22,8 @@ function createRecipeService(pool) {
       tx.query('SELECT ri.*, i.display_name as ingredient_name, i.canonical_code FROM recipe_ingredients ri LEFT JOIN ingredients i ON i.id=ri.ingredient_id WHERE ri.recipe_id=$1 ORDER BY ri.sort_order, ri.id', [recipeId]),
       tx.query('SELECT * FROM recipe_steps WHERE recipe_id=$1 ORDER BY step_no', [recipeId]),
       tx.query('SELECT * FROM recipe_media WHERE recipe_id=$1 ORDER BY sort_order', [recipeId]),
-      tx.query('SELECT 1 FROM recipe_favorites WHERE user_id=$1 AND recipe_id=$2', [userId, recipeId])
+      tx.query('SELECT 1 FROM recipe_favorites WHERE user_id=$1 AND recipe_id=$2', [userId, recipeId]),
+      tx.query('SELECT rating FROM recipe_ratings WHERE user_id=$1 AND recipe_id=$2 AND family_id=$3', [userId, recipeId, familyId])
     ]);
     return {
       meal_types: mealTypes.rows.map(r => r.meal_type),
@@ -32,7 +33,8 @@ function createRecipeService(pool) {
       ingredients: ingredients.rows,
       steps: steps.rows,
       media: media.rows,
-      is_favorite: fav.rows.length > 0
+      is_favorite: fav.rows.length > 0,
+      rating: rating.rows.length > 0 ? rating.rows[0].rating : null
     };
   }
 
@@ -134,7 +136,7 @@ function createRecipeService(pool) {
         inventory_summary: null,
         viewer: {
           is_favorite: extras.is_favorite,
-          rating: null,
+          rating: extras.rating,
           wish_status: null
         }
       };
@@ -239,24 +241,47 @@ function createRecipeService(pool) {
 
   async function setRating(familyId, userId, recipeId, rating, mealId) {
     return access(familyId, userId, null, true, async tx => {
-      if (!rating || rating < 1 || rating > 5) throw new ApiError(400, 'INVALID_RATING', '评分必须 1-5');
-      const recipe = (await tx.query('SELECT id FROM recipes WHERE id=$1 AND deleted_at IS NULL', [recipeId])).rows[0];
+      // Rating must be integer 1..5
+      const r = Number(rating);
+      if (!Number.isInteger(r) || r < 1 || r > 5) {
+        throw new ApiError(400, 'INVALID_RATING', '评分必须是 1-5 的整数');
+      }
+      // Verify recipe accessibility (same as setFavorite)
+      const recipe = (await tx.query('SELECT id, kind, family_id FROM recipes WHERE id=$1 AND deleted_at IS NULL', [recipeId])).rows[0];
       if (!recipe) throw new ApiError(404, 'NOT_FOUND', '菜谱不存在');
+      if (recipe.kind === 'FAMILY' && recipe.family_id !== familyId) throw forbidden();
+
+      // meal_id integrity: if provided, must belong to this family and contain this recipe
+      if (mealId != null) {
+        const meal = (await tx.query('SELECT id, family_id, status FROM meals WHERE id=$1', [mealId])).rows[0];
+        if (!meal || meal.family_id !== familyId) {
+          throw new ApiError(422, 'INVALID_RATING_CONTEXT', 'meal_id 不属于当前家庭');
+        }
+        if (!['CONFIRMED', 'COOKING', 'COMPLETED'].includes(meal.status)) {
+          throw new ApiError(422, 'INVALID_RATING_CONTEXT', 'meal 状态不允许评分');
+        }
+        const inMeal = (await tx.query(
+          'SELECT 1 FROM meal_items WHERE meal_id=$1 AND recipe_id=$2', [mealId, recipeId]
+        )).rows.length > 0;
+        if (!inMeal) {
+          throw new ApiError(422, 'INVALID_RATING_CONTEXT', 'recipe 不在该 meal 中');
+        }
+      }
 
       const existing = (await tx.query('SELECT id FROM recipe_ratings WHERE user_id=$1 AND recipe_id=$2', [userId, recipeId])).rows[0];
       if (existing) {
-        await tx.query('UPDATE recipe_ratings SET rating=$1, meal_id=$2, updated_at=now() WHERE id=$3', [rating, mealId || null, existing.id]);
+        await tx.query('UPDATE recipe_ratings SET rating=$1, meal_id=$2, updated_at=now() WHERE id=$3', [r, mealId || null, existing.id]);
       } else {
-        await tx.query('INSERT INTO recipe_ratings(family_id,user_id,recipe_id,meal_id,rating) VALUES($1,$2,$3,$4,$5)', [familyId, userId, recipeId, mealId || null, rating]);
+        await tx.query('INSERT INTO recipe_ratings(family_id,user_id,recipe_id,meal_id,rating) VALUES($1,$2,$3,$4,$5)', [familyId, userId, recipeId, mealId || null, r]);
       }
-      return { recipe_id: recipeId, rating };
+      return { recipe_id: recipeId, rating: r };
     });
   }
 
   async function listRatings(familyId, userId) {
     return access(familyId, userId, null, false, async tx => {
       const rows = (await tx.query(`
-        SELECT rr.*, r.name as recipe_name, r.cover_image_url
+        SELECT rr.*, r.name as recipe_name
         FROM recipe_ratings rr
         JOIN recipes r ON r.id = rr.recipe_id
         WHERE rr.user_id = $1 AND rr.family_id = $2

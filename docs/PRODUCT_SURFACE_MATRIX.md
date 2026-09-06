@@ -9,8 +9,8 @@
 
 | Status | Count |
 |---|---|
-| REAL | 135 |
-| BROKEN | 26 |
+| REAL | 142 |
+| BROKEN | 19 |
 | PLANNED_DISABLED | 2 |
 | HIDDEN | 22 |
 | **Total** | **185** |
@@ -33,17 +33,17 @@
 
 | ID | Kind | Handler/Label | Status | Final |
 |---|---|---|---|---|
-| DETAIL-01 | wxml-handler | toggleFavorite | BROKEN | REAL |
+| DETAIL-01 | wxml-handler | onToggleFavorite | REAL | REAL |
 | DETAIL-02 | wxml-handler | editDish | BROKEN | REAL |
-| DETAIL-03 | wxml-handler | showRatingPanel | BROKEN | REAL |
+| DETAIL-03 | wxml-handler | onOpenRating | REAL | REAL |
 | DETAIL-04 | wxml-handler | switchTab | REAL | REAL |
 | DETAIL-05 | wxml-handler | wantToEat | BROKEN | REAL |
 | DETAIL-06 | wxml-handler | addToMeal | REAL | REAL |
 | DETAIL-07 | wxml-handler | startCooking | REAL | REAL |
-| DETAIL-08 | wxml-handler | hideRatingPanel | BROKEN | REAL |
-| DETAIL-09 | wxml-handler | setRating | BROKEN | REAL |
+| DETAIL-08 | wxml-handler | onCloseRating | REAL | REAL |
+| DETAIL-09 | wxml-handler | onSetRating | REAL | REAL |
 | DETAIL-10 | wxml-handler | retryLoad | REAL | REAL |
-| DETAIL-OVERLAY-01 | overlay | 评分弹窗 | BROKEN | REAL |
+| DETAIL-OVERLAY-01 | overlay | 评分弹窗 | REAL | REAL |
 
 ### family
 
@@ -207,8 +207,8 @@
 | MINE-MENU-03 | menu-action | goPantry | REAL | REAL |
 | MINE-MENU-04 | menu-action | 么么哒 | BROKEN | REAL |
 | MINE-MENU-05 | menu-action | 本餐菜单 / 历史 | REAL | REAL |
-| MINE-MENU-06 | menu-action | 我的收藏 | BROKEN | REAL |
-| MINE-MENU-07 | menu-action | 我的评分 | BROKEN | REAL |
+| MINE-MENU-06 | menu-action | 我的收藏 | REAL | REAL |
+| MINE-MENU-07 | menu-action | 我的评分 | REAL | REAL |
 | MINE-MENU-08 | menu-action | 我的菜谱 | BROKEN | REAL |
 | MINE-MENU-09 | menu-action | AI 导入菜谱 | BROKEN | REAL |
 | MINE-MENU-10 | menu-action | 分享广场 | PLANNED_DISABLED | PLANNED_DISABLED |
