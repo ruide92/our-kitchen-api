@@ -115,6 +115,7 @@ Page({
         family: { name: family?.name || '我们的小厨房' },
         members: memberVM,
         dinersLabel: (settings?.default_diners || 2) + '人',
+        randomDefaultMode: settings?.random_default_mode || 'BALANCED',
         weeklyPlan: weekly || null,
       })
       // Weekly display from real weeklyPlan
@@ -254,7 +255,8 @@ Page({
     const date = target.meal_date || this.data.currentMealDate;
     const mealType = target.meal_type || 'DINNER';
     const diners = target.diners_count || 2;
-    const url = '/pages/random/random?meal_date=' + date + '&meal_type=' + mealType + '&diners_count=' + diners + '&mode=BALANCED';
+    const mode = this.data.randomDefaultMode || 'BALANCED';
+    const url = '/pages/random/random?meal_date=' + date + '&meal_type=' + mealType + '&diners_count=' + diners + '&mode=' + mode;
     wx.navigateTo({ url: url });
   },
   goFridgeCook() {
@@ -267,7 +269,8 @@ Page({
     const target = mealTarget || Object.create(null);
     const date = target.meal_date || this.data.currentMealDate;
     const mealType = target.meal_type || 'DINNER';
-    const url = '/pages/random/random?meal_date=' + date + '&meal_type=' + mealType + '&diners_count=1&mode=BALANCED';
+    const mode = this.data.randomDefaultMode || 'BALANCED';
+    const url = '/pages/random/random?meal_date=' + date + '&meal_type=' + mealType + '&diners_count=1&mode=' + mode;
     wx.navigateTo({ url: url });
   },
   goWeeklyPlan() { wx.switchTab({ url: '/pages/menu/menu' }) },

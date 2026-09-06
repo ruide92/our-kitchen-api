@@ -119,9 +119,11 @@ function installKitchenRoutes(app, services) {
 
   // ===== Recommendation =====
   app.post('/api/v1/families/:family_id/recommendations/random-meal', asyncRoute(async (req, res) => {
+    if (req.body && req.body._seed != null) throw new ApiError(400, 'INVALID_REQUEST', '_seed is test-only and not accepted in production API');
     res.json({ data: await recommendation.generateRandomMeal(familyId(req), req.user.id, req.body), meta: {} });
   }));
   app.post('/api/v1/families/:family_id/weekly-plans/generate', asyncRoute(async (req, res) => {
+    if (req.body && req.body._seed != null) throw new ApiError(400, 'INVALID_REQUEST', '_seed is test-only and not accepted in production API');
     res.status(201).json({ data: await recommendation.generateWeeklyPlan(familyId(req), req.user.id, req.body), meta: {} });
   }));
   app.post('/api/v1/families/:family_id/weekly-plans/:plan_id/confirm', asyncRoute(async (req, res) => {

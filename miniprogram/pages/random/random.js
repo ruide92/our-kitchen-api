@@ -58,12 +58,14 @@ Page({
   },
 
   setMode(e) {
+    if (this.data.busy) return; // busy: do not change UI mode, prevents stale response mismatch
     const mode = e.currentTarget.dataset.mode;
     this.setData({ mode, lockedIds: [] });
     this.generate();
   },
 
   setCount(e) {
+    if (this.data.busy) return; // busy: do not change UI count
     const targetCount = parseInt(e.currentTarget.dataset.count);
     this.setData({ targetCount, lockedIds: [] });
     this.generate();

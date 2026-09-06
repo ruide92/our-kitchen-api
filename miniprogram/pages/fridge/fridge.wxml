@@ -298,7 +298,12 @@
               <text class="cook-status cook-status-{{item.status}}">{{item.status === 'CAN_COOK_NOW' ? '可直接做' : item.status === 'MISSING_FEW' ? '差少量食材' : '需采购'}}</text>
               <text class="cook-count">{{item.available_count}}/{{item.required_count}} 食材已有</text>
             </view>
-            <view wx:if="{{item.missing_count > 0}}" class="cook-missing">缺 {{item.missing_count}} 样</view>
+            <view wx:if="{{item.missing_ingredients.length > 0}}" class="cook-missing">
+              <text wx:for="{{item.missing_ingredients}}" wx:key="name" wx:for-item="miss" class="cook-missing-item">缺 {{miss.name}} {{miss.required_quantity}}{{miss.unit_code}}</text>
+            </view>
+            <view wx:if="{{item.uncertain_ingredients.length > 0}}" class="cook-missing cook-missing-uncertain">
+              <text wx:for="{{item.uncertain_ingredients}}" wx:key="name" wx:for-item="unc" class="cook-missing-item">{{unc.name}} 数量待确认</text>
+            </view>
           </view>
           <view class="cook-item-action" data-id="{{item.id}}" catchtap="cookAddToMeal">加入本餐</view>
         </view>

@@ -171,12 +171,16 @@ test('Favorites & Ratings integration against real PostgreSQL', async t => {
     await request('A', 'PUT', `/families/${familyB.id}/recipes/${recipeBase}/rating`, { rating: 2 });
     // DB: two rows
     const { rows } = await pool.query(
-      'SELECT family_id, rating FROM recipe_ratings WHERE user_id=$1 AND recipe_id=$2 AND meal_id IS NULL ORDER BY family_id',
+      'SELECT family_id, rating FROM recipe_ratings WHERE user_id=$1 AND recipe_id=$2 AND meal_id IS NULL',
       [userA.id, recipeBase]
     );
     assert.equal(rows.length, 2);
-    assert.equal(rows[0].rating, 2); // familyB
-    assert.equal(rows[1].rating, 4); // familyA
+    const rowA = rows.find(r => r.family_id === familyA.id);
+    const rowB = rows.find(r => r.family_id === familyB.id);
+    assert.ok(rowA, 'family A rating row exists');
+    assert.ok(rowB, 'family B rating row exists');
+    assert.equal(rowA.rating, 4);
+    assert.equal(rowB.rating, 2);
     // GET Detail A: viewer.rating=4
     const detailA = await request('A', 'GET', `/families/${familyA.id}/recipes/${recipeBase}`);
     assert.equal(detailA.body.data.viewer.rating, 4);

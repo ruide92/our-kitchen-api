@@ -356,8 +356,8 @@ test('Meal snapshot historical correctness + pantry custom', async t => {
     }
   });
 
-  // ===== S14: 001 -> 008 fresh migration replay =====
-  await t.test('S14: 001-009 fresh migration replay PASS', async () => {
+  // ===== S14: 001 -> 010 fresh migration replay =====
+  await t.test('S14: 001-010 fresh migration replay PASS', async () => {
     const cols = (await pool.query(`
       SELECT column_name FROM information_schema.columns
       WHERE table_schema=current_schema() AND table_name='pantry_staples' AND column_name='display_name_override'
@@ -372,12 +372,21 @@ test('Meal snapshot historical correctness + pantry custom', async t => {
     assert.ok(cooking, 'cooking_sessions table exists');
     const kiss = (await pool.query(`SELECT to_regclass('kiss_ledger') as t`)).rows[0].t;
     assert.ok(kiss, 'kiss_ledger table exists');
+    // 010 preference tables
+    const up = (await pool.query(`SELECT to_regclass('user_preferences') as t`)).rows[0].t;
+    assert.ok(up, 'user_preferences table exists');
+    const ua = (await pool.query(`SELECT to_regclass('user_allergens') as t`)).rows[0].t;
+    assert.ok(ua, 'user_allergens table exists');
+    const ud = (await pool.query(`SELECT to_regclass('user_disliked_ingredients') as t`)).rows[0].t;
+    assert.ok(ud, 'user_disliked_ingredients table exists');
+    const udt = (await pool.query(`SELECT to_regclass('user_diet_tags') as t`)).rows[0].t;
+    assert.ok(udt, 'user_diet_tags table exists');
     // preflight/ directory must NOT be executed by migration loader
     const { loadMigrations } = require('../../backend/v1/migrations');
     const migs = await loadMigrations(path.join(__dirname, '../../backend/v1/sql'));
     const migNames = migs.map(m => m.name);
     assert.ok(!migNames.some(n => n.includes('preflight')), 'preflight SQL files must not be loaded as migrations');
-    assert.equal(migNames.length, 9, 'exactly 9 migrations (001-009)');
+    assert.equal(migNames.length, 10, 'exactly 10 migrations (001-010)');
   });
 
   // ===== S15: History CONFIRMED snapshot missing → MEAL_SNAPSHOT_MISSING =====

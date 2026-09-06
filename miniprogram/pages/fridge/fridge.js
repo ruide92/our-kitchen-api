@@ -8,6 +8,7 @@
 
 const { hideTabBar, showTabBar } = require('../../utils/tabbar-overlay.js')
 const { createV1Api } = require('../../utils/v1-api')
+const { createMealTarget } = require('../../utils/meal-target')
 const { toCode, toLabel, formatQuantity, UI_UNIT_OPTIONS } = require('../../utils/unit-display.js')
 
 const STORAGE_MAP = { '冷藏': 'REFRIGERATED', '冷冻': 'FROZEN', '常温': 'ROOM_TEMP', '其他': 'OTHER' }
@@ -394,7 +395,7 @@ Page({
     const recipe = this.data.cookRecipes.find(r => r.id === id);
     if (!recipe) return;
     try {
-      const mealTarget = wx.getStorageSync('v1_meal_target') || { meal_date: '', meal_type: 'DINNER', diners_count: 2 };
+      const mealTarget = createMealTarget({ wxAdapter: wx }).get();
       const meal = await this._api.ensureCurrentMeal(this._familyId, {
         meal_date: mealTarget.meal_date,
         meal_type: mealTarget.meal_type,

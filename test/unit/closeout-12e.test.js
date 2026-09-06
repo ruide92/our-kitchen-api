@@ -260,6 +260,43 @@ test('U18 closeCookSheet hides overlay and unlocks tabbar', () => {
   assert.ok(unlocked);
 });
 
+// U19: random busy/mode consistency — busy时setMode不改变UI mode
+test('U19 random busy prevents mode change and stale response', async () => {
+  const env = loadPage(RANDOM_JS);
+  const page = makePage(env.captured, { familyId: 'f1', mealDate: '2026-09-10', mealType: 'DINNER', dinersCount: 2, mode: 'BALANCED', targetCount: 3 });
+  page._api = { generateRandomMeal: async () => new Promise(resolve => setTimeout(() => resolve({ recipes: [], warnings: [] }), 50)) };
+  // Start generate (sets busy=true)
+  page.generate();
+  assert.equal(page.data.busy, true);
+  assert.equal(page.data.mode, 'BALANCED');
+  // Try to change mode while busy
+  page.setMode({ currentTarget: { dataset: { mode: 'USE_INVENTORY' } } });
+  // Mode should NOT change while busy
+  assert.equal(page.data.mode, 'BALANCED', 'mode should not change while busy');
+  // Wait for generate to complete
+  await new Promise(r => setTimeout(r, 100));
+  assert.equal(page.data.busy, false);
+});
+
+// U20: fridge add to meal uses createMealTarget with valid date/type/diners
+test('U20 fridge cookAddToMeal uses shared meal target not empty fallback', async () => {
+  const env = loadPage(FRIDGE_JS);
+  const page = makePage(env.captured, { cookRecipes: [{ id: 'r1', name: 'test' }] });
+  page._familyId = 'f1';
+  // No v1_meal_target in storage — createMealTarget should generate defaults
+  let ensureArgs = null;
+  let addArgs = null;
+  page._api = {
+    ensureCurrentMeal: async (fid, args) => { ensureArgs = args; return { id: 'm1' }; },
+    addMealItem: async (fid, mid, args) => { addArgs = args; return {}; }
+  };
+  await page.cookAddToMeal({ currentTarget: { dataset: { id: 'r1' } } });
+  assert.ok(ensureArgs, 'ensureCurrentMeal should be called');
+  assert.ok(ensureArgs.meal_date && ensureArgs.meal_date.length >= 8, 'meal_date should be valid YYYY-MM-DD, got ' + ensureArgs.meal_date);
+  assert.ok(['BREAKFAST', 'LUNCH', 'DINNER'].includes(ensureArgs.meal_type), 'meal_type should be valid');
+  assert.ok(ensureArgs.diners_count >= 1, 'diners_count should be >= 1');
+});
+
 // WXML checks
 test('random.wxml uses V1 data fields not legacy', () => {
   const wxml = fs.readFileSync(RANDOM_WXML, 'utf8');
