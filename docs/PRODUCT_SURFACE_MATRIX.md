@@ -42,8 +42,8 @@
 | DETAIL-07 | wxml-handler | startCooking | REAL | REAL |
 | DETAIL-08 | wxml-handler | onCloseRating | REAL | REAL |
 | DETAIL-09 | wxml-handler | onSetRating | REAL | REAL |
-| DETAIL-10 | wxml-handler | onDeleteRating | REAL | REAL |
 | DETAIL-10 | wxml-handler | retryLoad | REAL | REAL |
+| DETAIL-12 | wxml-handler | onDeleteRating | REAL | REAL |
 | DETAIL-OVERLAY-01 | overlay | 评分弹窗 | REAL | REAL |
 
 ### family

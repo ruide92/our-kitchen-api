@@ -198,6 +198,19 @@ function main() {
     }
   }
 
+  // Surface ID global uniqueness (regression: duplicate IDs like DETAIL-10 used twice)
+  const idCounts = new Map();
+  const duplicateIds = [];
+  for (const s of registry) {
+    const count = (idCounts.get(s.id) || 0) + 1;
+    idCounts.set(s.id, count);
+    if (count === 2) duplicateIds.push(s.id);
+  }
+  if (duplicateIds.length > 0) {
+    console.log(`DUPLICATE_SURFACE_ID: ${duplicateIds.length}`);
+    duplicateIds.forEach(id => console.log(`  ${id}: appears ${idCounts.get(id)} times`));
+  }
+
   // Code -> Registry: detect unclassified
   const unclassified = [];
   const detectedKeys = new Set();
@@ -322,10 +335,10 @@ function main() {
 
   // Governance FAIL: unclassified, duplicates, dynamic, invalid-nav, missing-handler, real-violation, missing-surface
   // REAL/PARTIAL surfaces must exist in code — missing = fake REAL/PARTIAL
-  const governanceFailures = unclassified.length + duplicates.length + dynamicHandlers.length + invalidNavs.length + missingHandlers.length + realViolations.length + missingSurfaces.length;
+  const governanceFailures = unclassified.length + duplicates.length + duplicateIds.length + dynamicHandlers.length + invalidNavs.length + missingHandlers.length + realViolations.length + missingSurfaces.length;
 
   if (governanceFailures > 0) {
-    console.log(`\nFAIL: ${governanceFailures} governance failures (unclassified/duplicates/dynamic/invalid-nav/missing-handler/real-violation/missing-surface)`);
+    console.log(`\nFAIL: ${governanceFailures} governance failures (unclassified/duplicates/duplicate-surface-id/dynamic/invalid-nav/missing-handler/real-violation/missing-surface)`);
     process.exit(1);
   }
 

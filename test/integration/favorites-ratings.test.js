@@ -189,6 +189,9 @@ test('Favorites & Ratings integration against real PostgreSQL', async t => {
     // listRatings B: 2
     const listB = await request('A', 'GET', `/families/${familyB.id}/ratings`);
     assert.equal(listB.body.data[0].rating, 2);
+    // Cleanup: remove family_members and ratings for next run
+    await pool.query('DELETE FROM family_members WHERE family_id=$1 AND user_id=$2', [familyB.id, userA.id]);
+    await pool.query('DELETE FROM recipe_ratings WHERE user_id=$1 AND recipe_id=$2', [userA.id, recipeBase]);
   });
 
   // P13: General vs Meal rating — must coexist, viewer.rating stays general
@@ -258,7 +261,12 @@ test('Favorites & Ratings integration against real PostgreSQL', async t => {
 
   // P17: Cross-family DELETE — family A delete does not affect family B
   await t.test('P17 cross-family delete isolation', async () => {
-    // Family B still has rating 2 from P12
+    // Ensure user A is in family B and has a rating there
+    await pool.query('INSERT INTO family_members(id,family_id,user_id,role,joined_at) VALUES($1,$2,$3,\'MEMBER\',now()) ON CONFLICT DO NOTHING', [randomUUID(), familyB.id, userA.id]);
+    await request('A', 'PUT', `/families/${familyB.id}/recipes/${recipeBase}/rating`, { rating: 2 });
+    // Family A also has a rating
+    await request('A', 'PUT', `/families/${familyA.id}/recipes/${recipeBase}/rating`, { rating: 4 });
+    // Delete family A rating
     await request('A', 'DELETE', `/families/${familyA.id}/recipes/${recipeBase}/rating`);
     const { rows } = await pool.query(
       'SELECT family_id, rating FROM recipe_ratings WHERE user_id=$1 AND recipe_id=$2 AND meal_id IS NULL',
@@ -267,6 +275,9 @@ test('Favorites & Ratings integration against real PostgreSQL', async t => {
     assert.equal(rows.length, 1);
     assert.equal(rows[0].family_id, familyB.id);
     assert.equal(rows[0].rating, 2);
+    // Cleanup
+    await pool.query('DELETE FROM family_members WHERE family_id=$1 AND user_id=$2', [familyB.id, userA.id]);
+    await pool.query('DELETE FROM recipe_ratings WHERE user_id=$1 AND recipe_id=$2', [userA.id, recipeBase]);
   });
 
   // P18: 009 migration — partial unique indexes exist

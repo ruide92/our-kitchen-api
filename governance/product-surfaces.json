@@ -1338,7 +1338,7 @@
       "final": "REAL"
     },
     {
-      "id": "DETAIL-10",
+      "id": "DETAIL-12",
       "page": "detail",
       "kind": "wxml-handler",
       "handler": "onDeleteRating",
