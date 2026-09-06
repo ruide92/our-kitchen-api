@@ -124,7 +124,8 @@
         <view wx:for="{{consumptionCandidates}}" wx:key="ingredient_id" class="completion-item">
           <view class="completion-item-info">
             <text class="completion-item-name">{{item.name}}</text>
-            <text class="completion-item-meta">建议 {{item.suggested_quantity}}{{item.unit_code}} · 库存 {{item.available_quantity}}{{item.available_unit_code}}</text>
+            <text wx:if="{{item.auto_deductable}}" class="completion-item-meta">建议 {{item.suggested_quantity}}{{item.unit_code}} · 库存 {{item.available_quantity}}{{item.available_unit_code}}</text>
+            <text wx:else class="completion-item-meta completion-item-nodeduct">不自动扣库存</text>
           </view>
           <view class="completion-item-input">
             <input type="digit" value="{{item.actual_quantity}}" bindinput="onConsumptionInput" data-index="{{index}}" class="completion-input" />

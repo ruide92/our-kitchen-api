@@ -469,4 +469,121 @@ test('12C Cooking completion + inventory deduction against real PostgreSQL', asy
     assert.ok(egg, 'egg candidate should exist');
     assert.equal(egg.auto_deductable, false, 'piece/COUNT ingredient should be auto_deductable=false');
   });
+
+  // D22: same ingredient with piece + root in two recipes → two separate candidates
+  await t.test('D22: COUNT piece and root are separate candidates, not merged', async () => {
+    const ingGarlic = randomUUID();
+    await pool.query(`INSERT INTO ingredients(id,canonical_code,display_name,category_code,default_unit_code) VALUES ($1,'garlic','大蒜','SEASONING','piece')`, [ingGarlic]);
+    // Recipe A: 2 piece garlic
+    const recipeA = randomUUID();
+    await pool.query(`INSERT INTO recipes(id,kind,family_id,source_type,name,base_servings,visibility,version)
+      VALUES ($1,'BASE',NULL,'SEED','蒜蓉A',2,'PUBLIC',1)`, [recipeA]);
+    await pool.query(`INSERT INTO recipe_ingredients(id,recipe_id,ingredient_id,display_name_override,quantity,unit_code,type,required,sort_order) VALUES
+      ($1,$2,$3,'大蒜',2,'piece','SEASONING',true,0)`, [randomUUID(), recipeA, ingGarlic]);
+    await pool.query("INSERT INTO recipe_steps(id,recipe_id,step_no,title,operation,sort_order) VALUES ($1,$2,1,'切蒜','切末',0)", [randomUUID(), recipeA]);
+    // Recipe B: 1 root garlic
+    const recipeB = randomUUID();
+    await pool.query(`INSERT INTO recipes(id,kind,family_id,source_type,name,base_servings,visibility,version)
+      VALUES ($1,'BASE',NULL,'SEED','蒜蓉B',2,'PUBLIC',1)`, [recipeB]);
+    await pool.query(`INSERT INTO recipe_ingredients(id,recipe_id,ingredient_id,display_name_override,quantity,unit_code,type,required,sort_order) VALUES
+      ($1,$2,$3,'大蒜',1,'root','SEASONING',true,0)`, [randomUUID(), recipeB, ingGarlic]);
+    await pool.query("INSERT INTO recipe_steps(id,recipe_id,step_no,title,operation,sort_order) VALUES ($1,$2,1,'拍蒜','拍碎',0)", [randomUUID(), recipeB]);
+
+    mealCounter++;
+    const d = new Date(); d.setDate(d.getDate() + mealCounter);
+    const mealRes = await request('PUT', `/families/${family.id}/meals/current`, { meal_date: d.toISOString().slice(0,10), meal_type: 'DINNER', diners_count: 2 });
+    const mealId = mealRes.body.data.id;
+    await request('POST', `/families/${family.id}/meals/${mealId}/items`, { recipe_id: recipeA, servings: 2, source: 'MANUAL' });
+    await request('POST', `/families/${family.id}/meals/${mealId}/items`, { recipe_id: recipeB, servings: 2, source: 'MANUAL' });
+    await request('POST', `/families/${family.id}/meals/${mealId}/confirm`);
+    const startRes = await request('POST', `/families/${family.id}/meals/${mealId}/cooking-sessions`);
+    const sessionId = startRes.body.data.session_id;
+    const sess = await request('GET', `/families/${family.id}/cooking-sessions/${sessionId}`);
+    const garlicCands = sess.body.data.consumption_candidates.filter(c => c.ingredient_id === ingGarlic);
+    assert.equal(garlicCands.length, 2, 'piece and root must be two separate candidates');
+    const pieceCand = garlicCands.find(c => c.unit_code === 'piece');
+    const rootCand = garlicCands.find(c => c.unit_code === 'root');
+    assert.ok(pieceCand, 'piece candidate exists');
+    assert.ok(rootCand, 'root candidate exists');
+    assert.equal(Number(pieceCand.suggested_quantity), 2);
+    assert.equal(Number(rootCand.suggested_quantity), 1);
+  });
+
+  // D23: snapshot 500g, request 2 piece → CONSUMPTION_UNIT_MISMATCH
+  await t.test('D23: g snapshot rejects piece consumption with unit mismatch', async () => {
+    const { sessionId } = await setupCookingSession();
+    const res = await request('POST', `/families/${family.id}/cooking-sessions/${sessionId}/complete`, {
+      consumption: [{ ingredient_id: ingPork, quantity: 2, unit_code: 'piece' }],
+    });
+    assert.equal(res.status, 422);
+    assert.equal(res.body.error.code, 'CONSUMPTION_UNIT_MISMATCH');
+    // Fridge unchanged (no fridge added in this test, but verify no movements)
+    const mvs = (await pool.query("SELECT COUNT(*)::int as n FROM inventory_movements WHERE movement_type='COOK_OUT'")).rows[0].n;
+    assert.equal(mvs, 0);
+    // Session still ACTIVE
+    const sess = await request('GET', `/families/${family.id}/cooking-sessions/${sessionId}`);
+    assert.equal(sess.body.data.status, 'ACTIVE');
+  });
+
+  // D24: snapshot 500g, request 0.5kg → PASS (MASS compatible)
+  await t.test('D24: g snapshot accepts kg consumption (MASS compatible)', async () => {
+    const { sessionId } = await setupCookingSession();
+    const fridgeId = randomUUID();
+    await pool.query(`INSERT INTO fridge_items(id,family_id,ingredient_id,quantity,unit_code,storage_location,created_by_user_id)
+      VALUES ($1,$2,$3,1,'kg','REFRIGERATED',$4)`, [fridgeId, family.id, ingPork, user.id]);
+    const res = await request('POST', `/families/${family.id}/cooking-sessions/${sessionId}/complete`, {
+      consumption: [{ ingredient_id: ingPork, quantity: 0.5, unit_code: 'kg' }],
+    });
+    assert.equal(res.status, 200);
+    // Fridge: 1kg - 0.5kg = 0.5kg
+    const fi = (await pool.query('SELECT quantity, unit_code FROM fridge_items WHERE id=$1', [fridgeId])).rows[0];
+    assert.equal(Number(fi.quantity), 0.5, 'fridge should be 0.5kg');
+    assert.equal(fi.unit_code, 'kg', 'movement and fridge same unit kg');
+  });
+
+  // D25: snapshot 2 piece, request 2 root → CONSUMPTION_UNIT_MISMATCH
+  await t.test('D25: piece snapshot rejects root consumption (COUNT not cross-compatible)', async () => {
+    // Reuse the egg recipe from D21 setup pattern
+    const ingEgg2 = randomUUID();
+    await pool.query(`INSERT INTO ingredients(id,canonical_code,display_name,category_code,default_unit_code) VALUES ($1,'egg2','鸡蛋2','PROTEIN','piece')`, [ingEgg2]);
+    const recipeEgg2 = randomUUID();
+    await pool.query(`INSERT INTO recipes(id,kind,family_id,source_type,name,base_servings,visibility,version)
+      VALUES ($1,'BASE',NULL,'SEED','煎蛋2',2,'PUBLIC',1)`, [recipeEgg2]);
+    await pool.query(`INSERT INTO recipe_ingredients(id,recipe_id,ingredient_id,display_name_override,quantity,unit_code,type,required,sort_order) VALUES
+      ($1,$2,$3,'鸡蛋',2,'piece','MAIN',true,0)`, [randomUUID(), recipeEgg2, ingEgg2]);
+    await pool.query("INSERT INTO recipe_steps(id,recipe_id,step_no,title,operation,sort_order) VALUES ($1,$2,1,'煎蛋','热锅下油',0)", [randomUUID(), recipeEgg2]);
+
+    mealCounter++;
+    const d = new Date(); d.setDate(d.getDate() + mealCounter);
+    const mealRes = await request('PUT', `/families/${family.id}/meals/current`, { meal_date: d.toISOString().slice(0,10), meal_type: 'DINNER', diners_count: 2 });
+    const mealId = mealRes.body.data.id;
+    await request('POST', `/families/${family.id}/meals/${mealId}/items`, { recipe_id: recipeEgg2, servings: 2, source: 'MANUAL' });
+    await request('POST', `/families/${family.id}/meals/${mealId}/confirm`);
+    const startRes = await request('POST', `/families/${family.id}/meals/${mealId}/cooking-sessions`);
+    const sessionId = startRes.body.data.session_id;
+    const res = await request('POST', `/families/${family.id}/cooking-sessions/${sessionId}/complete`, {
+      consumption: [{ ingredient_id: ingEgg2, quantity: 2, unit_code: 'root' }],
+    });
+    assert.equal(res.status, 422);
+    assert.equal(res.body.error.code, 'CONSUMPTION_UNIT_MISMATCH');
+  });
+
+  // D26: insufficient error requested/requested_unit are same unit representation
+  await t.test('D26: insufficient error details have consistent requested unit', async () => {
+    const { sessionId } = await setupCookingSession();
+    const fridgeId = randomUUID();
+    await pool.query(`INSERT INTO fridge_items(id,family_id,ingredient_id,quantity,unit_code,storage_location,created_by_user_id)
+      VALUES ($1,$2,$3,0.2,'kg','REFRIGERATED',$4)`, [fridgeId, family.id, ingPork, user.id]);
+    // Request 1.5kg (1500g), only 200g available
+    const res = await request('POST', `/families/${family.id}/cooking-sessions/${sessionId}/complete`, {
+      consumption: [{ ingredient_id: ingPork, quantity: 1.5, unit_code: 'kg' }],
+    });
+    assert.equal(res.status, 422);
+    assert.equal(res.body.error.code, 'INVENTORY_INSUFFICIENT');
+    const details = res.body.error.details || {};
+    // requested should be in kg (1.5), not base g (1500)
+    assert.equal(details.requested_unit, 'kg', 'requested_unit should be kg');
+    assert.ok(Math.abs(Number(details.requested) - 1.5) < 0.001, `requested should be 1.5kg, got ${details.requested}`);
+    assert.equal(details.remaining_unit, 'kg', 'remaining_unit should match requested_unit');
+  });
 });

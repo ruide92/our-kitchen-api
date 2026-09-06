@@ -371,10 +371,10 @@ Page({
   // ===== MEAL-11: Show completion sheet =====
   showCompletionSheet() {
     if (!this.data.cookingData) return;
-    // Reset quantities to suggested
+    // Reset quantities: auto-deductable items default to suggested, non-deductable default to 0
     const candidates = (this.data.consumptionCandidates || []).map(c => ({
       ...c,
-      actual_quantity: c.suggested_quantity != null ? c.suggested_quantity : 0,
+      actual_quantity: c.auto_deductable === true && c.suggested_quantity != null ? c.suggested_quantity : 0,
     }));
     this.setData({ showCompletionSheet: true, consumptionCandidates: candidates, confirmZeroConsumption: false });
   },

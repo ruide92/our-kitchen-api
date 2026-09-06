@@ -110,27 +110,34 @@ function createCookingService(pool) {
   async function buildConsumptionCandidates(tx, familyId, meal, snapshot, unitsMap) {
     const snapshotIngredients = getIngredientsFromSnapshot(snapshot);
 
-    // Aggregate by ingredient_id + dimension key
-    const agg = new Map(); // key: ingredient_id|dimension, value: {ingredient_id, name, unit_code, suggestedBase, sources}
+    // Aggregate by ingredient_id + aggregation key.
+    // MASS/VOLUME: aggregate by dimension (g/kg/jin merge, ml/l merge).
+    // COUNT/TEXT/UNKNOWN: aggregate by exact unit_code (piece ≠ root, no implicit 1:1).
+    const agg = new Map();
     for (const ing of snapshotIngredients) {
       if (!ing.ingredient_id) continue; // custom/text ingredients: not auto-deductable
       const unit = ing.unit_code ? unitsMap.get(ing.unit_code) : null;
       const dimension = unit?.dimension || 'UNKNOWN';
-      const key = `${ing.ingredient_id}|${dimension}`;
+      const aggKey = (dimension === 'MASS' || dimension === 'VOLUME')
+        ? `${ing.ingredient_id}|${dimension}`
+        : `${ing.ingredient_id}|${ing.unit_code || 'null'}`;
       const conv = toBaseQuantity(ing.quantity, ing.unit_code, unitsMap);
-      if (!agg.has(key)) {
-        agg.set(key, {
+      if (!agg.has(aggKey)) {
+        agg.set(aggKey, {
           ingredient_id: ing.ingredient_id,
           name: ing.name,
           unit_code: ing.unit_code,
           dimension,
           suggestedBase: 0,
           baseUnit: conv.converted ? conv.unitCode : ing.unit_code,
+          // MASS/VOLUME with to_base_factor are safely convertible.
+          // COUNT exact-unit deduction is safe but we keep conservative=false
+          // to avoid cross-COUNT confusion; frontend defaults to 0.
           auto_deductable: !!(unit && unit.to_base_factor && (dimension === 'MASS' || dimension === 'VOLUME')),
           sources: [],
         });
       }
-      const entry = agg.get(key);
+      const entry = agg.get(aggKey);
       entry.suggestedBase += conv.converted ? conv.quantity : (Number(ing.quantity) || 0);
       entry.sources.push({ recipe_id: ing.recipe_id, quantity: ing.quantity, unit_code: ing.unit_code });
     }
@@ -194,9 +201,27 @@ function createCookingService(pool) {
       const snapshot = requireSnapshot(meal, 'completeCooking');
       const unitsMap = await loadUnitsMap(tx);
 
-      // Build allowed ingredient set from snapshot (snapshot-bound validation)
+      // Build allowed ingredient set + frozen units from snapshot (snapshot-bound validation)
       const snapshotIngredients = getIngredientsFromSnapshot(snapshot);
       const allowedIngredientIds = new Set(snapshotIngredients.filter(i => i.ingredient_id).map(i => i.ingredient_id));
+      // Map ingredient_id -> Set of frozen unit codes from snapshot
+      const frozenUnitsByIngredient = new Map();
+      for (const ing of snapshotIngredients) {
+        if (!ing.ingredient_id || !ing.unit_code) continue;
+        if (!frozenUnitsByIngredient.has(ing.ingredient_id)) frozenUnitsByIngredient.set(ing.ingredient_id, new Set());
+        frozenUnitsByIngredient.get(ing.ingredient_id).add(ing.unit_code);
+      }
+
+      // Helper: check if requested unit is compatible with any frozen unit for this ingredient
+      function isUnitCompatibleWithSnapshot(ingredientId, requestedUnit) {
+        const frozenUnits = frozenUnitsByIngredient.get(ingredientId);
+        if (!frozenUnits || frozenUnits.size === 0) return false;
+        for (const fu of frozenUnits) {
+          if (fu === requestedUnit) return true; // exact match
+          if (areUnitsCompatible(fu, requestedUnit, unitsMap)) return true; // MASS/VOLUME safe conversion
+        }
+        return false;
+      }
 
       // --- Phase 1: validate all consumption items ---
       const validItems = [];
@@ -218,6 +243,13 @@ function createCookingService(pool) {
         // Unit must exist in formal units table
         if (!unitsMap.has(unit_code)) {
           throw new ApiError(422, 'INVALID_CONSUMPTION', `未知单位 ${unit_code}`, { ingredient_id, unit_code });
+        }
+        // Unit must be compatible with at least one frozen snapshot unit for this ingredient
+        if (!isUnitCompatibleWithSnapshot(ingredient_id, unit_code)) {
+          const frozenUnits = Array.from(frozenUnitsByIngredient.get(ingredient_id) || []);
+          throw new ApiError(422, 'CONSUMPTION_UNIT_MISMATCH',
+            `单位 ${unit_code} 与本餐冻结菜谱中的食材单位不兼容`,
+            { ingredient_id, requested_unit: unit_code, frozen_units: frozenUnits });
         }
         validItems.push({ ingredient_id, quantity: qty, unit_code });
       }
@@ -282,15 +314,18 @@ function createCookingService(pool) {
         }
 
         if (remainingBase > 0.0001) {
+          // Express requested and remaining in the same unit (ded.unit_code when convertible)
+          const requestedInReqUnit = fromBaseQuantity(ded.totalBase, ded.unit_code, unitsMap);
           const remainingInReqUnit = fromBaseQuantity(remainingBase, ded.unit_code, unitsMap);
+          const reqUnit = requestedInReqUnit.converted ? ded.unit_code : ded.baseUnit;
           throw new ApiError(422, 'INVENTORY_INSUFFICIENT',
             `食材库存不足`,
             {
               ingredient_id: ded.ingredient_id,
-              requested: ded.totalBase,
-              requested_unit: ded.unit_code,
+              requested: requestedInReqUnit.converted ? requestedInReqUnit.quantity : ded.totalBase,
+              requested_unit: reqUnit,
               remaining: remainingInReqUnit.converted ? remainingInReqUnit.quantity : remainingBase,
-              remaining_unit: ded.unit_code,
+              remaining_unit: reqUnit,
             });
         }
       }

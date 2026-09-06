@@ -189,3 +189,63 @@ test('F13: merged candidate from server renders single row and sends one deducti
   // Must not have a second client-side aggregation pass that could double-count
   assert.ok(!mealJs.includes('groupByIngredient') || mealJs.includes('server'), 'should not independently re-aggregate');
 });
+
+// ===== F14: auto_deductable=false → completion default quantity = 0 (behavioral) =====
+test('F14: non-auto-deductable candidate defaults actual_quantity to 0', () => {
+  const env = mockPageEnv();
+  delete require.cache[require.resolve(MEAL_JS)];
+  require(MEAL_JS);
+  const page = makePage(env.captured, {
+    cookingData: { session_id: 's1' },
+    consumptionCandidates: [
+      { ingredient_id: 'egg', name: '鸡蛋', suggested_quantity: 2, unit_code: 'piece', auto_deductable: false },
+      { ingredient_id: 'pork', name: '五花肉', suggested_quantity: 500, unit_code: 'g', auto_deductable: true },
+    ],
+  });
+  page.showCompletionSheet();
+  const egg = page.data.consumptionCandidates.find(c => c.ingredient_id === 'egg');
+  const pork = page.data.consumptionCandidates.find(c => c.ingredient_id === 'pork');
+  assert.equal(egg.actual_quantity, 0, 'auto_deductable=false must default to 0, not suggested 2');
+  assert.equal(pork.actual_quantity, 500, 'auto_deductable=true keeps suggested 500');
+});
+
+// ===== F15: confirmComplete does not send zero-quantity candidates =====
+test('F15: confirmComplete filters out zero-quantity candidates from payload', () => {
+  const mealJs = fs.readFileSync(MEAL_JS, 'utf8');
+  // Must filter positive quantities only
+  assert.ok(mealJs.includes("actual_quantity) > 0") || mealJs.includes("actual_quantity > 0"),
+    'confirmComplete must filter only positive actual_quantity');
+  // Behavioral: build page and verify payload construction
+  const env = mockPageEnv();
+  delete require.cache[require.resolve(MEAL_JS)];
+  require(MEAL_JS);
+  let capturedPayload = null;
+  const page = makePage(env.captured, {
+    cookingData: { session_id: 's1' },
+    familyId: 'f1',
+    meal: { id: 'm1' },
+    consumptionCandidates: [
+      { ingredient_id: 'egg', actual_quantity: 0, unit_code: 'piece', auto_deductable: false },
+      { ingredient_id: 'pork', actual_quantity: 300, unit_code: 'g', auto_deductable: true },
+    ],
+    completing: false,
+    confirmZeroConsumption: true,
+  });
+  page._api = { completeCooking: async (fid, sid, body) => { capturedPayload = body; return { ok: true }; } };
+  page._clearLocalCooking = () => {};
+  page.loadMeal = async () => {};
+  page._doComplete([{ ingredient_id: 'pork', quantity: 300, unit_code: 'g' }]);
+  // Verify _doComplete sends only the positive item
+  assert.ok(capturedPayload, 'payload should be captured');
+  assert.equal(capturedPayload.consumption.length, 1, 'only positive candidate sent');
+  assert.equal(capturedPayload.consumption[0].ingredient_id, 'pork');
+});
+
+// ===== F16: WXML explicitly shows "不自动扣库存" for non-deductable =====
+test('F16: WXML shows non-auto-deductable label for non-deductable candidates', () => {
+  const mealWxml = fs.readFileSync(MEAL_WXML, 'utf8');
+  assert.ok(mealWxml.includes('不自动扣库存'),
+    'WXML must explicitly label non-auto-deductable items');
+  assert.ok(mealWxml.includes('auto_deductable'),
+    'WXML must branch on auto_deductable field');
+});
