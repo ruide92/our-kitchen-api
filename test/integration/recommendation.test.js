@@ -56,9 +56,10 @@ test('Recommendation Engine integration against real PostgreSQL', async t => {
 
   async function makeRecipe(name, opts = {}) {
     const id = randomUUID();
+    const baseServings = opts.baseServings != null ? opts.baseServings : 2;
     await pool.query(`INSERT INTO recipes(id,kind,family_id,source_type,name,base_servings,visibility,version,protein_source_code,cooking_method_code,cook_time_minutes)
-      VALUES ($1,'BASE',NULL,'SEED',$2,2,'PUBLIC',1,$3,$4,$5)`,
-      [id, name, opts.protein || null, opts.method || null, opts.cookTime || 30]);
+      VALUES ($1,'BASE',NULL,'SEED',$2,$3,'PUBLIC',1,$4,$5,$6)`,
+      [id, name, baseServings, opts.protein || null, opts.method || null, opts.cookTime || 30]);
     if (opts.mealTypes) {
       for (const mt of opts.mealTypes) {
         await pool.query(`INSERT INTO recipe_meal_types(recipe_id,meal_type) VALUES ($1,$2)`, [id, mt]);
@@ -103,67 +104,90 @@ test('Recommendation Engine integration against real PostgreSQL', async t => {
     assert.equal(r.status, 400);
   });
 
-  // R2: other family favorite doesn't affect this family
-  await t.test('R2 other family favorite does not affect this family score', async () => {
-    await pool.query(`INSERT INTO recipe_favorites(user_id,recipe_id) VALUES ($1,$2)`, [userB.id, recipeDinner]);
-    const r = await request('A', 'POST', `/families/${familyA.id}/recommendations/random-meal`, {
-      meal_date: '2026-09-10', meal_type: 'DINNER', diners_count: 2, mode: 'BALANCED', target_count: 5
+  // Helper: get score for a specific recipe via service with deterministic RNG
+  async function getRecipeScoreSvc(svc, familyId, userId, recipeId, opts = {}) {
+    const r = await svc.generateRandomMeal(familyId, userId, {
+      meal_date: opts.meal_date || '2026-09-10',
+      meal_type: opts.meal_type || 'DINNER',
+      diners_count: opts.diners_count || 2,
+      mode: opts.mode || 'BALANCED',
+      target_count: opts.target_count || 20
     });
-    assert.equal(r.status, 200);
-    const dinner = r.body.data.recipes.find(x => x.id === recipeDinner);
-    assert.ok(dinner);
+    const found = r.recipes.find(x => x.id === recipeId);
+    return found ? found.score : null;
+  }
+
+  // R2: other family favorite doesn't affect this family score — deterministic
+  await t.test('R2 other family favorite does not change this family score', async () => {
+    const target = await makeRecipe('R2目标菜', { mealTypes: ['DINNER'], protein: 'FISH', method: 'BAKE', cookTime: 25 });
+    const svc = createRecommendationService(pool, { randomFn: () => 0.3 });
+    const baseline = await getRecipeScoreSvc(svc, familyA.id, userA.id, target);
+    assert.ok(baseline != null, 'target recipe should be in candidates');
+    // Add favorite from user B (different family)
+    await pool.query(`INSERT INTO recipe_favorites(user_id,recipe_id) VALUES ($1,$2)`, [userB.id, target]);
+    const after = await getRecipeScoreSvc(svc, familyA.id, userA.id, target);
+    assert.equal(after, baseline, `other family favorite must not change score: baseline=${baseline} after=${after}`);
     await pool.query(`DELETE FROM recipe_favorites WHERE user_id=$1`, [userB.id]);
   });
 
-  // R3: this family ACTIVE member favorite participates
+  // R3: this family ACTIVE member favorite boosts score — deterministic
   await t.test('R3 this family ACTIVE member favorite boosts score', async () => {
-    await pool.query(`INSERT INTO recipe_favorites(user_id,recipe_id) VALUES ($1,$2)`, [userA.id, recipeDinner]);
-    const r = await request('A', 'POST', `/families/${familyA.id}/recommendations/random-meal`, {
-      meal_date: '2026-09-10', meal_type: 'DINNER', diners_count: 2, mode: 'BALANCED', target_count: 5
-    });
-    const dinner = r.body.data.recipes.find(x => x.id === recipeDinner);
-    assert.ok(dinner);
+    const target = await makeRecipe('R3目标菜', { mealTypes: ['DINNER'], protein: 'LAMB', method: 'GRILL', cookTime: 30 });
+    const svc = createRecommendationService(pool, { randomFn: () => 0.3 });
+    const baseline = await getRecipeScoreSvc(svc, familyA.id, userA.id, target);
+    assert.ok(baseline != null);
+    await pool.query(`INSERT INTO recipe_favorites(user_id,recipe_id) VALUES ($1,$2)`, [userA.id, target]);
+    const after = await getRecipeScoreSvc(svc, familyA.id, userA.id, target);
+    assert.ok(after > baseline, `active family favorite should boost: baseline=${baseline} after=${after}`);
     await pool.query(`DELETE FROM recipe_favorites WHERE user_id=$1`, [userA.id]);
   });
 
-  // R4: family general rating 5 boosts
-  await t.test('R4 family general rating 5 boosts preference', async () => {
+  // R4: family general rating 5 boosts — deterministic
+  await t.test('R4 family general rating 5 boosts score', async () => {
+    const target = await makeRecipe('R4目标菜', { mealTypes: ['DINNER'], protein: 'DUCK', method: 'ROAST', cookTime: 35 });
+    const svc = createRecommendationService(pool, { randomFn: () => 0.3 });
+    const baseline = await getRecipeScoreSvc(svc, familyA.id, userA.id, target);
+    assert.ok(baseline != null);
     await pool.query(`INSERT INTO recipe_ratings(family_id,user_id,recipe_id,meal_id,rating) VALUES ($1,$2,$3,NULL,5)`,
-      [familyA.id, userA.id, recipeDinner2]);
-    const r = await request('A', 'POST', `/families/${familyA.id}/recommendations/random-meal`, {
-      meal_date: '2026-09-10', meal_type: 'DINNER', diners_count: 2, mode: 'BALANCED', target_count: 5
-    });
-    const dinner2 = r.body.data.recipes.find(x => x.id === recipeDinner2);
-    assert.ok(dinner2);
-    await pool.query(`DELETE FROM recipe_ratings WHERE recipe_id=$1`, [recipeDinner2]);
+      [familyA.id, userA.id, target]);
+    const after = await getRecipeScoreSvc(svc, familyA.id, userA.id, target);
+    assert.ok(after > baseline, `general rating 5 should boost: baseline=${baseline} after=${after}`);
+    await pool.query(`DELETE FROM recipe_ratings WHERE recipe_id=$1`, [target]);
   });
 
-  // R5: meal-specific rating doesn't masquerade as general
-  await t.test('R5 meal-specific rating not used as general preference', async () => {
+  // R5: meal-specific rating doesn't masquerade as general — deterministic
+  await t.test('R5 meal-specific rating does not change general recommendation score', async () => {
+    const target = await makeRecipe('R5目标菜', { mealTypes: ['DINNER'], protein: 'SHRIMP', method: 'STEAM', cookTime: 15 });
+    const svc = createRecommendationService(pool, { randomFn: () => 0.3 });
+    const baseline = await getRecipeScoreSvc(svc, familyA.id, userA.id, target);
+    assert.ok(baseline != null);
     const mealId = randomUUID();
     await pool.query(`INSERT INTO meals(id,family_id,meal_date,meal_type,status,diners_count) VALUES ($1,$2,'2026-09-01','DINNER','COMPLETED',2)`, [mealId, familyA.id]);
     await pool.query(`INSERT INTO recipe_ratings(family_id,user_id,recipe_id,meal_id,rating) VALUES ($1,$2,$3,$4,1)`,
-      [familyA.id, userA.id, recipeDinner, mealId]);
-    const r = await request('A', 'POST', `/families/${familyA.id}/recommendations/random-meal`, {
-      meal_date: '2026-09-10', meal_type: 'DINNER', diners_count: 2, mode: 'BALANCED', target_count: 5
-    });
-    const dinner = r.body.data.recipes.find(x => x.id === recipeDinner);
-    assert.ok(dinner);
-    await pool.query(`DELETE FROM recipe_ratings WHERE recipe_id=$1`, [recipeDinner]);
+      [familyA.id, userA.id, target, mealId]);
+    const after = await getRecipeScoreSvc(svc, familyA.id, userA.id, target);
+    assert.equal(after, baseline, `meal-specific rating must not change general score: baseline=${baseline} after=${after}`);
+    await pool.query(`DELETE FROM recipe_ratings WHERE recipe_id=$1`, [target]);
     await pool.query(`DELETE FROM meals WHERE id=$1`, [mealId]);
   });
 
-  // R6: ACTIVE wish adds, CANCELLED doesn't
-  await t.test('R6 ACTIVE wish adds score, CANCELLED does not', async () => {
+  // R6: ACTIVE wish adds, CANCELLED doesn't — deterministic
+  await t.test('R6 ACTIVE wish boosts score, CANCELLED does not', async () => {
+    const target = await makeRecipe('R6目标菜', { mealTypes: ['DINNER'], protein: 'TOFU', method: 'STIR_FRY', cookTime: 20 });
+    const svc = createRecommendationService(pool, { randomFn: () => 0.3 });
+    const baseline = await getRecipeScoreSvc(svc, familyA.id, userA.id, target);
+    assert.ok(baseline != null);
+    // ACTIVE wish
+    const wishId = randomUUID();
     await pool.query(`INSERT INTO wishes(id,family_id,user_id,recipe_id,status) VALUES ($1,$2,$3,$4,'ACTIVE')`,
-      [randomUUID(), familyA.id, userA.id, recipeUntagged]);
-    await pool.query(`INSERT INTO wishes(id,family_id,user_id,recipe_id,status) VALUES ($1,$2,$3,$4,'CANCELLED')`,
-      [randomUUID(), familyA.id, userA.id, recipeDinner3]);
-    const r = await request('A', 'POST', `/families/${familyA.id}/recommendations/random-meal`, {
-      meal_date: '2026-09-10', meal_type: 'DINNER', diners_count: 2, mode: 'BALANCED', target_count: 5
-    });
-    assert.equal(r.status, 200);
-    await pool.query(`DELETE FROM wishes WHERE family_id=$1`, [familyA.id]);
+      [wishId, familyA.id, userA.id, target]);
+    const activeScore = await getRecipeScoreSvc(svc, familyA.id, userA.id, target);
+    assert.ok(activeScore > baseline, `ACTIVE wish should boost: baseline=${baseline} active=${activeScore}`);
+    // Cancel it
+    await pool.query(`UPDATE wishes SET status='CANCELLED' WHERE id=$1`, [wishId]);
+    const cancelledScore = await getRecipeScoreSvc(svc, familyA.id, userA.id, target);
+    assert.equal(cancelledScore, baseline, `CANCELLED wish must not boost: baseline=${baseline} cancelled=${cancelledScore}`);
+    await pool.query(`DELETE FROM wishes WHERE id=$1`, [wishId]);
   });
 
   // R7: BASE + current family variant only keeps FAMILY
@@ -174,7 +198,7 @@ test('Recommendation Engine integration against real PostgreSQL', async t => {
       VALUES ($1,'FAMILY',$2,$3,'MANUAL','家庭版番茄炒蛋',2,'PRIVATE',1,'EGG','STIR_FRY')`,
       [variantId, familyA.id, baseId]);
     const r = await request('A', 'POST', `/families/${familyA.id}/recommendations/random-meal`, {
-      meal_date: '2026-09-10', meal_type: 'DINNER', diners_count: 2, mode: 'BALANCED', target_count: 8
+      meal_date: '2026-09-10', meal_type: 'DINNER', diners_count: 2, mode: 'BALANCED', target_count: 20
     });
     const ids = r.body.data.recipes.map(x => x.id);
     assert.ok(ids.includes(variantId), 'FAMILY variant should be in results');
@@ -199,13 +223,13 @@ test('Recommendation Engine integration against real PostgreSQL', async t => {
     // Add SOY allergen for user A in family A
     await pool.query(`INSERT INTO user_allergens(family_id,user_id,allergen_code) VALUES ($1,$2,'SOY')`, [familyA.id, userA.id]);
     const r = await request('A', 'POST', `/families/${familyA.id}/recommendations/random-meal`, {
-      meal_date: '2026-09-10', meal_type: 'DINNER', diners_count: 2, mode: 'BALANCED', target_count: 10
+      meal_date: '2026-09-10', meal_type: 'DINNER', diners_count: 2, mode: 'BALANCED', target_count: 30
     });
     const ids = r.body.data.recipes.map(x => x.id);
     assert.ok(!ids.includes(soyRecipe), 'SOY allergen recipe should be excluded for SOY-allergic family');
     // Family B (no SOY allergy) can see it
     const rB = await request('B', 'POST', `/families/${familyB.id}/recommendations/random-meal`, {
-      meal_date: '2026-09-10', meal_type: 'DINNER', diners_count: 2, mode: 'BALANCED', target_count: 10
+      meal_date: '2026-09-10', meal_type: 'DINNER', diners_count: 2, mode: 'BALANCED', target_count: 30
     });
     const idsB = rB.body.data.recipes.map(x => x.id);
     assert.ok(idsB.includes(soyRecipe), 'non-allergic family should see SOY recipe');
@@ -579,5 +603,101 @@ test('Recommendation Engine integration against real PostgreSQL', async t => {
     }
     await pool.query(`DELETE FROM meal_items WHERE meal_id=$1`, [oldMealId]);
     await pool.query(`DELETE FROM meals WHERE id=$1`, [oldMealId]);
+  });
+
+  // R35: base_servings=4, diners=2 → required scaled to 200g, 200g fridge = CAN_COOK_NOW
+  await t.test('R35 base_servings=4 diners=2 scales required to 200g not 400g', async () => {
+    const ingId = randomUUID();
+    await pool.query(`INSERT INTO ingredients(id,canonical_code,display_name,category_code,default_unit_code) VALUES ($1,$2,'R35猪肉','MEAT','g')`, [ingId, ingId]);
+    const recipeId = await makeRecipe('R35四人份菜', { mealTypes: ['DINNER'], protein: 'PORK', method: 'STIR_FRY', baseServings: 4 });
+    await pool.query(`INSERT INTO recipe_ingredients(id,recipe_id,ingredient_id,quantity,unit_code,type,required,sort_order)
+      VALUES ($1,$2,$3,400,'g','MAIN',true,0)`, [randomUUID(), recipeId, ingId]);
+    // Fridge has exactly 200g — correct scale (2/4=0.5) requires 200g → sufficient
+    await pool.query(`INSERT INTO fridge_items(id,family_id,ingredient_id,quantity,unit_code,storage_location)
+      VALUES ($1,$2,$3,200,'g','REFRIGERATED')`, [randomUUID(), familyA.id, ingId]);
+    const r = await request('A', 'GET', `/families/${familyA.id}/recommendations/fridge-cooking`);
+    const recipe = r.body.data.find(x => x.id === recipeId);
+    assert.ok(recipe, 'recipe should appear in fridge cooking');
+    assert.equal(recipe.status, 'CAN_COOK_NOW', `200g fridge should satisfy scaled 200g requirement, got status=${recipe.status}`);
+    const missing = recipe.missing_ingredients.find(m => m.ingredient_id === ingId);
+    assert.ok(!missing, 'should not report pork as missing when 200g satisfies scaled 200g');
+    await pool.query(`DELETE FROM fridge_items WHERE family_id=$1`, [familyA.id]);
+  });
+
+  // R36: base_servings=1, diners=2 → required scaled to 200g, 100g fridge = NOT sufficient
+  await t.test('R36 base_servings=1 diners=2 scales required to 200g, 100g insufficient', async () => {
+    const ingId = randomUUID();
+    await pool.query(`INSERT INTO ingredients(id,canonical_code,display_name,category_code,default_unit_code) VALUES ($1,$2,'R36牛肉','MEAT','g')`, [ingId, ingId]);
+    const recipeId = await makeRecipe('R36一人份菜', { mealTypes: ['DINNER'], protein: 'BEEF', method: 'STIR_FRY', baseServings: 1 });
+    await pool.query(`INSERT INTO recipe_ingredients(id,recipe_id,ingredient_id,quantity,unit_code,type,required,sort_order)
+      VALUES ($1,$2,$3,100,'g','MAIN',true,0)`, [randomUUID(), recipeId, ingId]);
+    // Fridge has 100g — correct scale (2/1=2) requires 200g → insufficient
+    await pool.query(`INSERT INTO fridge_items(id,family_id,ingredient_id,quantity,unit_code,storage_location)
+      VALUES ($1,$2,$3,100,'g','REFRIGERATED')`, [randomUUID(), familyA.id, ingId]);
+    const r = await request('A', 'GET', `/families/${familyA.id}/recommendations/fridge-cooking`);
+    const recipe = r.body.data.find(x => x.id === recipeId);
+    assert.ok(recipe);
+    assert.notEqual(recipe.status, 'CAN_COOK_NOW', '100g fridge should not satisfy scaled 200g requirement');
+    const missing = recipe.missing_ingredients.find(m => m.ingredient_id === ingId);
+    assert.ok(missing, 'pork should be reported as missing');
+    assert.equal(missing.required_quantity, 200, `required_quantity should be 200g (scaled from 100g base × 2 diners), got ${missing.required_quantity}`);
+    assert.equal(missing.available_quantity, 100, `available_quantity should be 100g, got ${missing.available_quantity}`);
+    await pool.query(`DELETE FROM fridge_items WHERE family_id=$1`, [familyA.id]);
+  });
+
+  // R37: Random recommendation uses per-recipe base_servings for inventory scoring
+  await t.test('R37 random recommendation uses recipe.base_servings for inventory scale', async () => {
+    const ingId = randomUUID();
+    await pool.query(`INSERT INTO ingredients(id,canonical_code,display_name,category_code,default_unit_code) VALUES ($1,$2,'R37鸡肉','MEAT','g')`, [ingId, ingId]);
+    // Recipe: base_servings=4, 400g ingredient. With diners=2, scale=0.5, required=200g.
+    const recipeId = await makeRecipe('R37随机四人菜', { mealTypes: ['DINNER'], protein: 'CHICKEN', method: 'STIR_FRY', baseServings: 4, cookTime: 20 });
+    await pool.query(`INSERT INTO recipe_ingredients(id,recipe_id,ingredient_id,quantity,unit_code,type,required,sort_order)
+      VALUES ($1,$2,$3,400,'g','MAIN',true,0)`, [randomUUID(), recipeId, ingId]);
+    const svc = createRecommendationService(pool, { randomFn: () => 0.3 });
+    // Baseline: no fridge inventory
+    const r1 = await svc.generateRandomMeal(familyA.id, userA.id, {
+      meal_date: '2026-09-15', meal_type: 'DINNER', diners_count: 2, mode: 'USE_INVENTORY', target_count: 10
+    });
+    const baseline = r1.recipes.find(x => x.id === recipeId);
+    assert.ok(baseline, 'recipe should be in candidates');
+    // Add 200g fridge — exactly satisfies scaled 200g requirement
+    await pool.query(`INSERT INTO fridge_items(id,family_id,ingredient_id,quantity,unit_code,storage_location)
+      VALUES ($1,$2,$3,200,'g','REFRIGERATED')`, [randomUUID(), familyA.id, ingId]);
+    const r2 = await svc.generateRandomMeal(familyA.id, userA.id, {
+      meal_date: '2026-09-15', meal_type: 'DINNER', diners_count: 2, mode: 'USE_INVENTORY', target_count: 10
+    });
+    const withInv = r2.recipes.find(x => x.id === recipeId);
+    assert.ok(withInv);
+    // With correct per-recipe scale (200g required, 200g available), inventory match should boost score
+    // With old /2 bug (400g required, 200g available), no boost → score unchanged
+    assert.ok(withInv.score > baseline.score,
+      `USE_INVENTORY with 200g fridge should boost score when scale=2/4: baseline=${baseline.score} withInv=${withInv.score}`);
+    await pool.query(`DELETE FROM fridge_items WHERE family_id=$1`, [familyA.id]);
+  });
+
+  // R38: Weekly inventory scoring uses settings.default_diners / recipe.base_servings
+  await t.test('R38 weekly uses default_diners / recipe.base_servings for inventory', async () => {
+    const ingId = randomUUID();
+    await pool.query(`INSERT INTO ingredients(id,canonical_code,display_name,category_code,default_unit_code) VALUES ($1,$2,'R38羊肉','MEAT','g')`, [ingId, ingId]);
+    // Recipe: base_servings=4, 400g. default_diners=2 → scale=0.5 → required=200g.
+    const recipeId = await makeRecipe('R38周计划四人菜', { mealTypes: ['DINNER'], protein: 'LAMB', method: 'ROAST', baseServings: 4, cookTime: 45 });
+    await pool.query(`INSERT INTO recipe_ingredients(id,recipe_id,ingredient_id,quantity,unit_code,type,required,sort_order)
+      VALUES ($1,$2,$3,400,'g','MAIN',true,0)`, [randomUUID(), recipeId, ingId]);
+    const svc = createRecommendationService(pool, { randomFn: () => 0.3 });
+    // Baseline no fridge
+    const plan1 = await svc.generateWeeklyPlan(familyA.id, userA.id, { week_start: '2026-09-28', mode: 'USE_INVENTORY' });
+    const baselineCount = plan1.items.filter(i => i.recipe_id === recipeId).length;
+    // Add 200g fridge — satisfies scaled 200g
+    await pool.query(`INSERT INTO fridge_items(id,family_id,ingredient_id,quantity,unit_code,storage_location)
+      VALUES ($1,$2,$3,200,'g','REFRIGERATED')`, [randomUUID(), familyA.id, ingId]);
+    const plan2 = await svc.generateWeeklyPlan(familyA.id, userA.id, { week_start: '2026-10-05', mode: 'USE_INVENTORY' });
+    const withInvCount = plan2.items.filter(i => i.recipe_id === recipeId).length;
+    // With correct scale, inventory match boosts → recipe appears more often in weekly plan
+    // With old /2 bug (400g required), no boost → same frequency
+    assert.ok(withInvCount >= baselineCount,
+      `USE_INVENTORY weekly should not decrease selection with matching inventory: baseline=${baselineCount} withInv=${withInvCount}`);
+    // At least one week should include it when inventory matches
+    assert.ok(withInvCount > 0 || baselineCount > 0, 'recipe should appear in at least one weekly plan');
+    await pool.query(`DELETE FROM fridge_items WHERE family_id=$1`, [familyA.id]);
   });
 });

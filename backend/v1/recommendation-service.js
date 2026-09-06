@@ -199,8 +199,18 @@ function createRecommendationService(pool, options = {}) {
     return 0;
   }
 
+  // Per-recipe serving scale: dinersCount / recipe.base_servings
+  // Returns null for invalid data (caller should exclude + warn)
+  function getServingScale(recipe, dinersCount) {
+    const base = parseFloat(recipe?.base_servings);
+    const diners = parseFloat(dinersCount);
+    if (!Number.isFinite(base) || base <= 0) return null;
+    if (!Number.isFinite(diners) || diners <= 0) return null;
+    return diners / base;
+  }
+
   // Quantity-aware inventory match
-  // dinersScale = request.diners_count / recipe.base_servings
+  // dinersScale = dinersCount / recipe.base_servings (per-recipe)
   function computeInventoryMatch(recipe, ingredientMap, inventory, pantry, unitsMap, dinersScale) {
     const ings = ingredientMap[recipe.id] || [];
     const required = ings.filter(i => i.required && i.ingredient_id);
@@ -420,12 +430,20 @@ function createRecommendationService(pool, options = {}) {
       const unitsMap = await loadUnitsMap(tx);
       const ingredientMap = await fetchRecipeIngredients(tx, candidates.map(c => c.id));
 
-      const dinersScale = diners_count && settings.default_diners ? diners_count / 2 : 1;
-
+      const dinersForScale = diners_count || settings.default_diners || 2;
+      const validCandidates = [];
       for (const c of candidates) {
+        const scale = getServingScale(c, dinersForScale);
+        if (scale === null) {
+          warnings.push(`INVALID_BASE_SERVINGS: recipe ${c.id} base_servings=${c.base_servings}`);
+          continue;
+        }
         c._ingredient_ids = (ingredientMap[c.id] || []).map(i => i.ingredient_id).filter(Boolean);
-        c._invMatch = computeInventoryMatch(c, ingredientMap, inventory, pantry, unitsMap, dinersScale);
+        c._invMatch = computeInventoryMatch(c, ingredientMap, inventory, pantry, unitsMap, scale);
+        validCandidates.push(c);
       }
+      candidates.length = 0;
+      candidates.push(...validCandidates);
 
       const context = { history, mode, meal_type, settings, diners_count, ingredientMap, randomFn, dislikedSet };
 
@@ -549,11 +567,20 @@ function createRecommendationService(pool, options = {}) {
           const { candidates } = await prepareEligibleCandidates(tx, familyId, type, activeMemberIds, warnings);
           const ingredientMap = await fetchRecipeIngredients(tx, candidates.map(c => c.id));
 
-          const dinersScale = settings.default_diners / 2;
+          const weeklyDiners = settings.default_diners || 2;
+          const weeklyValid = [];
           for (const c of candidates) {
+            const scale = getServingScale(c, weeklyDiners);
+            if (scale === null) {
+              warnings.push(`INVALID_BASE_SERVINGS: recipe ${c.id} base_servings=${c.base_servings}`);
+              continue;
+            }
             c._ingredient_ids = (ingredientMap[c.id] || []).map(i => i.ingredient_id).filter(Boolean);
-            c._invMatch = computeInventoryMatch(c, ingredientMap, inventory, pantry, unitsMap, dinersScale);
+            c._invMatch = computeInventoryMatch(c, ingredientMap, inventory, pantry, unitsMap, scale);
+            weeklyValid.push(c);
           }
+          candidates.length = 0;
+          candidates.push(...weeklyValid);
 
           const dayLocked = lockedItems.filter(i => i.plan_date === dateStr && i.meal_type === type);
           const lockedIds = dayLocked.map(i => i.recipe_id);
@@ -625,10 +652,15 @@ function createRecommendationService(pool, options = {}) {
       const unitsMap = await loadUnitsMap(tx);
       const ingredientMap = await fetchRecipeIngredients(tx, candidates.map(c => c.id));
 
-      const dinersScale = settings.default_diners / 2;
+      const fridgeDiners = settings.default_diners || 2;
 
       const results = candidates.map(c => {
-        const invMatch = computeInventoryMatch(c, ingredientMap, inventory, pantry, unitsMap, dinersScale);
+        const scale = getServingScale(c, fridgeDiners);
+        if (scale === null) {
+          warnings.push(`INVALID_BASE_SERVINGS: recipe ${c.id} base_servings=${c.base_servings}`);
+          return null;
+        }
+        const invMatch = computeInventoryMatch(c, ingredientMap, inventory, pantry, unitsMap, scale);
         const required = invMatch.requiredCount || 0;
         const have = invMatch.availableCount;
         const missing = invMatch.missingCount;
@@ -647,7 +679,8 @@ function createRecommendationService(pool, options = {}) {
           status,
           reasons
         };
-      }).filter(r => r.required_count > 0)
+      }).filter(Boolean)
+        .filter(r => r.required_count > 0)
         .sort((a, b) => {
           const order = { CAN_COOK_NOW: 0, MISSING_FEW: 1, NEEDS_SHOPPING: 2 };
           if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status];

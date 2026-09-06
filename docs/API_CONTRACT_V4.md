@@ -381,10 +381,27 @@ PLANNING → CONFIRMED，并冻结用于该餐的菜谱版本/snapshot。
 返回 candidate，不直接写入 meal：
 
 ```json
-{"data":{"recipes":[],"score_summary":{},"reasons":[]}}
+{
+  "data": {
+    "recipes": [
+      {"id":"...","name":"...","kind":"BASE","cook_time_minutes":30,"locked":false,"score":42,"reasons":["FAMILY_FAVORITE"],"protein_source_code":"PORK","cooking_method_code":"STIR_FRY"}
+    ],
+    "score_summary": {"mode":"BALANCED","target_count":3,"selected":3,"diners_count":2},
+    "reasons": ["FAMILY_FAVORITE"],
+    "warnings": [{"code":"DIVERSITY_RELAXED","detail":"..."}]
+  }
+}
 ```
 
-用户点“就吃这些”后调用 meal item API 加入当前 meal；客户端可逐项调用，后续若增加 batch endpoint 必须先回写本文档。
+mode: BALANCED | USE_INVENTORY | TRY_DIFFERENT。diners_count=1 自动启用 ONE_PERSON profile。请求体禁止包含 _seed；包含则 400 INVALID_REQUEST。确定性测试通过 service 依赖注入 randomFn。库存需求按 diners_count / recipe.base_servings 逐菜谱缩放。
+
+用户点“就吃这些”后调用 meal item API 加入当前 meal。
+
+### GET /api/v1/families/:family_id/recommendations/fridge-cooking
+
+基于当前家庭默认人数的晚餐库存可做性推荐。响应数组每项含 id, name, kind, cook_time_minutes, status, available_count, required_count, missing_count, missing_ingredients[{ingredient_id,name,required_quantity,unit_code,available_quantity}], uncertain_ingredients, diners_count_used, reasons, warnings。
+
+status: CAN_COOK_NOW | MISSING_FEW | NEEDS_SHOPPING。数量按 diners_count_used / recipe.base_servings 缩放。过期库存不计 available；canonical pantry assume_available 视为满足；custom pantry 不参与 canonical 匹配。COUNT 仅 exact unit 比较。
 
 ## 13. Fridge
 
