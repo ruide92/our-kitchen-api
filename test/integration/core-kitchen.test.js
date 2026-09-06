@@ -44,6 +44,9 @@ test('Core kitchen HTTP checkpoint against real PostgreSQL', async t => {
     ($1,$2,$3,'西红柿',400,'g','MAIN',true,0),($4,$2,$5,'猪里脊',300,'g','MAIN',true,1)`,
     [randomUUID(), recipeTomatoPork, ingTomato, randomUUID(), ingPork]);
   await pool.query("INSERT INTO recipe_meal_types(recipe_id,meal_type) VALUES ($1,'DINNER')", [recipeTomatoPork]);
+  await pool.query("INSERT INTO recipe_tags(recipe_id,tag_code) VALUES ($1,'HOME_STYLE')", [recipeTomatoPork]);
+  await pool.query("INSERT INTO recipe_cookware(recipe_id,cookware_code) VALUES ($1,'WOK')", [recipeTomatoPork]);
+  await pool.query("INSERT INTO recipe_allergens(recipe_id,allergen_code) VALUES ($1,'SOY')", [recipeTomatoPork]);
 
   // Recipe B: 红烧肉 (1kg pork, 2 servings) - for merge test
   const recipePorkKg = randomUUID();
@@ -330,7 +333,7 @@ test('Core kitchen HTTP checkpoint against real PostgreSQL', async t => {
   });
 
   // ===== Recipe detail contract =====
-  await t.test('recipe detail response contract: recipe/ingredients/steps/viewer', async () => {
+  await t.test('recipe detail response contract: recipe/ingredients/steps/extras/viewer', async () => {
     const fa = await makeFamily('A', 'Detail Family');
     const r = await request('A', 'GET', `/families/${fa.id}/recipes/${recipeTomatoPork}`);
     assert.equal(r.status, 200);
@@ -338,6 +341,18 @@ test('Core kitchen HTTP checkpoint against real PostgreSQL', async t => {
     assert.ok(r.body.data.ingredients, 'should have ingredients field');
     assert.ok(Array.isArray(r.body.data.ingredients));
     assert.ok(r.body.data.steps, 'should have steps field');
+    assert.ok(Array.isArray(r.body.data.steps));
+    assert.ok(r.body.data.media, 'should have media field');
+    assert.ok(Array.isArray(r.body.data.media));
+    // Extras — must be returned by getRecipe over real HTTP + PostgreSQL
+    assert.ok(Array.isArray(r.body.data.meal_types), 'meal_types must be array');
+    assert.ok(r.body.data.meal_types.includes('DINNER'), 'meal_types must include fixture DINNER');
+    assert.ok(Array.isArray(r.body.data.tags), 'tags must be array');
+    assert.ok(r.body.data.tags.includes('HOME_STYLE'), 'tags must include fixture HOME_STYLE');
+    assert.ok(Array.isArray(r.body.data.cookware), 'cookware must be array');
+    assert.ok(r.body.data.cookware.includes('WOK'), 'cookware must include fixture WOK');
+    assert.ok(Array.isArray(r.body.data.allergens), 'allergens must be array');
+    assert.ok(r.body.data.allergens.includes('SOY'), 'allergens must include fixture SOY');
     assert.ok(r.body.data.viewer, 'should have viewer field');
     assert.equal(r.body.data.viewer.wish_status, null);
     assert.equal(r.body.data.nutrition, null);
