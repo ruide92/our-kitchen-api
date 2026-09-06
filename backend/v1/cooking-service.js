@@ -105,56 +105,82 @@ function createCookingService(pool) {
     });
   }
 
-  // Build consumption candidates from frozen snapshot + current fridge inventory
+  // Build consumption candidates from frozen snapshot + current fridge inventory.
+  // Aggregates same ingredient + compatible dimension into one candidate.
   async function buildConsumptionCandidates(tx, familyId, meal, snapshot, unitsMap) {
     const snapshotIngredients = getIngredientsFromSnapshot(snapshot);
-    const candidates = [];
 
+    // Aggregate by ingredient_id + dimension key
+    const agg = new Map(); // key: ingredient_id|dimension, value: {ingredient_id, name, unit_code, suggestedBase, sources}
     for (const ing of snapshotIngredients) {
       if (!ing.ingredient_id) continue; // custom/text ingredients: not auto-deductable
+      const unit = ing.unit_code ? unitsMap.get(ing.unit_code) : null;
+      const dimension = unit?.dimension || 'UNKNOWN';
+      const key = `${ing.ingredient_id}|${dimension}`;
+      const conv = toBaseQuantity(ing.quantity, ing.unit_code, unitsMap);
+      if (!agg.has(key)) {
+        agg.set(key, {
+          ingredient_id: ing.ingredient_id,
+          name: ing.name,
+          unit_code: ing.unit_code,
+          dimension,
+          suggestedBase: 0,
+          baseUnit: conv.converted ? conv.unitCode : ing.unit_code,
+          auto_deductable: !!(unit && unit.to_base_factor && (dimension === 'MASS' || dimension === 'VOLUME')),
+          sources: [],
+        });
+      }
+      const entry = agg.get(key);
+      entry.suggestedBase += conv.converted ? conv.quantity : (Number(ing.quantity) || 0);
+      entry.sources.push({ recipe_id: ing.recipe_id, quantity: ing.quantity, unit_code: ing.unit_code });
+    }
 
-      // Get current fridge inventory for this ingredient
+    const candidates = [];
+    for (const entry of agg.values()) {
+      // Get current fridge inventory — only compatible units count toward available
       const fridgeItems = (await tx.query(`
         SELECT id, quantity, unit_code, expiry_date FROM fridge_items
         WHERE family_id=$1 AND ingredient_id=$2 AND quantity > 0
         ORDER BY expiry_date NULLS LAST
-      `, [familyId, ing.ingredient_id])).rows;
+      `, [familyId, entry.ingredient_id])).rows;
 
-      // Calculate total available in base units
       let availableBase = 0;
-      let availableUnitCode = ing.unit_code;
       for (const fi of fridgeItems) {
+        if (!areUnitsCompatible(fi.unit_code, entry.baseUnit || entry.unit_code, unitsMap)) continue;
         const conv = toBaseQuantity(fi.quantity, fi.unit_code, unitsMap);
-        if (conv.converted) {
-          availableBase += conv.quantity;
-          availableUnitCode = conv.unitCode;
-        } else if (fi.unit_code === ing.unit_code) {
-          availableBase += fi.quantity;
-        }
+        if (conv.converted) availableBase += conv.quantity;
+        else if (fi.unit_code === entry.unit_code) availableBase += Number(fi.quantity);
       }
 
-      // Convert available back to ingredient's unit for display
+      // Convert suggested and available back to candidate unit for display
+      let suggestedQuantity = entry.suggestedBase;
       let availableQuantity = availableBase;
-      if (availableBase > 0 && ing.unit_code) {
-        const back = fromBaseQuantity(availableBase, ing.unit_code, unitsMap);
-        if (back.converted) availableQuantity = back.quantity;
+      if (entry.unit_code) {
+        const backS = fromBaseQuantity(entry.suggestedBase, entry.unit_code, unitsMap);
+        if (backS.converted) suggestedQuantity = backS.quantity;
+        const backA = fromBaseQuantity(availableBase, entry.unit_code, unitsMap);
+        if (backA.converted) availableQuantity = backA.quantity;
       }
 
       candidates.push({
-        ingredient_id: ing.ingredient_id,
-        name: ing.name,
-        suggested_quantity: ing.quantity,
-        unit_code: ing.unit_code,
+        ingredient_id: entry.ingredient_id,
+        name: entry.name,
+        suggested_quantity: suggestedQuantity,
+        unit_code: entry.unit_code,
         available_quantity: availableQuantity,
-        available_unit_code: ing.unit_code,
-        auto_deductable: true,
+        available_unit_code: entry.unit_code,
+        auto_deductable: entry.auto_deductable,
+        sources: entry.sources,
       });
     }
 
     return candidates;
   }
 
-  // Complete cooking: validate consumption, deduct inventory in batches, write movements
+  // Complete cooking: validate consumption, deduct inventory in batches, write movements.
+  // Aggregates duplicate ingredient consumption before deduction to prevent
+  // stale-read double-deduction. Each batch mutation is applied immediately
+  // within the single transaction so subsequent deductions see real quantities.
   async function completeCooking(familyId, userId, sessionId, consumption) {
     return access(familyId, userId, null, true, async tx => {
       const session = (await tx.query('SELECT * FROM cooking_sessions WHERE id=$1 AND family_id=$2', [sessionId, familyId])).rows[0];
@@ -172,103 +198,100 @@ function createCookingService(pool) {
       const snapshotIngredients = getIngredientsFromSnapshot(snapshot);
       const allowedIngredientIds = new Set(snapshotIngredients.filter(i => i.ingredient_id).map(i => i.ingredient_id));
 
-      const movements = [];
-      const fridgeMutations = []; // collect first, apply after movements to avoid FK violation
-
+      // --- Phase 1: validate all consumption items ---
+      const validItems = [];
       for (const cons of consumption || []) {
         const { ingredient_id, quantity, unit_code } = cons;
+        if (quantity == null || Number(quantity) <= 0) continue; // skip zero-quantity
 
-        // Skip zero-quantity items (user chose not to deduct)
-        if (quantity == null || Number(quantity) <= 0) continue;
-
-        // Validate ingredient exists in frozen snapshot
         if (!ingredient_id || !allowedIngredientIds.has(ingredient_id)) {
           throw new ApiError(422, 'INGREDIENT_NOT_IN_SNAPSHOT',
-            `食材 ${ingredient_id || '未知'} 不在本餐冻结菜谱中，不能扣库存`,
-            { ingredient_id });
+            `食材 ${ingredient_id || '未知'} 不在本餐冻结菜谱中，不能扣库存`, { ingredient_id });
         }
-
-        // Validate quantity
         const qty = Number(quantity);
         if (!Number.isFinite(qty) || qty <= 0) {
           throw new ApiError(422, 'INVALID_CONSUMPTION', `用量必须是正数`, { ingredient_id });
         }
-
-        // Validate unit code
         if (!unit_code) {
           throw new ApiError(422, 'INVALID_CONSUMPTION', `缺少单位`, { ingredient_id });
         }
+        // Unit must exist in formal units table
+        if (!unitsMap.has(unit_code)) {
+          throw new ApiError(422, 'INVALID_CONSUMPTION', `未知单位 ${unit_code}`, { ingredient_id, unit_code });
+        }
+        validItems.push({ ingredient_id, quantity: qty, unit_code });
+      }
 
-        // Get fridge batches for this ingredient, FIFO by expiry
+      // --- Phase 2: aggregate compatible consumption by ingredient + dimension ---
+      const agg = new Map(); // key: ingredient_id|baseUnit, value: {ingredient_id, totalBase, unit_code, baseUnit}
+      for (const item of validItems) {
+        const conv = toBaseQuantity(item.quantity, item.unit_code, unitsMap);
+        const baseUnit = conv.converted ? conv.unitCode : item.unit_code;
+        const key = `${item.ingredient_id}|${baseUnit}`;
+        if (!agg.has(key)) {
+          agg.set(key, { ingredient_id: item.ingredient_id, totalBase: 0, unit_code: item.unit_code, baseUnit });
+        }
+        agg.get(key).totalBase += conv.converted ? conv.quantity : item.quantity;
+      }
+
+      const movements = [];
+
+      // --- Phase 3: deduct each aggregated ingredient ---
+      for (const ded of agg.values()) {
+        // Re-read fridge batches each time — previous deductions within this
+        // transaction have already been applied, so quantities are real.
         const fridgeItems = (await tx.query(`
           SELECT * FROM fridge_items WHERE family_id=$1 AND ingredient_id=$2 AND quantity > 0
           ORDER BY expiry_date NULLS LAST
           FOR UPDATE
-        `, [familyId, ingredient_id])).rows;
+        `, [familyId, ded.ingredient_id])).rows;
 
-        // Convert requested quantity to base units
-        const requestedBase = toBaseQuantity(qty, unit_code, unitsMap);
-        let remainingBase = requestedBase.converted ? requestedBase.quantity : qty;
-        const workingUnitCode = requestedBase.converted ? requestedBase.unitCode : unit_code;
+        let remainingBase = ded.totalBase;
 
         for (const fi of fridgeItems) {
           if (remainingBase <= 0.0001) break;
 
-          // Check unit compatibility
-          if (!areUnitsCompatible(fi.unit_code, workingUnitCode, unitsMap) && fi.unit_code !== workingUnitCode) {
-            continue; // skip incompatible batches
+          // Only compatible units can be deducted against this request
+          if (!areUnitsCompatible(fi.unit_code, ded.baseUnit, unitsMap) && fi.unit_code !== ded.baseUnit) {
+            continue;
           }
 
           const fiBase = toBaseQuantity(fi.quantity, fi.unit_code, unitsMap);
-          const fiQtyBase = fiBase.converted ? fiBase.quantity : fi.quantity;
+          const fiQtyBase = fiBase.converted ? fiBase.quantity : Number(fi.quantity);
           const takeBase = Math.min(fiQtyBase, remainingBase);
 
-          // Convert taken amount back to this batch's unit for the actual mutation
+          // Convert taken amount back to this batch's unit
           const takeInBatchUnit = fromBaseQuantity(takeBase, fi.unit_code, unitsMap);
           const take = takeInBatchUnit.converted ? takeInBatchUnit.quantity : takeBase;
           const newQty = Number(fi.quantity) - take;
 
-          fridgeMutations.push({ id: fi.id, newQty, willDelete: newQty <= 0.0001 });
+          // INSERT movement FIRST (before DELETE to avoid FK violation)
+          await tx.query(`INSERT INTO inventory_movements(id,family_id,fridge_item_id,ingredient_id,movement_type,quantity_delta,unit_code,meal_id,performed_by_user_id)
+            VALUES($1,$2,$3,$4,'COOK_OUT',$5,$6,$7,$8)`,
+            [randomUUID(), familyId, fi.id, ded.ingredient_id, -take, fi.unit_code, session.meal_id, userId]);
+          movements.push({ fridge_item_id: fi.id, ingredient_id: ded.ingredient_id, quantity_delta: -take, unit_code: fi.unit_code });
+
+          // Immediately UPDATE or DELETE this batch so the next deduction sees real quantity
+          if (newQty <= 0.0001) {
+            await tx.query('DELETE FROM fridge_items WHERE id=$1', [fi.id]);
+          } else {
+            await tx.query('UPDATE fridge_items SET quantity=$1, version=version+1, updated_at=now() WHERE id=$2', [newQty, fi.id]);
+          }
 
           remainingBase -= takeBase;
-
-          // Movement recorded in the BATCH's actual unit (matches mutation)
-          movements.push({
-            fridge_item_id: fi.id,
-            ingredient_id,
-            quantity_delta: -take,
-            unit_code: fi.unit_code,
-          });
         }
 
         if (remainingBase > 0.0001) {
-          // Convert remaining back to requested unit for error message
-          const remainingInReqUnit = fromBaseQuantity(remainingBase, unit_code, unitsMap);
+          const remainingInReqUnit = fromBaseQuantity(remainingBase, ded.unit_code, unitsMap);
           throw new ApiError(422, 'INVENTORY_INSUFFICIENT',
             `食材库存不足`,
             {
-              ingredient_id,
-              requested: qty,
-              requested_unit: unit_code,
+              ingredient_id: ded.ingredient_id,
+              requested: ded.totalBase,
+              requested_unit: ded.unit_code,
               remaining: remainingInReqUnit.converted ? remainingInReqUnit.quantity : remainingBase,
-              remaining_unit: unit_code,
+              remaining_unit: ded.unit_code,
             });
-        }
-      }
-
-      // Write COOK_OUT movements FIRST (before fridge DELETEs) to avoid FK violation
-      for (const m of movements) {
-        await tx.query(`INSERT INTO inventory_movements(id,family_id,fridge_item_id,ingredient_id,movement_type,quantity_delta,unit_code,meal_id,performed_by_user_id)
-          VALUES($1,$2,$3,$4,'COOK_OUT',$5,$6,$7,$8)`,
-          [randomUUID(), familyId, m.fridge_item_id, m.ingredient_id, m.quantity_delta, m.unit_code, session.meal_id, userId]);
-      }
-
-      // Now apply fridge mutations (UPDATE or DELETE)
-      for (const fm of fridgeMutations) {
-        if (fm.willDelete) {
-          await tx.query('DELETE FROM fridge_items WHERE id=$1', [fm.id]);
-        } else {
-          await tx.query('UPDATE fridge_items SET quantity=$1, version=version+1, updated_at=now() WHERE id=$2', [fm.newQty, fm.id]);
         }
       }
 

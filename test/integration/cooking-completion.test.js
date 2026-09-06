@@ -310,6 +310,8 @@ test('12C Cooking completion + inventory deduction against real PostgreSQL', asy
     const sess = await request('GET', `/families/${family.id}/cooking-sessions/${sessionId}`);
     const pork = sess.body.data.consumption_candidates.find(c => c.ingredient_id === ingPork);
     assert.equal(pork.suggested_quantity, 500, 'should be frozen 500g, not live 999g');
+    // Restore live recipe for subsequent tests
+    await pool.query("UPDATE recipe_ingredients SET quantity=500 WHERE recipe_id=$1 AND ingredient_id=$2", [recipe, ingPork]);
   });
 
   // D15: completed history recipe identity stays frozen
@@ -322,5 +324,149 @@ test('12C Cooking completion + inventory deduction against real PostgreSQL', asy
     const meal = hist.body.data.find(m => m.id === mealId);
     assert.ok(meal, 'completed meal should be in history');
     assert.equal(meal.items[0].recipe_name, '红烧肉', 'history should show frozen name, not live rename');
+  });
+
+  // ===== Duplicate ingredient aggregation tests (D16-D21) =====
+
+  // Second recipe: 回锅肉 (300g pork + 100g tomato, 2 servings)
+  const recipe2 = randomUUID();
+  await pool.query(`INSERT INTO recipes(id,kind,family_id,source_type,name,base_servings,visibility,version)
+    VALUES ($1,'BASE',NULL,'SEED','回锅肉',2,'PUBLIC',1)`, [recipe2]);
+  await pool.query(`INSERT INTO recipe_ingredients(id,recipe_id,ingredient_id,display_name_override,quantity,unit_code,type,required,sort_order) VALUES
+    ($1,$2,$3,'五花肉',300,'g','MAIN',true,0),($4,$2,$5,'蒜苗',100,'g','MAIN',true,1)`,
+    [randomUUID(), recipe2, ingPork, randomUUID(), ingTomato]);
+  await pool.query("INSERT INTO recipe_steps(id,recipe_id,step_no,title,operation,sort_order) VALUES ($1,$2,1,'切片','五花肉切片',0)",
+    [randomUUID(), recipe2]);
+
+  // Helper: meal with TWO recipes both containing pork
+  async function setupMultiRecipeCookingSession() {
+    await cleanFridge();
+    mealCounter++;
+    const d = new Date();
+    d.setDate(d.getDate() + mealCounter);
+    const mealDate = d.toISOString().slice(0, 10);
+    const mealRes = await request('PUT', `/families/${family.id}/meals/current`, { meal_date: mealDate, meal_type: 'DINNER', diners_count: 2 });
+    const mealId = mealRes.body.data.id;
+    await request('POST', `/families/${family.id}/meals/${mealId}/items`, { recipe_id: recipe, servings: 2, source: 'MANUAL' });
+    await request('POST', `/families/${family.id}/meals/${mealId}/items`, { recipe_id: recipe2, servings: 2, source: 'MANUAL' });
+    const confRes = await request('POST', `/families/${family.id}/meals/${mealId}/confirm`);
+    if (confRes.status !== 200) throw new Error(`confirm failed: ${confRes.status}`);
+    const startRes = await request('POST', `/families/${family.id}/meals/${mealId}/cooking-sessions`);
+    if (startRes.status !== 201) throw new Error(`start failed: ${startRes.status}`);
+    return { mealId, sessionId: startRes.body.data.session_id };
+  }
+
+  // D16: two recipes sharing same ingredient → candidate aggregated
+  await t.test('D16: duplicate ingredient across recipes aggregates into one candidate', async () => {
+    const { sessionId } = await setupMultiRecipeCookingSession();
+    const sess = await request('GET', `/families/${family.id}/cooking-sessions/${sessionId}`);
+    const porkCandidates = sess.body.data.consumption_candidates.filter(c => c.ingredient_id === ingPork);
+    assert.equal(porkCandidates.length, 1, 'should be ONE aggregated pork candidate, not two');
+    // recipe1: 500g pork, recipe2: 300g pork → total 800g
+    assert.equal(Number(porkCandidates[0].suggested_quantity), 800, 'aggregated suggested should be 500+300=800g');
+    assert.ok(porkCandidates[0].sources, 'should include sources evidence');
+    assert.equal(porkCandidates[0].sources.length, 2, 'should have 2 source recipes');
+  });
+
+  // D17: duplicate consumption 300g+200g, 1kg fridge → 0.5kg, ledger matches
+  await t.test('D17: duplicate consumption 300g+200g deducts once correctly', async () => {
+    const { sessionId } = await setupCookingSession();
+    const fridgeId = randomUUID();
+    await pool.query(`INSERT INTO fridge_items(id,family_id,ingredient_id,quantity,unit_code,storage_location,created_by_user_id)
+      VALUES ($1,$2,$3,1,'kg','REFRIGERATED',$4)`, [fridgeId, family.id, ingPork, user.id]);
+    // Send duplicate consumption entries (simulating old/malicious client)
+    const res = await request('POST', `/families/${family.id}/cooking-sessions/${sessionId}/complete`, {
+      consumption: [
+        { ingredient_id: ingPork, quantity: 300, unit_code: 'g' },
+        { ingredient_id: ingPork, quantity: 200, unit_code: 'g' },
+      ],
+    });
+    assert.equal(res.status, 200);
+    // Fridge: 1kg - 500g = 0.5kg
+    const fi = (await pool.query('SELECT quantity, unit_code FROM fridge_items WHERE id=$1', [fridgeId])).rows[0];
+    assert.equal(Number(fi.quantity), 0.5, 'fridge should be 0.5kg (1kg - 500g aggregated)');
+    // Movements total should equal fridge delta
+    const mvs = (await pool.query("SELECT quantity_delta, unit_code FROM inventory_movements WHERE movement_type='COOK_OUT' AND ingredient_id=$1", [ingPork])).rows;
+    const totalMovedKg = mvs.reduce((sum, m) => {
+      const conv = m.unit_code === 'kg' ? Number(m.quantity_delta) : Number(m.quantity_delta) / 1000;
+      return sum + conv;
+    }, 0);
+    assert.ok(Math.abs(totalMovedKg - (-0.5)) < 0.001, `movements total ${totalMovedKg} should equal -0.5kg`);
+  });
+
+  // D18: duplicate over-consumption 800g+800g, 1kg → 422 + full rollback
+  await t.test('D18: duplicate over-consumption fails with rollback', async () => {
+    const { sessionId } = await setupCookingSession();
+    const fridgeId = randomUUID();
+    await pool.query(`INSERT INTO fridge_items(id,family_id,ingredient_id,quantity,unit_code,storage_location,created_by_user_id)
+      VALUES ($1,$2,$3,1,'kg','REFRIGERATED',$4)`, [fridgeId, family.id, ingPork, user.id]);
+    const res = await request('POST', `/families/${family.id}/cooking-sessions/${sessionId}/complete`, {
+      consumption: [
+        { ingredient_id: ingPork, quantity: 800, unit_code: 'g' },
+        { ingredient_id: ingPork, quantity: 800, unit_code: 'g' },
+      ],
+    });
+    assert.equal(res.status, 422);
+    assert.equal(res.body.error.code, 'INVENTORY_INSUFFICIENT');
+    // Full rollback: fridge unchanged
+    const fi = (await pool.query('SELECT quantity FROM fridge_items WHERE id=$1', [fridgeId])).rows[0];
+    assert.equal(Number(fi.quantity), 1, 'fridge should still be 1kg after rollback');
+    // No movements written
+    const mvs = (await pool.query("SELECT COUNT(*)::int as n FROM inventory_movements WHERE movement_type='COOK_OUT'")).rows[0].n;
+    assert.equal(mvs, 0, 'no movements after rollback');
+    // Session still ACTIVE, meal still COOKING
+    const sess = await request('GET', `/families/${family.id}/cooking-sessions/${sessionId}`);
+    assert.equal(sess.body.data.status, 'ACTIVE');
+    assert.equal(sess.body.data.meal.status, 'COOKING');
+  });
+
+  // D19: g candidate availability ignores piece inventory
+  await t.test('D19: g candidate availability excludes incompatible piece inventory', async () => {
+    const { sessionId } = await setupCookingSession();
+    // Add 1kg pork (compatible) + 5 piece pork (incompatible with g)
+    await pool.query(`INSERT INTO fridge_items(id,family_id,ingredient_id,quantity,unit_code,storage_location,created_by_user_id)
+      VALUES ($1,$2,$3,1,'kg','REFRIGERATED',$4)`, [randomUUID(), family.id, ingPork, user.id]);
+    await pool.query(`INSERT INTO fridge_items(id,family_id,ingredient_id,quantity,unit_code,storage_location,created_by_user_id)
+      VALUES ($1,$2,$3,5,'piece','REFRIGERATED',$4)`, [randomUUID(), family.id, ingPork, user.id]);
+    const sess = await request('GET', `/families/${family.id}/cooking-sessions/${sessionId}`);
+    const pork = sess.body.data.consumption_candidates.find(c => c.ingredient_id === ingPork);
+    // available should be 1000g (from 1kg), NOT 1005g (piece must not count)
+    assert.equal(Number(pork.available_quantity), 1000, 'available should be 1000g, piece inventory excluded');
+  });
+
+  // D20: unknown unit → INVALID_CONSUMPTION
+  await t.test('D20: unknown unit code returns INVALID_CONSUMPTION', async () => {
+    const { sessionId } = await setupCookingSession();
+    const res = await request('POST', `/families/${family.id}/cooking-sessions/${sessionId}/complete`, {
+      consumption: [{ ingredient_id: ingPork, quantity: 100, unit_code: 'fakeunit' }],
+    });
+    assert.equal(res.status, 422);
+    assert.equal(res.body.error.code, 'INVALID_CONSUMPTION');
+  });
+
+  // D21: ingredient with COUNT unit in snapshot → auto_deductable=false
+  await t.test('D21: COUNT-unit snapshot ingredient has auto_deductable=false', async () => {
+    // Create a recipe with a piece-count ingredient
+    const ingEgg = randomUUID();
+    await pool.query(`INSERT INTO ingredients(id,canonical_code,display_name,category_code,default_unit_code) VALUES ($1,'egg','鸡蛋','PROTEIN','piece')`, [ingEgg]);
+    const recipeEgg = randomUUID();
+    await pool.query(`INSERT INTO recipes(id,kind,family_id,source_type,name,base_servings,visibility,version)
+      VALUES ($1,'BASE',NULL,'SEED','煎蛋',2,'PUBLIC',1)`, [recipeEgg]);
+    await pool.query(`INSERT INTO recipe_ingredients(id,recipe_id,ingredient_id,display_name_override,quantity,unit_code,type,required,sort_order) VALUES
+      ($1,$2,$3,'鸡蛋',2,'piece','MAIN',true,0)`, [randomUUID(), recipeEgg, ingEgg]);
+    await pool.query("INSERT INTO recipe_steps(id,recipe_id,step_no,title,operation,sort_order) VALUES ($1,$2,1,'煎蛋','热锅下油',0)", [randomUUID(), recipeEgg]);
+
+    mealCounter++;
+    const d = new Date(); d.setDate(d.getDate() + mealCounter);
+    const mealRes = await request('PUT', `/families/${family.id}/meals/current`, { meal_date: d.toISOString().slice(0,10), meal_type: 'DINNER', diners_count: 2 });
+    const mealId = mealRes.body.data.id;
+    await request('POST', `/families/${family.id}/meals/${mealId}/items`, { recipe_id: recipeEgg, servings: 2, source: 'MANUAL' });
+    await request('POST', `/families/${family.id}/meals/${mealId}/confirm`);
+    const startRes = await request('POST', `/families/${family.id}/meals/${mealId}/cooking-sessions`);
+    const sessionId = startRes.body.data.session_id;
+    const sess = await request('GET', `/families/${family.id}/cooking-sessions/${sessionId}`);
+    const egg = sess.body.data.consumption_candidates.find(c => c.ingredient_id === ingEgg);
+    assert.ok(egg, 'egg candidate should exist');
+    assert.equal(egg.auto_deductable, false, 'piece/COUNT ingredient should be auto_deductable=false');
   });
 });

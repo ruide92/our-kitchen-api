@@ -24,12 +24,17 @@ function fromBaseQuantity(baseQuantity, targetUnitCode, unitsMap) {
 }
 
 // Check if two units are in the same convertible dimension.
+// MASS and VOLUME: same dimension + both have to_base_factor → compatible.
+// COUNT and TEXT: only exact same unit code is compatible (no implicit 1:1
+// conversion between piece/root/bottle etc. unless an explicit contract exists).
 // Unknown units are not compatible with anything except exact match.
 function areUnitsCompatible(unitCode1, unitCode2, unitsMap) {
   if (unitCode1 === unitCode2) return true;
   const u1 = unitsMap.get(unitCode1);
   const u2 = unitsMap.get(unitCode2);
   if (!u1 || !u2 || !u1.dimension || !u2.dimension) return false;
+  // Only MASS and VOLUME allow cross-code dimension conversion.
+  if (u1.dimension !== 'MASS' && u1.dimension !== 'VOLUME') return false;
   return u1.dimension === u2.dimension && u1.to_base_factor && u2.to_base_factor;
 }
 

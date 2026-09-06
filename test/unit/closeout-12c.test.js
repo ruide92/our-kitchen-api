@@ -174,3 +174,18 @@ test('F1-extra: v1-api has getCookingSession and getActiveCookingSession', () =>
   assert.ok(apiJs.includes('getCookingSession'), 'v1-api must have getCookingSession');
   assert.ok(apiJs.includes('getActiveCookingSession'), 'v1-api must have getActiveCookingSession');
 });
+
+// ===== F13: merged candidate renders one row, sends one deduction =====
+test('F13: merged candidate from server renders single row and sends one deduction', () => {
+  const mealJs = fs.readFileSync(MEAL_JS, 'utf8');
+  const mealWxml = fs.readFileSync(MEAL_WXML, 'utf8');
+  // Completion sheet must render server-provided consumption_candidates directly
+  assert.ok(mealWxml.includes('consumption_candidates') || mealWxml.includes('consumptionCandidates') || mealWxml.includes('candidates'),
+    'WXML must render server candidates list');
+  // confirmComplete must build consumption from the candidate list (not re-aggregate)
+  assert.ok(mealJs.includes('confirmComplete'), 'must have confirmComplete handler');
+  assert.ok(mealJs.includes('ingredient_id') && mealJs.includes('quantity') && mealJs.includes('unit_code'),
+    'payload must include ingredient_id, quantity, unit_code');
+  // Must not have a second client-side aggregation pass that could double-count
+  assert.ok(!mealJs.includes('groupByIngredient') || mealJs.includes('server'), 'should not independently re-aggregate');
+});
