@@ -293,6 +293,8 @@ OWNER/ADMIN/MEMBER 可新建家庭菜谱；请求使用与 detail 相同的 reci
 
 生成 `DRAFT`，返回完整 candidate 及 recommendation reasons；不覆盖 ACTIVE。
 
+`copy_from_plan_id`：基于同 family 已有 plan 创建 NEW DRAFT 精确副本。source plan 不变；item id 重新生成；`plan_date`/`meal_type`/`recipe_id`/`sort_order`/`locked`/`source` 全部保留。
+
 ### POST `/api/v1/families/:family_id/weekly-plans/:plan_id/confirm`
 
 事务：旧 ACTIVE → ARCHIVED；该 DRAFT → ACTIVE。
@@ -303,7 +305,7 @@ OWNER/ADMIN/MEMBER 可新建家庭菜谱；请求使用与 detail 相同的 reci
 
 ### PATCH `/api/v1/families/:family_id/weekly-plans/:plan_id/items/:item_id`
 
-允许 `locked, sort_order`。
+严格只允许 `locked, sort_order`。body 含任何其它字段 → `400 INVALID_REQUEST`。仅 DRAFT 可写。
 
 ### DELETE `/api/v1/families/:family_id/weekly-plans/:plan_id/items/:item_id`
 
@@ -314,10 +316,12 @@ OWNER/ADMIN/MEMBER 可新建家庭菜谱；请求使用与 detail 相同的 reci
 请求 scope：
 
 ```json
-{"scope":"MEAL|DAY|WEEK","plan_date":"2026-09-09","meal_type":"DINNER"}
+{"scope":"MEAL|DAY|WEEK","plan_date":"2026-09-09","meal_type":"DINNER","swap_item_id":"optional"}
 ```
 
-返回**新的 DRAFT**，原 plan 不变。scope 外 items 完整复制；scope 内 locked 保留；scope 内 unlocked 重新推荐（source=SWAP）。可选 `swap_item_id` 仅换指定一道。仅 DRAFT 可 regenerate。
+`MEAL` 必须提供 `plan_date`+`meal_type`；`DAY` 必须提供 `plan_date`；`meal_type` 仅限 `BREAKFAST|LUNCH|DINNER`。`swap_item_id` 仅允许 `scope=MEAL`，目标必须 unlocked 否则 `409 ITEM_LOCKED`。
+
+返回**新的 DRAFT**，原 plan 不变。scope 外 items 完整复制；scope 内 locked 保留且不被重新选中（无 duplicate）；scope 内 unlocked 重新推荐（source=SWAP）。swap 时 replacement 不得等于 target 或与同餐 preserved 重复；无合法替代 → `409 NO_ALTERNATIVE_RECIPE`。仅 DRAFT 可 regenerate。
 
 ## 11. Meals / 本餐菜单
 

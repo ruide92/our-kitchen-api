@@ -271,6 +271,18 @@
   line-height: 1;
 }
 
+
+.plan-dish-add-weekly {
+  width: auto;
+  min-width: 140rpx;
+  padding: 0 16rpx;
+  border: 1rpx dashed #FF9800;
+  background: #FFF8E1;
+}
+.plan-dish-add-weekly .plan-dish-add-icon { color: #FF9800; }
+.plan-dish-add-weekly .plan-dish-add-text { color: #E65100; white-space: nowrap; }
+.target-bar-weekly { background: #FFF8E1; border-bottom: 1rpx solid #FFE0B2; }
+.target-cancel { margin-left: auto; font-size: 24rpx; color: #E65100; padding: 4rpx 16rpx; }
 .plan-dish-add-text {
   font-size: 16rpx;
   color: #7CB342;

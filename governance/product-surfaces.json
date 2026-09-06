@@ -377,6 +377,24 @@
       "final": "REAL"
     },
     {
+      "id": "MENU-28",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "startWeeklyAdd",
+      "label": "添加到周计划",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MENU-29",
+      "page": "menu",
+      "kind": "wxml-handler",
+      "handler": "cancelWeeklyAdd",
+      "label": "取消添加到周计划",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
       "id": "MENU-NAV-01",
       "page": "menu",
       "kind": "navigation",

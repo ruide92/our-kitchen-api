@@ -283,9 +283,8 @@ test('Weekly Plan Management integration against real PostgreSQL', async t => {
     assert.deepEqual(lunchAfter, lunchBefore);
   });
 
-  // ===== W16: swap locked item rejected =====
-  await t.test('W16 swap locked rejected at frontend (backend allows via swap_item_id but locked preserved)', async () => {
-    // Backend: if swap_item_id points to a locked item, it's preserved (not swapped)
+  // ===== W16: swap locked item rejected by backend =====
+  await t.test('W16 swap locked item rejected by backend', async () => {
     const copy = await request('A', 'POST', `/families/${familyA.id}/weekly-plans/generate`, {
       copy_from_plan_id: activePlan.id
     });
@@ -293,14 +292,11 @@ test('Weekly Plan Management integration against real PostgreSQL', async t => {
     const dinnerItems = draft.items.filter(i => i.meal_type === 'DINNER' && i.plan_date === WEEK_START);
     if (dinnerItems.length === 0) return;
     await request('A', 'PATCH', `/families/${familyA.id}/weekly-plans/${draft.id}/items/${dinnerItems[0].id}`, { locked: true });
-    const lockedRecipe = dinnerItems[0].recipe_id;
     const r = await request('A', 'POST', `/families/${familyA.id}/weekly-plans/${draft.id}/regenerate`, {
       scope: 'MEAL', plan_date: WEEK_START, meal_type: 'DINNER', swap_item_id: dinnerItems[0].id
     });
-    const newDraft = r.body.data;
-    // Locked item preserved even when targeted as swap
-    const found = newDraft.items.find(i => i.recipe_id === lockedRecipe && i.locked === true);
-    assert.ok(found);
+    assert.equal(r.status, 409);
+    assert.equal(r.body.error.code, 'ITEM_LOCKED');
   });
 
   // ===== W17: regenerate returns new DRAFT, original plan unchanged =====
@@ -389,5 +385,145 @@ test('Weekly Plan Management integration against real PostgreSQL', async t => {
       plan_date: WEEK_START, meal_type: 'DINNER', recipe_id: r1
     });
     assert.equal(r.status, 403);
+  });
+
+  // ===== W23: locked item not duplicated on regenerate =====
+  await t.test('W23 locked item preserved exactly once on MEAL regenerate', async () => {
+    const copy = await request('A', 'POST', `/families/${familyA.id}/weekly-plans/generate`, {
+      copy_from_plan_id: activePlan.id
+    });
+    const draft = copy.body.data;
+    const dinnerItems = draft.items.filter(i => i.meal_type === 'DINNER' && i.plan_date === WEEK_START);
+    if (dinnerItems.length < 2) return;
+    // Lock first dinner item
+    await request('A', 'PATCH', `/families/${familyA.id}/weekly-plans/${draft.id}/items/${dinnerItems[0].id}`, { locked: true });
+    const lockedRecipe = dinnerItems[0].recipe_id;
+    const r = await request('A', 'POST', `/families/${familyA.id}/weekly-plans/${draft.id}/regenerate`, {
+      scope: 'MEAL', plan_date: WEEK_START, meal_type: 'DINNER'
+    });
+    assert.equal(r.status, 201);
+    const newDraft = r.body.data;
+    const lockedCount = newDraft.items.filter(i => i.recipe_id === lockedRecipe && i.locked === true).length;
+    assert.equal(lockedCount, 1, 'locked recipe must appear exactly once');
+  });
+
+  // ===== W24: swap actually changes recipe =====
+  await t.test('W24 swap actually changes target recipe', async () => {
+    // Create a controlled DRAFT with exactly 2 dinner items: r1 (target), r2 (preserved)
+    const planId = randomUUID();
+    await pool.query(`INSERT INTO weekly_plans(id,family_id,week_start_date,status,generation_mode,created_by_user_id)
+      VALUES ($1,$2,$3,'DRAFT','BALANCED',$4)`, [planId, familyA.id, WEEK_START, userA.id]);
+    await pool.query(`INSERT INTO weekly_plan_items(id,weekly_plan_id,plan_date,meal_type,recipe_id,sort_order,locked,added_by_user_id,source)
+      VALUES ($1,$2,$3,'DINNER',$4,0,false,$5,'GENERATED')`, [randomUUID(), planId, WEEK_START, r1, userA.id]);
+    await pool.query(`INSERT INTO weekly_plan_items(id,weekly_plan_id,plan_date,meal_type,recipe_id,sort_order,locked,added_by_user_id,source)
+      VALUES ($1,$2,$3,'DINNER',$4,1,false,$5,'GENERATED')`, [randomUUID(), planId, WEEK_START, r2, userA.id]);
+    const targetItem = (await pool.query('SELECT * FROM weekly_plan_items WHERE weekly_plan_id=$1 AND recipe_id=$2', [planId, r1])).rows[0];
+    const r = await request('A', 'POST', `/families/${familyA.id}/weekly-plans/${planId}/regenerate`, {
+      scope: 'MEAL', plan_date: WEEK_START, meal_type: 'DINNER', swap_item_id: targetItem.id
+    });
+    assert.equal(r.status, 201);
+    const newDraft = r.body.data;
+    const dinnerNew = newDraft.items.filter(i => i.meal_type === 'DINNER' && i.plan_date === WEEK_START);
+    // r1 (target) must NOT remain as the swapped item
+    const targetStillThere = dinnerNew.find(i => i.recipe_id === r1 && i.id !== targetItem.id);
+    assert.ok(!targetStillThere, 'target recipe must be replaced');
+    // r2 (preserved) must remain
+    assert.ok(dinnerNew.some(i => i.recipe_id === r2), 'preserved recipe must remain');
+    // No duplicate recipes
+    const recipeIds = dinnerNew.map(i => i.recipe_id);
+    assert.equal(new Set(recipeIds).size, recipeIds.length, 'no duplicate recipes in meal');
+  });
+
+  // ===== W25: no alternative recipe =====
+  await t.test('W25 swap with no alternative returns 409', async () => {
+    // Create DRAFT with only r1 and r2 in dinner, and ensure r3 is not DINNER-eligible
+    // Actually r3 is DINNER. Let's use a meal type with only 1 recipe: BREAKFAST has only r4
+    const planId = randomUUID();
+    await pool.query(`INSERT INTO weekly_plans(id,family_id,week_start_date,status,generation_mode,created_by_user_id)
+      VALUES ($1,$2,$3,'DRAFT','BALANCED',$4)`, [planId, familyA.id, WEEK_START, userA.id]);
+    await pool.query(`INSERT INTO weekly_plan_items(id,weekly_plan_id,plan_date,meal_type,recipe_id,sort_order,locked,added_by_user_id,source)
+      VALUES ($1,$2,$3,'BREAKFAST',$4,0,false,$5,'GENERATED')`, [randomUUID(), planId, WEEK_START, r4, userA.id]);
+    const targetItem = (await pool.query('SELECT * FROM weekly_plan_items WHERE weekly_plan_id=$1', [planId])).rows[0];
+    const r = await request('A', 'POST', `/families/${familyA.id}/weekly-plans/${planId}/regenerate`, {
+      scope: 'MEAL', plan_date: WEEK_START, meal_type: 'BREAKFAST', swap_item_id: targetItem.id
+    });
+    // Only r4 is BREAKFAST, so no alternative exists
+    assert.equal(r.status, 409);
+    assert.equal(r.body.error.code, 'NO_ALTERNATIVE_RECIPE');
+    // Source plan unchanged
+    const sourceItems = (await pool.query('SELECT COUNT(*)::int as n FROM weekly_plan_items WHERE weekly_plan_id=$1', [planId])).rows[0].n;
+    assert.equal(sourceItems, 1);
+  });
+
+  // ===== W26: strict PATCH rejects extra fields =====
+  await t.test('W26 strict PATCH rejects recipe_id field', async () => {
+    const copy = await request('A', 'POST', `/families/${familyA.id}/weekly-plans/generate`, {
+      copy_from_plan_id: activePlan.id
+    });
+    const draft = copy.body.data;
+    const item = draft.items.find(i => i.meal_type === 'DINNER');
+    if (!item) return;
+    const beforeLocked = item.locked;
+    const r = await request('A', 'PATCH', `/families/${familyA.id}/weekly-plans/${draft.id}/items/${item.id}`, {
+      locked: true, recipe_id: r2
+    });
+    assert.equal(r.status, 400);
+    assert.equal(r.body.error.code, 'INVALID_REQUEST');
+    // Verify unchanged
+    const after = (await pool.query('SELECT locked, recipe_id FROM weekly_plan_items WHERE id=$1', [item.id])).rows[0];
+    assert.equal(after.locked, beforeLocked);
+    assert.equal(after.recipe_id, item.recipe_id);
+  });
+
+  // ===== W27: regenerate parameter validation =====
+  await t.test('W27 regenerate validation rejects missing fields', async () => {
+    const copy = await request('A', 'POST', `/families/${familyA.id}/weekly-plans/generate`, {
+      copy_from_plan_id: activePlan.id
+    });
+    const draft = copy.body.data;
+    // MEAL without plan_date
+    const r1 = await request('A', 'POST', `/families/${familyA.id}/weekly-plans/${draft.id}/regenerate`, {
+      scope: 'MEAL', meal_type: 'DINNER'
+    });
+    assert.equal(r1.status, 400);
+    // DAY without plan_date
+    const r2 = await request('A', 'POST', `/families/${familyA.id}/weekly-plans/${draft.id}/regenerate`, {
+      scope: 'DAY'
+    });
+    assert.equal(r2.status, 400);
+    // swap_item_id with DAY scope
+    const r3 = await request('A', 'POST', `/families/${familyA.id}/weekly-plans/${draft.id}/regenerate`, {
+      scope: 'DAY', plan_date: WEEK_START, swap_item_id: randomUUID()
+    });
+    assert.equal(r3.status, 400);
+    // invalid meal_type
+    const r4 = await request('A', 'POST', `/families/${familyA.id}/weekly-plans/${draft.id}/regenerate`, {
+      scope: 'MEAL', plan_date: WEEK_START, meal_type: 'SNACK'
+    });
+    assert.equal(r4.status, 400);
+  });
+
+  // ===== W28: copy preserves sort_order and business fields, regenerates ids =====
+  await t.test('W28 copy preserves sort_order and fields, regenerates ids', async () => {
+    // Create source plan with known sort_orders
+    const srcId = randomUUID();
+    await pool.query(`INSERT INTO weekly_plans(id,family_id,week_start_date,status,generation_mode,created_by_user_id)
+      VALUES ($1,$2,$3,'ACTIVE','BALANCED',$4)`, [srcId, familyA.id, '2026-09-14', userA.id]);
+    const srcItemId = randomUUID();
+    await pool.query(`INSERT INTO weekly_plan_items(id,weekly_plan_id,plan_date,meal_type,recipe_id,sort_order,locked,added_by_user_id,source)
+      VALUES ($1,$2,$3,'DINNER',$4,5,true,$5,'MANUAL')`, [srcItemId, srcId, '2026-09-14', r1, userA.id]);
+    const r = await request('A', 'POST', `/families/${familyA.id}/weekly-plans/generate`, {
+      copy_from_plan_id: srcId
+    });
+    assert.equal(r.status, 201);
+    const newDraft = r.body.data;
+    const newItem = newDraft.items[0];
+    assert.notEqual(newItem.id, srcItemId, 'item id must be regenerated');
+    assert.equal(newItem.plan_date, '2026-09-14');
+    assert.equal(newItem.meal_type, 'DINNER');
+    assert.equal(newItem.recipe_id, r1);
+    assert.equal(newItem.sort_order, 5, 'sort_order must be preserved');
+    assert.equal(newItem.locked, true, 'locked must be preserved');
+    assert.equal(newItem.source, 'MANUAL', 'source must be preserved');
   });
 });

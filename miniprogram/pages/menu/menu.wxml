@@ -25,7 +25,8 @@
     <view wx:elif="{{weeklyStatus === 'empty'}}" class="state-empty">
       <text class="state-icon">📅</text>
       <text class="state-text">本周还没有生成计划</text>
-      <view class="state-btn" bindtap="generateWeekly"><text>生成本周菜谱</text></view>
+      <view wx:if="{{canEditWeekly}}" class="state-btn" bindtap="generateWeekly"><text>生成本周菜谱</text></view>
+      <view wx:else class="state-text state-text-sub">仅管理员可生成周计划</view>
     </view>
     <block wx:elif="{{weeklyStatus === 'active' || weeklyStatus === 'draft'}}">
 
@@ -84,6 +85,10 @@
               <text class="dish-action dish-action-del" data-item-id="{{dish.id}}" catchtap="removePlanItem">删除</text>
             </view>
           </view>
+          <view wx:if="{{weeklyStatus === 'draft' && canEditWeekly}}" class="plan-dish-add plan-dish-add-weekly" data-plan-date="{{item.planDate}}" data-meal-type="{{item.mealType}}" catchtap="startWeeklyAdd">
+            <text class="plan-dish-add-icon">+</text>
+            <text class="plan-dish-add-text">添加到周计划</text>
+          </view>
           <view class="plan-dish-add" data-meal-key="{{item.key}}" bindtap="addToMeal">
             <text class="plan-dish-add-icon">+</text>
             <text class="plan-dish-add-text">添加</text>
@@ -102,7 +107,13 @@
   <!-- ==================== 全部菜品视图 ==================== -->
   <block wx:if="{{activeTab === 'recipes'}}">
 
-    <view class="target-bar" bindtap="openTargetPicker">
+    <view wx:if="{{weeklyAddTarget}}" class="target-bar target-bar-weekly">
+      <text class="target-label">正在为：</text>
+      <text class="target-meal">{{weeklyAddTarget.plan_date}} · {{weeklyAddTarget.meal_type === 'BREAKFAST' ? '早餐' : weeklyAddTarget.meal_type === 'LUNCH' ? '午餐' : '晚餐'}}</text>
+      <text class="target-hint">添加到周计划</text>
+      <text class="target-cancel" catchtap="cancelWeeklyAdd">取消</text>
+    </view>
+    <view wx:else class="target-bar" bindtap="openTargetPicker">
       <text class="target-label">正在为：</text>
       <text class="target-meal">{{targetMealText}}</text>
       <text class="target-hint">选菜</text>

@@ -9,11 +9,11 @@
 
 | Status | Count |
 |---|---|
-| REAL | 175 |
+| REAL | 177 |
 | BROKEN | 9 |
 | PLANNED_DISABLED | 2 |
 | HIDDEN | 19 |
-| **Total** | **205** |
+| **Total** | **207** |
 
 ## Surfaces
 
@@ -180,6 +180,8 @@
 | MENU-25 | wxml-handler | generateWeekly | REAL | REAL |
 | MENU-26 | wxml-handler | confirmWeekly | REAL | REAL |
 | MENU-27 | wxml-handler | discardDraft | REAL | REAL |
+| MENU-28 | wxml-handler | startWeeklyAdd | REAL | REAL |
+| MENU-29 | wxml-handler | cancelWeeklyAdd | REAL | REAL |
 | MENU-DOCK-01 | dock | mini-cart | REAL | REAL |
 | MENU-NAV-01 | navigation | navigateTo | REAL | REAL |
 | MENU-OVERLAY-01 | overlay | 目标餐次选择器 Sheet | REAL | REAL |

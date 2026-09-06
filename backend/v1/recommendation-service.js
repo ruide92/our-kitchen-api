@@ -527,11 +527,10 @@ function createRecommendationService(pool, options = {}) {
         const newPlanId = randomUUID();
         await tx.query(`INSERT INTO weekly_plans(id,family_id,week_start_date,status,generation_mode,created_by_user_id)
           VALUES($1,$2,$3,'DRAFT',$4,$5)`, [newPlanId, familyId, source.week_start_date, source.generation_mode || mode, userId]);
-        let so = 0;
         for (const item of source.items) {
           await tx.query(`INSERT INTO weekly_plan_items(id,weekly_plan_id,plan_date,meal_type,recipe_id,sort_order,locked,added_by_user_id,source)
             VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-            [randomUUID(), newPlanId, item.plan_date, item.meal_type, item.recipe_id, so++, item.locked, item.added_by_user_id || userId, item.source]);
+            [randomUUID(), newPlanId, item.plan_date, item.meal_type, item.recipe_id, item.sort_order, item.locked, item.added_by_user_id || userId, item.source]);
         }
         return _fetchPlan(tx, newPlanId, familyId);
       }
@@ -725,7 +724,7 @@ function createRecommendationService(pool, options = {}) {
   }
 
   // Shared helper: pick recipes for one meal slot, respecting locked items
-  async function _pickMealRecipes(tx, familyId, mealType, targetCount, lockedItems, context, settings, activeMemberIds, realHistory, inPlanHistory, inventory, pantry, unitsMap, dislikedSet, warnings) {
+  async function _pickMealRecipes(tx, familyId, mealType, targetCount, lockedItems, context, settings, activeMemberIds, realHistory, inPlanHistory, inventory, pantry, unitsMap, dislikedSet, warnings, excludedRecipeIds) {
     const { candidates } = await prepareEligibleCandidates(tx, familyId, mealType, activeMemberIds, warnings);
     const ingredientMap = await fetchRecipeIngredients(tx, candidates.map(c => c.id));
     const weeklyDiners = settings.default_diners || 2;
@@ -741,6 +740,7 @@ function createRecommendationService(pool, options = {}) {
       weeklyValid.push(c);
     }
     const lockedIds = lockedItems.map(i => i.recipe_id);
+    const excludeSet = new Set([...lockedIds, ...(excludedRecipeIds || [])]);
     for (const lid of lockedIds) {
       if (!weeklyValid.some(c => c.id === lid)) {
         throw new ApiError(422, 'INVALID_LOCKED_RECIPES', `锁定菜谱 ${lid} 不符合当前餐次过滤条件`);
@@ -748,7 +748,7 @@ function createRecommendationService(pool, options = {}) {
     }
     const combinedHistory = combineHistory(realHistory, inPlanHistory);
     const ctx = { ...context, history: combinedHistory, meal_type: mealType, settings, diners_count: weeklyDiners, ingredientMap, dislikedSet };
-    const remaining = weeklyValid.filter(c => !lockedIds.includes(c.id));
+    const remaining = weeklyValid.filter(c => !excludeSet.has(c.id));
     const scored = remaining.map(c => {
       const { score } = scoreRecipe(c, ctx);
       return { recipe: c, score };
@@ -794,6 +794,10 @@ function createRecommendationService(pool, options = {}) {
       const plan = (await tx.query('SELECT * FROM weekly_plans WHERE id=$1 AND family_id=$2', [planId, familyId])).rows[0];
       if (!plan) throw new ApiError(404, 'PLAN_NOT_FOUND', '周计划不存在');
       if (plan.status !== 'DRAFT') throw new ApiError(409, 'PLAN_NOT_DRAFT', '只能编辑 DRAFT 状态的周计划');
+      const allowedKeys = ['locked', 'sort_order'];
+      const bodyKeys = Object.keys(body || {});
+      const illegal = bodyKeys.filter(k => !allowedKeys.includes(k));
+      if (illegal.length > 0) throw new ApiError(400, 'INVALID_REQUEST', `不允许修改字段: ${illegal.join(', ')}`);
       const item = (await tx.query('SELECT * FROM weekly_plan_items WHERE id=$1 AND weekly_plan_id=$2', [itemId, planId])).rows[0];
       if (!item) throw new ApiError(404, 'ITEM_NOT_FOUND', '计划项不存在');
       const updates = [];
@@ -826,6 +830,19 @@ function createRecommendationService(pool, options = {}) {
       if (!source) throw new ApiError(404, 'PLAN_NOT_FOUND', '周计划不存在');
       const { scope, plan_date, meal_type, swap_item_id } = body;
       if (!['MEAL', 'DAY', 'WEEK'].includes(scope)) throw new ApiError(400, 'INVALID_REQUEST', 'scope 必须为 MEAL/DAY/WEEK');
+      if (scope === 'MEAL') {
+        if (!plan_date) throw new ApiError(400, 'INVALID_REQUEST', 'MEAL scope 需要 plan_date');
+        if (!['BREAKFAST', 'LUNCH', 'DINNER'].includes(meal_type)) throw new ApiError(400, 'INVALID_REQUEST', 'meal_type 必须为 BREAKFAST/LUNCH/DINNER');
+      }
+      if (scope === 'DAY' && !plan_date) throw new ApiError(400, 'INVALID_REQUEST', 'DAY scope 需要 plan_date');
+      if (swap_item_id && scope !== 'MEAL') throw new ApiError(400, 'INVALID_REQUEST', 'swap_item_id 仅允许 MEAL scope');
+      let swapTarget = null;
+      if (swap_item_id) {
+        swapTarget = source.items.find(i => i.id === swap_item_id);
+        if (!swapTarget) throw new ApiError(404, 'ITEM_NOT_FOUND', '换一道目标不存在');
+        if (swapTarget.plan_date !== plan_date || swapTarget.meal_type !== meal_type) throw new ApiError(400, 'INVALID_REQUEST', '换一道目标不在指定餐次');
+        if (swapTarget.locked) throw new ApiError(409, 'ITEM_LOCKED', '请先解锁这道菜');
+      }
 
       const settings = await fetchSettings(tx, familyId);
       const activeMembers = await fetchActiveMembers(tx, familyId);
@@ -853,23 +870,28 @@ function createRecommendationService(pool, options = {}) {
       };
 
       const toPreserve = [];
-      const mealSlots = new Map(); // key = date|meal -> {lockedItems, totalCount, sortOrders, plan_date, meal_type}
+      const mealSlots = new Map(); // key = date|meal -> {lockedItems, totalCount, sortOrders, plan_date, meal_type, preservedRecipeIds}
 
       for (const item of source.items) {
         if (!inScope(item)) {
           toPreserve.push(item);
         } else if (item.locked) {
           toPreserve.push(item);
+          const key = `${item.plan_date}|${item.meal_type}`;
+          if (!mealSlots.has(key)) mealSlots.set(key, { lockedItems: [], totalCount: 0, sortOrders: [], plan_date: item.plan_date, meal_type: item.meal_type, preservedRecipeIds: [] });
+          mealSlots.get(key).lockedItems.push(item);
         } else if (swap_item_id && item.id === swap_item_id) {
           const key = `${item.plan_date}|${item.meal_type}`;
-          if (!mealSlots.has(key)) mealSlots.set(key, { lockedItems: [], totalCount: 0, sortOrders: [], plan_date: item.plan_date, meal_type: item.meal_type });
+          if (!mealSlots.has(key)) mealSlots.set(key, { lockedItems: [], totalCount: 0, sortOrders: [], plan_date: item.plan_date, meal_type: item.meal_type, preservedRecipeIds: [] });
           mealSlots.get(key).totalCount++;
           mealSlots.get(key).sortOrders.push(item.sort_order);
         } else if (swap_item_id) {
           toPreserve.push(item);
+          const key = `${item.plan_date}|${item.meal_type}`;
+          if (mealSlots.has(key)) mealSlots.get(key).preservedRecipeIds.push(item.recipe_id);
         } else {
           const key = `${item.plan_date}|${item.meal_type}`;
-          if (!mealSlots.has(key)) mealSlots.set(key, { lockedItems: [], totalCount: 0, sortOrders: [], plan_date: item.plan_date, meal_type: item.meal_type });
+          if (!mealSlots.has(key)) mealSlots.set(key, { lockedItems: [], totalCount: 0, sortOrders: [], plan_date: item.plan_date, meal_type: item.meal_type, preservedRecipeIds: [] });
           mealSlots.get(key).totalCount++;
           mealSlots.get(key).sortOrders.push(item.sort_order);
         }
@@ -884,6 +906,19 @@ function createRecommendationService(pool, options = {}) {
         inPlanHistory.push({ recipe_id: item.recipe_id, meal_date: item.plan_date });
       }
 
+      // For swap: ensure all preserved same-meal recipes are excluded from selection
+      if (swapTarget) {
+        for (const slot of mealSlots.values()) {
+          for (const item of toPreserve) {
+            if (item.plan_date === slot.plan_date && item.meal_type === slot.meal_type) {
+              if (!slot.preservedRecipeIds.includes(item.recipe_id)) {
+                slot.preservedRecipeIds.push(item.recipe_id);
+              }
+            }
+          }
+        }
+      }
+
       // Regenerate each meal slot
       const breakfastCount = settings.breakfast_target_count || 2;
       const lunchCount = settings.lunch_target_count || 2;
@@ -893,11 +928,15 @@ function createRecommendationService(pool, options = {}) {
       for (const slot of mealSlots.values()) {
         const count = slot.totalCount > 0 ? slot.totalCount : (defaultCount[slot.meal_type] || 2);
         const warnings = [];
+        const excludedRecipeIds = swapTarget ? [swapTarget.recipe_id, ...slot.preservedRecipeIds] : [];
         const { selected } = await _pickMealRecipes(
           tx, familyId, slot.meal_type, count, slot.lockedItems,
           { mode, randomFn }, settings, activeMemberIds, realHistory, inPlanHistory,
-          inventory, pantry, unitsMap, dislikedSet, warnings
+          inventory, pantry, unitsMap, dislikedSet, warnings, excludedRecipeIds
         );
+        if (swapTarget && (selected.length === 0 || selected.some(s => s.recipe.id === swapTarget.recipe_id))) {
+          throw new ApiError(409, 'NO_ALTERNATIVE_RECIPE', '没有可替换的菜谱');
+        }
         for (let idx = 0; idx < selected.length; idx++) {
           const s = selected[idx];
           const so = slot.sortOrders[idx] != null ? slot.sortOrders[idx] : 1000 + idx;

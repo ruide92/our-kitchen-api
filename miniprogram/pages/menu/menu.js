@@ -46,7 +46,7 @@ Page({
     weeklyLoading: false,
     weeklyError: null,
     weeklyBusy: false,
-    canEditWeekly: true,
+    canEditWeekly: false,
     // Recipes
     categories: CATEGORIES,
     currentCategory: 'RECOMMEND',
@@ -63,6 +63,8 @@ Page({
     showCustomDate: false,
     customDate: '',
     customMealType: 'DINNER',
+    // Weekly add mode
+    weeklyAddTarget: null,
     // Mini cart
     miniCartCount: 0,
     miniCartVisible: false,
@@ -158,13 +160,16 @@ Page({
     const epoch = ++this._weeklyEpoch
     this.setData({ weeklyLoading: true, weeklyError: null, weeklyStatus: 'loading' })
     try {
-      // Load role for edit permission
+      // Load role for edit permission — fail closed
+      this.setData({ canEditWeekly: false })
       try {
         const user = wx.getStorageSync('v1_user') || {}
         const members = await this._api.getMembers(this._familyId)
         const me = (members || []).find(m => m.user_id === user.id)
-        this.setData({ canEditWeekly: !me || me.role === 'OWNER' || me.role === 'ADMIN' })
-      } catch (e) { /* keep default */ }
+        if (me && (me.role === 'OWNER' || me.role === 'ADMIN')) {
+          this.setData({ canEditWeekly: true })
+        }
+      } catch (e) { /* remain false */ }
       const plan = await this._api.getWeeklyPlan(this._familyId, this.data.weekStartDate)
       if (epoch !== this._weeklyEpoch) return
       this.setData({
@@ -185,6 +190,19 @@ Page({
     return this.data.editingPlan || this.data.weeklyPlan
   },
 
+  // Resolve an ACTIVE/source item to its DRAFT counterpart by stable identity
+  _resolveDraftItem(draft, originalItem) {
+    if (!draft || !draft.items || !originalItem) return null
+    const matches = draft.items.filter(i =>
+      i.plan_date === originalItem.plan_date &&
+      i.meal_type === originalItem.meal_type &&
+      i.recipe_id === originalItem.recipe_id &&
+      i.sort_order === originalItem.sort_order
+    )
+    if (matches.length !== 1) return null
+    return matches[0]
+  },
+
   // Ensure we have a DRAFT to edit (copy from ACTIVE if needed)
   async _ensureDraft() {
     if (this.data.editingPlan) return this.data.editingPlan
@@ -199,9 +217,9 @@ Page({
     return draft
   },
 
-  // Apply a new DRAFT plan (from regenerate etc.)
+  // Apply a new DRAFT plan (from regenerate etc.) — never overwrite weeklyPlan (ACTIVE)
   _applyDraft(plan) {
-    this.setData({ editingPlan: plan, weeklyPlan: plan, weeklyStatus: 'draft' })
+    this.setData({ editingPlan: plan, weeklyStatus: 'draft' })
     this._refreshSelectedMeals()
   },
 
@@ -249,8 +267,20 @@ Page({
   },
 
   discardDraft() {
-    this.setData({ editingPlan: null, weeklyStatus: this.data.weeklyPlan ? 'active' : 'empty' })
+    this.setData({ editingPlan: null, weeklyAddTarget: null, weeklyStatus: this.data.weeklyPlan ? 'active' : 'empty' })
     this._refreshSelectedMeals()
+  },
+
+  // Start weekly add mode: set target and switch to recipes view
+  startWeeklyAdd(e) {
+    if (!this.data.canEditWeekly || this.data.weeklyStatus !== 'draft') return
+    const { planDate, mealType } = e.currentTarget.dataset
+    if (!planDate || !mealType) return
+    this.setData({ weeklyAddTarget: { plan_date: planDate, meal_type: mealType } })
+  },
+
+  cancelWeeklyAdd() {
+    this.setData({ weeklyAddTarget: null })
   },
 
   retryWeekly() {
@@ -274,7 +304,7 @@ Page({
           locked: it.locked || false,
           initial: (it.recipe_name || '菜').charAt(0),
         }))
-      return { key: mealKey, label: meta.label, icon: meta.icon, count: dishes.length, dishes }
+      return { key: mealKey, label: meta.label, icon: meta.icon, count: dishes.length, dishes, planDate: selectedDate, mealType: mealKey }
     })
     this.setData({ selectedMeals: meals })
   },
@@ -405,11 +435,36 @@ Page({
     if (clickedRecipe.kind === 'BASE' && clickedRecipe.has_family_variant && clickedRecipe.family_variant_id) {
       effectiveId = clickedRecipe.family_variant_id
     }
-    const { targetMeal } = this.data
     if (!this._familyId || !this._api) {
       wx.showToast({ title: '请先登录', icon: 'none' })
       return
     }
+
+    // Weekly add mode: add to DRAFT plan, not Meal
+    const { weeklyAddTarget, editingPlan } = this.data
+    if (weeklyAddTarget && editingPlan) {
+      wx.showLoading({ title: '添加中...' })
+      try {
+        const item = await this._api.addWeeklyPlanItem(this._familyId, editingPlan.id, {
+          plan_date: weeklyAddTarget.plan_date,
+          meal_type: weeklyAddTarget.meal_type,
+          recipe_id: effectiveId,
+        })
+        // Merge server-confirmed item with recipe name
+        const newItem = { ...item, recipe_name: clickedRecipe.name }
+        const newItems = [...editingPlan.items, newItem]
+        this.setData({ editingPlan: { ...editingPlan, items: newItems }, weeklyAddTarget: null })
+        this._refreshSelectedMeals()
+        wx.hideLoading()
+        wx.showToast({ title: '已加入周计划', icon: 'success', duration: 1000 })
+      } catch (err) {
+        wx.hideLoading()
+        wx.showToast({ title: err.message || '添加失败', icon: 'none' })
+      }
+      return
+    }
+
+    const { targetMeal } = this.data
     wx.showLoading({ title: '加入中...' })
     try {
       let meal = await this._api.getCurrentMeal(this._familyId, targetMeal.meal_date, targetMeal.meal_type)
@@ -450,12 +505,16 @@ Page({
     if (!item) return
     try {
       const draft = await this._ensureDraft()
+      const draftItem = this._resolveDraftItem(draft, item)
+      if (!draftItem) {
+        wx.showToast({ title: '无法定位到草稿项', icon: 'none' })
+        return
+      }
       this.setData({ weeklyBusy: true })
-      await this._api.updateWeeklyPlanItem(this._familyId, draft.id, itemId, { locked: !item.locked })
-      const refreshed = await this._api.getWeeklyPlan(this._familyId, this.data.weekStartDate)
-      // If we were editing a DRAFT, the GET returns ACTIVE; need to re-fetch DRAFT
-      // Simpler: reload the DRAFT by copy again if needed
-      this.setData({ weeklyPlan: refreshed, editingPlan: null, weeklyStatus: refreshed ? 'active' : 'empty', weeklyBusy: false })
+      const updated = await this._api.updateWeeklyPlanItem(this._familyId, draft.id, draftItem.id, { locked: !item.locked })
+      // Merge server-confirmed update into editingPlan
+      const newItems = draft.items.map(it => it.id === updated.id ? { ...it, ...updated } : it)
+      this.setData({ editingPlan: { ...draft, items: newItems }, weeklyBusy: false })
       this._refreshSelectedMeals()
     } catch (err) {
       this.setData({ weeklyBusy: false })
@@ -475,13 +534,18 @@ Page({
     }
     try {
       const draft = await this._ensureDraft()
+      const draftItem = this._resolveDraftItem(draft, item)
+      if (!draftItem) {
+        wx.showToast({ title: '无法定位到草稿项', icon: 'none' })
+        return
+      }
       const epoch = ++this._weeklyEpoch
       this.setData({ weeklyBusy: true })
       const newDraft = await this._api.regenerateWeeklyPlan(this._familyId, draft.id, {
         scope: 'MEAL',
         plan_date: item.plan_date,
         meal_type: item.meal_type,
-        swap_item_id: item.id
+        swap_item_id: draftItem.id
       })
       if (epoch !== this._weeklyEpoch) return
       this._applyDraft(newDraft)
@@ -501,10 +565,16 @@ Page({
     const doDelete = async () => {
       try {
         const draft = await this._ensureDraft()
+        const draftItem = this._resolveDraftItem(draft, item)
+        if (!draftItem) {
+          wx.showToast({ title: '无法定位到草稿项', icon: 'none' })
+          return
+        }
         this.setData({ weeklyBusy: true })
-        await this._api.deleteWeeklyPlanItem(this._familyId, draft.id, itemId)
-        const refreshed = await this._api.getWeeklyPlan(this._familyId, this.data.weekStartDate)
-        this.setData({ weeklyPlan: refreshed, editingPlan: null, weeklyStatus: refreshed ? 'active' : 'empty', weeklyBusy: false })
+        await this._api.deleteWeeklyPlanItem(this._familyId, draft.id, draftItem.id)
+        // Remove from editingPlan only; keep DRAFT workspace
+        const newItems = draft.items.filter(it => it.id !== draftItem.id)
+        this.setData({ editingPlan: { ...draft, items: newItems }, weeklyBusy: false })
         this._refreshSelectedMeals()
       } catch (err) {
         this.setData({ weeklyBusy: false })
