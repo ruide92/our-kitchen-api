@@ -422,8 +422,6 @@ function createRecommendationService(pool, options = {}) {
       const { candidates } = await prepareEligibleCandidates(tx, familyId, meal_type, activeMemberIds, warnings);
       const dislikedSet = await fetchDislikedIngredients(tx, familyId, activeMemberIds);
 
-      validateLocked(locked_recipe_ids, candidates, target_count);
-
       const history = await fetchRecentHistory(tx, familyId, settings.repeat_recover_days);
       const inventory = await fetchInventory(tx, familyId);
       const pantry = await fetchPantry(tx, familyId);
@@ -435,7 +433,7 @@ function createRecommendationService(pool, options = {}) {
       for (const c of candidates) {
         const scale = getServingScale(c, dinersForScale);
         if (scale === null) {
-          warnings.push(`INVALID_BASE_SERVINGS: recipe ${c.id} base_servings=${c.base_servings}`);
+          warnings.push({ code: 'INVALID_BASE_SERVINGS', recipe_id: c.id, recipe_name: c.name, detail: 'base_servings 必须为大于 0 的有限数值' });
           continue;
         }
         c._ingredient_ids = (ingredientMap[c.id] || []).map(i => i.ingredient_id).filter(Boolean);
@@ -444,6 +442,9 @@ function createRecommendationService(pool, options = {}) {
       }
       candidates.length = 0;
       candidates.push(...validCandidates);
+
+      // Validate locked AFTER serving-valid filtering — invalid locked recipe must 422, not silently disappear
+      validateLocked(locked_recipe_ids, candidates, target_count);
 
       const context = { history, mode, meal_type, settings, diners_count, ingredientMap, randomFn, dislikedSet };
 
@@ -572,7 +573,7 @@ function createRecommendationService(pool, options = {}) {
           for (const c of candidates) {
             const scale = getServingScale(c, weeklyDiners);
             if (scale === null) {
-              warnings.push(`INVALID_BASE_SERVINGS: recipe ${c.id} base_servings=${c.base_servings}`);
+              warnings.push({ code: 'INVALID_BASE_SERVINGS', recipe_id: c.id, recipe_name: c.name, detail: 'base_servings 必须为大于 0 的有限数值' });
               continue;
             }
             c._ingredient_ids = (ingredientMap[c.id] || []).map(i => i.ingredient_id).filter(Boolean);
@@ -657,7 +658,7 @@ function createRecommendationService(pool, options = {}) {
       const results = candidates.map(c => {
         const scale = getServingScale(c, fridgeDiners);
         if (scale === null) {
-          warnings.push(`INVALID_BASE_SERVINGS: recipe ${c.id} base_servings=${c.base_servings}`);
+          warnings.push({ code: 'INVALID_BASE_SERVINGS', recipe_id: c.id, recipe_name: c.name, detail: 'base_servings 必须为大于 0 的有限数值' });
           return null;
         }
         const invMatch = computeInventoryMatch(c, ingredientMap, inventory, pantry, unitsMap, scale);

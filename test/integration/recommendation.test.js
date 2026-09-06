@@ -675,29 +675,88 @@ test('Recommendation Engine integration against real PostgreSQL', async t => {
     await pool.query(`DELETE FROM fridge_items WHERE family_id=$1`, [familyA.id]);
   });
 
-  // R38: Weekly inventory scoring uses settings.default_diners / recipe.base_servings
-  await t.test('R38 weekly uses default_diners / recipe.base_servings for inventory', async () => {
+  // R38: Weekly serving scale is deterministic — old /2 must FAIL
+  await t.test('R38 weekly serving scale determines DINNER slot deterministically', async () => {
+    // Save and narrow dinner target to 1 so top-score decides
+    const settingsRow = (await pool.query('SELECT dinner_target_count FROM family_settings WHERE family_id=$1', [familyA.id])).rows[0];
+    const origDinnerCount = settingsRow?.dinner_target_count;
+    await pool.query('UPDATE family_settings SET dinner_target_count=1 WHERE family_id=$1', [familyA.id]);
+
     const ingId = randomUUID();
-    await pool.query(`INSERT INTO ingredients(id,canonical_code,display_name,category_code,default_unit_code) VALUES ($1,$2,'R38羊肉','MEAT','g')`, [ingId, ingId]);
-    // Recipe: base_servings=4, 400g. default_diners=2 → scale=0.5 → required=200g.
-    const recipeId = await makeRecipe('R38周计划四人菜', { mealTypes: ['DINNER'], protein: 'LAMB', method: 'ROAST', baseServings: 4, cookTime: 45 });
+    await pool.query(`INSERT INTO ingredients(id,canonical_code,display_name,category_code,default_unit_code) VALUES ($1,$2,'R38牛肉','MEAT','g')`, [ingId, ingId]);
+
+    // A: base_servings=4, 400g. default_diners=2 → correct scale=0.5 → required=200g.
+    //    No rating. With correct scale + 200g fridge → inventory boost → wins.
+    //    Old /2 → required=400g → 200g insufficient → no boost → loses.
+    const recipeA = await makeRecipe('R38四人份牛肉', { mealTypes: ['DINNER'], protein: 'BEEF', method: 'STIR_FRY', baseServings: 4, cookTime: 30 });
     await pool.query(`INSERT INTO recipe_ingredients(id,recipe_id,ingredient_id,quantity,unit_code,type,required,sort_order)
-      VALUES ($1,$2,$3,400,'g','MAIN',true,0)`, [randomUUID(), recipeId, ingId]);
-    const svc = createRecommendationService(pool, { randomFn: () => 0.3 });
-    // Baseline no fridge
-    const plan1 = await svc.generateWeeklyPlan(familyA.id, userA.id, { week_start: '2026-09-28', mode: 'USE_INVENTORY' });
-    const baselineCount = plan1.items.filter(i => i.recipe_id === recipeId).length;
-    // Add 200g fridge — satisfies scaled 200g
+      VALUES ($1,$2,$3,400,'g','MAIN',true,0)`, [randomUUID(), recipeA, ingId]);
+
+    // B: control with rating 5 (+18 base), no required ingredients → no inventory boost
+    const recipeB = await makeRecipe('R38对照高分菜', { mealTypes: ['DINNER'], protein: 'PORK', method: 'ROAST', baseServings: 2, cookTime: 30 });
+    await pool.query(`INSERT INTO recipe_ratings(family_id,user_id,recipe_id,meal_id,rating) VALUES ($1,$2,$3,NULL,5)`,
+      [familyA.id, userA.id, recipeB]);
+
+    // 200g fridge — exactly satisfies correct scale (200g), insufficient for old /2 (400g)
     await pool.query(`INSERT INTO fridge_items(id,family_id,ingredient_id,quantity,unit_code,storage_location)
       VALUES ($1,$2,$3,200,'g','REFRIGERATED')`, [randomUUID(), familyA.id, ingId]);
-    const plan2 = await svc.generateWeeklyPlan(familyA.id, userA.id, { week_start: '2026-10-05', mode: 'USE_INVENTORY' });
-    const withInvCount = plan2.items.filter(i => i.recipe_id === recipeId).length;
-    // With correct scale, inventory match boosts → recipe appears more often in weekly plan
-    // With old /2 bug (400g required), no boost → same frequency
-    assert.ok(withInvCount >= baselineCount,
-      `USE_INVENTORY weekly should not decrease selection with matching inventory: baseline=${baselineCount} withInv=${withInvCount}`);
-    // At least one week should include it when inventory matches
-    assert.ok(withInvCount > 0 || baselineCount > 0, 'recipe should appear in at least one weekly plan');
+
+    const svc = createRecommendationService(pool, { randomFn: () => 0.3 });
+    const plan = await svc.generateWeeklyPlan(familyA.id, userA.id, { week_start: '2026-09-28', mode: 'USE_INVENTORY' });
+
+    // Day 0 DINNER slot — with correct scale A must win; old /2 would select B
+    const day0Dinner = plan.items.find(i => i.plan_date === '2026-09-28' && i.meal_type === 'DINNER');
+    assert.ok(day0Dinner, 'day 0 DINNER should exist');
+    assert.equal(day0Dinner.recipe_id, recipeA,
+      `day 0 DINNER must be A (correct scale 2/4=0.5 → 200g satisfied → inventory boost). Got ${day0Dinner.recipe_id}`);
+
+    // Cleanup
     await pool.query(`DELETE FROM fridge_items WHERE family_id=$1`, [familyA.id]);
+    await pool.query(`DELETE FROM recipe_ratings WHERE recipe_id=$1`, [recipeB]);
+    if (origDinnerCount != null) {
+      await pool.query('UPDATE family_settings SET dinner_target_count=$1 WHERE family_id=$2', [origDinnerCount, familyA.id]);
+    } else {
+      await pool.query('UPDATE family_settings SET dinner_target_count=DEFAULT WHERE family_id=$1', [familyA.id]);
+    }
+  });
+
+  // R39: invalid base_servings produces structured warning, recipe excluded
+  await t.test('R39 invalid base_servings warning is structured object and recipe excluded', async () => {
+    const badRecipe = randomUUID();
+    await pool.query(`INSERT INTO recipes(id,kind,source_type,name,base_servings,visibility,version,protein_source_code,cooking_method_code,cook_time_minutes)
+      VALUES ($1,'BASE','MANUAL','R39无效份数菜',-1,'PUBLIC',1,'FISH','BAKE',20)`, [badRecipe]);
+    await pool.query(`INSERT INTO recipe_meal_types(recipe_id,meal_type) VALUES ($1,'DINNER')`, [badRecipe]);
+
+    const svc = createRecommendationService(pool, { randomFn: () => 0.3 });
+    const r = await svc.generateRandomMeal(familyA.id, userA.id, {
+      meal_date: '2026-09-10', meal_type: 'DINNER', diners_count: 2, mode: 'BALANCED', target_count: 30
+    });
+    const ids = r.recipes.map(x => x.id);
+    assert.ok(!ids.includes(badRecipe), 'invalid base_servings recipe must be excluded');
+    const warn = r.warnings.find(w => w && typeof w === 'object' && w.code === 'INVALID_BASE_SERVINGS' && w.recipe_id === badRecipe);
+    assert.ok(warn, 'warnings must include structured INVALID_BASE_SERVINGS object');
+    assert.ok(r.warnings.every(w => w && typeof w === 'object'), 'all warnings must be objects, no strings');
+  });
+
+  // R40: locked invalid recipe must 422, not 200 with silent disappearance
+  await t.test('R40 locked invalid base_servings recipe returns 422', async () => {
+    const badLocked = randomUUID();
+    await pool.query(`INSERT INTO recipes(id,kind,source_type,name,base_servings,visibility,version,protein_source_code,cooking_method_code,cook_time_minutes)
+      VALUES ($1,'BASE','MANUAL','R40锁定无效菜',-1,'PUBLIC',1,'FISH','BAKE',20)`, [badLocked]);
+    await pool.query(`INSERT INTO recipe_meal_types(recipe_id,meal_type) VALUES ($1,'DINNER')`, [badLocked]);
+
+    const svc = createRecommendationService(pool, { randomFn: () => 0.3 });
+    let err = null;
+    try {
+      await svc.generateRandomMeal(familyA.id, userA.id, {
+        meal_date: '2026-09-10', meal_type: 'DINNER', diners_count: 2, mode: 'BALANCED',
+        target_count: 3, locked_recipe_ids: [badLocked]
+      });
+    } catch (e) {
+      err = e;
+    }
+    assert.ok(err, 'locked invalid recipe must throw');
+    assert.equal(err.status, 422, `expected 422, got ${err.status}`);
+    assert.equal(err.code, 'INVALID_LOCKED_RECIPES', `expected INVALID_LOCKED_RECIPES, got ${err.code}`);
   });
 });

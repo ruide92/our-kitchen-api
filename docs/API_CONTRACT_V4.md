@@ -395,6 +395,8 @@ PLANNING → CONFIRMED，并冻结用于该餐的菜谱版本/snapshot。
 
 mode: BALANCED | USE_INVENTORY | TRY_DIFFERENT。diners_count=1 自动启用 ONE_PERSON profile。请求体禁止包含 _seed；包含则 400 INVALID_REQUEST。确定性测试通过 service 依赖注入 randomFn。库存需求按 diners_count / recipe.base_servings 逐菜谱缩放。
 
+warnings 为 object[]，每项至少含 `{code, detail}`，recipe 相关警告含 `recipe_id`、`recipe_name`。已知 code：MEAL_TYPE_UNTAGGED、ALLERGEN_EXCLUDED、CANDIDATE_SHORTAGE、DIVERSITY_RELAXED、INVALID_BASE_SERVINGS。禁止 string warning。
+
 用户点“就吃这些”后调用 meal item API 加入当前 meal。
 
 ### GET /api/v1/families/:family_id/recommendations/fridge-cooking
