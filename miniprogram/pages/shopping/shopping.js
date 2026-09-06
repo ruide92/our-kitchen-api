@@ -61,8 +61,8 @@ Page({
     this._loadShopping()
   },
 
-  onHide() { this._unlockTabBar() },
-  onUnload() { this._unlockTabBar() },
+  onHide() { this._unlockTabBar(); this.setData({ showEvidenceSheet: false, evidenceItem: null, showManualDetailSheet: false, manualItem: null, showAddSheet: false, showCompleteSheet: false, purchasedItems: [] }) },
+  onUnload() { this._unlockTabBar(); this.setData({ showEvidenceSheet: false, evidenceItem: null, showManualDetailSheet: false, manualItem: null, showAddSheet: false, showCompleteSheet: false, purchasedItems: [] }) },
 
   _lockTabBar() { try { const bar = this.getTabBar(); if (bar && bar.lockTabBar) bar.lockTabBar() } catch (e) {} },
   _unlockTabBar() { try { const bar = this.getTabBar(); if (bar && bar.unlockTabBar) bar.unlockTabBar() } catch (e) {} },

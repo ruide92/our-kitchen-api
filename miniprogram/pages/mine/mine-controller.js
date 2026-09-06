@@ -32,7 +32,8 @@ function createMinePage({ app, wxAdapter }) {
         ] },
         { title: '其他', items: [{ icon: '⚙️', name: '设置', action: 'openSettingsSheet' }, { icon: 'ℹ️', name: '关于我们', action: 'placeholderToast' }] }
       ],
-      kitchenForm: null
+      kitchenForm: null,
+      canEditKitchenSettings: false
     },
     onLoad() {
       this._session = app.getV1Session()
@@ -42,8 +43,8 @@ function createMinePage({ app, wxAdapter }) {
       if (typeof this.getTabBar === 'function') { const bar = this.getTabBar(); if (bar) bar.setData({ selected: 4, hidden: false }) }
       return this.refreshPage()
     },
-    onHide() { this._unlockTabBar() },
-    onUnload() { this._unlockTabBar(); if (this._unsubscribe) this._unsubscribe(); this._unloaded = true },
+    onHide() { this._unlockTabBar(); this.setData({ sheet: '', kitchenForm: null }) },
+    onUnload() { this._unlockTabBar(); this.setData({ sheet: '', kitchenForm: null }); if (this._unsubscribe) this._unsubscribe(); this._unloaded = true },
     _getTabBar() { if (typeof this.getTabBar === 'function') { const bar = this.getTabBar(); return bar || null } return null },
     _lockTabBar() { const bar = this._getTabBar(); if (bar && bar.lockTabBar) bar.lockTabBar() },
     _unlockTabBar() { const bar = this._getTabBar(); if (bar && bar.unlockTabBar) bar.unlockTabBar() },
@@ -73,6 +74,7 @@ function createMinePage({ app, wxAdapter }) {
         families: state.families.map(f => ({ ...f, role_label: roleLabels[f.role] || '—' })),
         active_family_id: state.active_family_id, hasFamily: state.hasFamily, members, settings, settingsRows: rows,
         familyStatus: state.familyStatus,
+        canEditKitchenSettings: state.activeFamily && (state.activeFamily.role === 'OWNER' || state.activeFamily.role === 'ADMIN'),
         errorMessage: state.error && state.error.message || state.familyError && state.familyError.message || '',
         environmentBlocked: state.status === 'authFailed' && /^http:\/\/127\.0\.0\.1/.test(config.baseUrl),
         sheet: shouldClearSheet ? '' : this.data.sheet
@@ -160,21 +162,7 @@ function createMinePage({ app, wxAdapter }) {
       if (!this.familyReady()) return
       const s = this.data.settings
       if (!s) { toast('设置未加载，请刷新'); return }
-      this.setData({
-        kitchenForm: {
-          default_diners: s.default_diners != null ? s.default_diners : 2,
-          breakfast_target_count: s.breakfast_target_count != null ? s.breakfast_target_count : 2,
-          lunch_target_count: s.lunch_target_count != null ? s.lunch_target_count : 2,
-          dinner_target_count: s.dinner_target_count != null ? s.dinner_target_count : 3,
-          default_spiciness: s.default_spiciness || 'NONE',
-          cookware: Array.isArray(s.cookware) ? [...s.cookware] : [],
-          random_default_mode: s.random_default_mode || 'BALANCED',
-          prefer_expiring_inventory: s.prefer_expiring_inventory !== false,
-          repeat_strong_days: s.repeat_strong_days != null ? s.repeat_strong_days : 3,
-          repeat_penalty_days: s.repeat_penalty_days != null ? s.repeat_penalty_days : 7,
-          repeat_recover_days: s.repeat_recover_days != null ? s.repeat_recover_days : 14,
-        }
-      })
+      this.setData({ kitchenForm: this._rebuildKitchenFormFromSettings(s) })
       this._openSheet('kitchen')
     },
     onKitchenNumber(e) {
@@ -184,26 +172,58 @@ function createMinePage({ app, wxAdapter }) {
       this.setData({ [`kitchenForm.${field}`]: val })
     },
     onKitchenMode(e) {
-      if (!this.canEditKitchenSettings()) return
+      if (!this.data.canEditKitchenSettings) return
       this.setData({ 'kitchenForm.random_default_mode': e.currentTarget.dataset.value })
     },
     onKitchenCookware(e) {
-      if (!this.canEditKitchenSettings()) return
+      if (!this.data.canEditKitchenSettings) return
       const code = e.currentTarget.dataset.code
       const current = this.data.kitchenForm.cookware || []
       const next = current.includes(code) ? current.filter(c => c !== code) : [...current, code]
       this.setData({ 'kitchenForm.cookware': next })
     },
     onKitchenSpiciness(e) {
-      if (!this.canEditKitchenSettings()) return
-      this.setData({ 'kitchenForm.default_spiciness': e.currentTarget.dataset.value })
+      if (!this.data.canEditKitchenSettings) return
+      const val = e.currentTarget.dataset.value
+      const num = val === null || val === '' || val === undefined ? null : Number(val)
+      this.setData({ 'kitchenForm.default_spiciness': num })
     },
     onKitchenToggle(e) {
       const field = e.currentTarget.dataset.field
-      this.setData({ [`kitchenForm.${field}`]: !this.data.kitchenForm[field] })
+      this.setData({ [`kitchenForm.${field}`]: !!e.detail.value })
+    },
+    _validateKitchenForm(form) {
+      if (!form) return '设置未加载'
+      if (!Number.isInteger(form.default_diners) || form.default_diners < 1) return '默认用餐人数必须大于等于 1'
+      if (!Number.isInteger(form.breakfast_target_count) || form.breakfast_target_count < 1) return '早餐默认菜数必须大于等于 1'
+      if (!Number.isInteger(form.lunch_target_count) || form.lunch_target_count < 1) return '午餐默认菜数必须大于等于 1'
+      if (!Number.isInteger(form.dinner_target_count) || form.dinner_target_count < 1) return '晚餐默认菜数必须大于等于 1'
+      if (form.default_spiciness !== null && (!Number.isInteger(form.default_spiciness) || form.default_spiciness < 0 || form.default_spiciness > 5)) return '默认辣度必须是 0-5 或不设置'
+      if (!Number.isInteger(form.repeat_strong_days) || form.repeat_strong_days < 0) return '强避重复天数必须大于等于 0'
+      if (!Number.isInteger(form.repeat_penalty_days) || form.repeat_penalty_days < form.repeat_strong_days) return '重复惩罚天数必须大于等于强避重复天数'
+      if (!Number.isInteger(form.repeat_recover_days) || form.repeat_recover_days < form.repeat_penalty_days) return '恢复周期必须大于等于重复惩罚天数'
+      return null
+    },
+    _rebuildKitchenFormFromSettings(s) {
+      if (!s) return null
+      return {
+        default_diners: s.default_diners != null ? s.default_diners : 2,
+        breakfast_target_count: s.breakfast_target_count != null ? s.breakfast_target_count : 2,
+        lunch_target_count: s.lunch_target_count != null ? s.lunch_target_count : 2,
+        dinner_target_count: s.dinner_target_count != null ? s.dinner_target_count : 3,
+        default_spiciness: s.default_spiciness == null ? null : Number(s.default_spiciness),
+        cookware: Array.isArray(s.cookware) ? [...s.cookware] : [],
+        random_default_mode: s.random_default_mode || 'BALANCED',
+        prefer_expiring_inventory: s.prefer_expiring_inventory !== false,
+        repeat_strong_days: s.repeat_strong_days != null ? s.repeat_strong_days : 3,
+        repeat_penalty_days: s.repeat_penalty_days != null ? s.repeat_penalty_days : 7,
+        repeat_recover_days: s.repeat_recover_days != null ? s.repeat_recover_days : 14,
+      }
     },
     async saveKitchenSettings() {
-      if (this.data.busy || !this.canEditKitchenSettings()) return
+      if (this.data.busy || !this.data.canEditKitchenSettings) return
+      const validationError = this._validateKitchenForm(this.data.kitchenForm)
+      if (validationError) { toast(validationError); return }
       this.setData({ busy: true })
       try {
         await this._session.updateSettings({ ...this.data.kitchenForm })
@@ -211,8 +231,15 @@ function createMinePage({ app, wxAdapter }) {
         toast('厨房设置已保存')
       } catch (error) {
         if (error.code === 'VERSION_CONFLICT' || error.status === 409) {
-          toast('厨房设置已被家人修改，请刷新后再试')
-          try { await this._session.refresh() } catch (_) {}
+          try {
+            await this._session.refresh()
+            const fresh = this._session.getState().settings
+            const rebuilt = this._rebuildKitchenFormFromSettings(fresh)
+            this.setData({ kitchenForm: rebuilt })
+            toast('厨房设置已被家人修改，已刷新为最新设置，请重新确认')
+          } catch (_) {
+            toast('厨房设置已被家人修改，请刷新后再试')
+          }
         } else if (error.status === 403) {
           toast('只有家庭主人或管理员可以修改设置')
         } else {

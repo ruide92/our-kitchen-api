@@ -71,8 +71,8 @@ Page({
     this._loadAll()
   },
 
-  onHide() { this._unlockTabBar() },
-  onUnload() { this._unlockTabBar() },
+  onHide() { this._unlockTabBar(); this.setData({ showAddSheet: false, showEditSheet: false, editingItem: null, showAddStapleSheet: false }) },
+  onUnload() { this._unlockTabBar(); this.setData({ showAddSheet: false, showEditSheet: false, editingItem: null, showAddStapleSheet: false }) },
 
   _lockTabBar() { try { const bar = this.getTabBar(); if (bar && bar.lockTabBar) bar.lockTabBar() } catch (e) {} },
   _unlockTabBar() { try { const bar = this.getTabBar(); if (bar && bar.unlockTabBar) bar.unlockTabBar() } catch (e) {} },
