@@ -1,0 +1,66 @@
+.page {
+  padding: 0 0 calc(140rpx + env(safe-area-inset-bottom));
+  min-height: 100vh;
+  box-sizing: border-box;
+  background: #FFF9F0;
+}
+
+.header {
+  padding: 32rpx 24rpx 16rpx;
+}
+.header-title { font-size: 38rpx; font-weight: 700; color: #3E2723; display: block; }
+.header-sub { font-size: 24rpx; color: #A1887F; margin-top: 6rpx; display: block; }
+
+.loading { text-align: center; padding: 80rpx; color: #A1887F; }
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 120rpx 40rpx;
+}
+.empty-icon { font-size: 80rpx; margin-bottom: 20rpx; }
+.empty-title { font-size: 32rpx; color: #5D4037; font-weight: 600; }
+.empty-sub { font-size: 24rpx; color: #A1887F; margin-top: 8rpx; }
+.empty-btn {
+  margin-top: 32rpx;
+  background: #7CB342;
+  color: #FFF;
+  padding: 16rpx 48rpx;
+  border-radius: 32rpx;
+  font-size: 26rpx;
+}
+
+.history-list { padding: 0 24rpx; }
+
+.history-card {
+  background: #FFF;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+  box-shadow: 0 2rpx 12rpx rgba(92,74,58,0.06);
+}
+.history-card-header {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 16rpx;
+}
+.history-date { font-size: 28rpx; color: #3E2723; font-weight: 600; }
+.history-meal-type { font-size: 24rpx; color: #8D6E63; }
+.history-status { font-size: 22rpx; padding: 4rpx 12rpx; border-radius: 12rpx; margin-left: auto; }
+.status-CONFIRMED { background: #E8F5E9; color: #388E3C; }
+.status-COOKING { background: #E3F2FD; color: #1976D2; }
+.status-COMPLETED { background: #F3E5F5; color: #7B1FA2; }
+
+.history-dishes { display: flex; flex-direction: column; gap: 12rpx; }
+.history-dish {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8rpx 0;
+}
+.history-dish-name { font-size: 26rpx; color: #5D4037; }
+.history-dish-meta { font-size: 22rpx; color: #A1887F; }
+
+.list-bottom-space { height: 40rpx; }

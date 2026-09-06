@@ -21,6 +21,7 @@
     </scroll-view>
     <view class="cooking-footer">
       <view class="action-btn action-secondary" bindtap="exitCooking">返回菜单</view>
+      <view class="action-btn action-primary {{completing ? 'btn-busy' : ''}}" bindtap="showCompletionSheet">完成做饭</view>
     </view>
   </view>
 
@@ -75,11 +76,18 @@
       <view class="list-bottom-space"></view>
     </scroll-view>
 
+    <!-- COMPLETED state -->
+    <view wx:if="{{meal.status === 'COMPLETED'}}" class="completed-banner">
+      <text class="completed-icon">✅</text>
+      <text class="completed-title">这顿饭完成啦</text>
+      <text class="completed-sub">{{items.length}} 道菜 · 已记录历史</text>
+    </view>
+
     <!-- COOKING but no local state -->
     <view wx:if="{{meal.status === 'COOKING' && cookingUnavailable}}" class="cooking-unavailable">
       <text class="empty-icon">🍳</text>
       <text class="empty-title">这顿饭已经开始制作</text>
-      <text class="empty-sub">本机没有可恢复的做饭步骤。请在开始做饭的设备上继续，或联系家人确认进度。</text>
+      <text class="empty-sub">正在从服务器恢复做饭步骤...</text>
     </view>
 
     <!-- COOKING with local state — show resume button -->
@@ -102,5 +110,33 @@
     </view>
 
     <view class="bottom-space"></view>
+  </view>
+
+  <!-- Completion sheet -->
+  <view wx:if="{{showCompletionSheet}}" class="completion-overlay" bindtap="hideCompletionSheet">
+    <view class="completion-sheet" catchtap="">
+      <view class="completion-header">
+        <text class="completion-title">确认实际用量</text>
+        <text class="completion-close" bindtap="hideCompletionSheet">✕</text>
+      </view>
+      <view class="completion-subtitle">根据冰箱库存扣减，可修改实际用量</view>
+      <scroll-view class="completion-list" scroll-y>
+        <view wx:for="{{consumptionCandidates}}" wx:key="ingredient_id" class="completion-item">
+          <view class="completion-item-info">
+            <text class="completion-item-name">{{item.name}}</text>
+            <text class="completion-item-meta">建议 {{item.suggested_quantity}}{{item.unit_code}} · 库存 {{item.available_quantity}}{{item.available_unit_code}}</text>
+          </view>
+          <view class="completion-item-input">
+            <input type="digit" value="{{item.actual_quantity}}" bindinput="onConsumptionInput" data-index="{{index}}" class="completion-input" />
+            <text class="completion-unit">{{item.unit_code}}</text>
+          </view>
+        </view>
+        <view wx:if="{{consumptionCandidates.length === 0}}" class="empty-tip">本餐没有可扣库存的食材</view>
+      </scroll-view>
+      <view class="completion-footer">
+        <view class="action-btn action-secondary" bindtap="hideCompletionSheet">取消</view>
+        <view class="action-btn action-primary {{completing ? 'btn-busy' : ''}}" bindtap="confirmComplete">确认完成</view>
+      </view>
+    </view>
   </view>
 </view>

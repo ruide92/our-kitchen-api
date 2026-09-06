@@ -16,7 +16,8 @@
     "pages/recycle/recycle",
     "pages/family/family",
     "pages/today-menu/today-menu",
-    "pages/meal/meal"
+    "pages/meal/meal",
+    "pages/history/history"
   ],
   "window": {
     "backgroundTextStyle": "light",

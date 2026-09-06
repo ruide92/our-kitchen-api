@@ -9,11 +9,11 @@
 
 | Status | Count |
 |---|---|
-| REAL | 128 |
-| BROKEN | 27 |
+| REAL | 135 |
+| BROKEN | 26 |
 | PLANNED_DISABLED | 2 |
 | HIDDEN | 22 |
-| **Total** | **179** |
+| **Total** | **185** |
 
 ## Surfaces
 
@@ -94,6 +94,13 @@
 | FRIDGE-OVERLAY-02 | overlay | 编辑食材 Sheet | REAL | REAL |
 | FRIDGE-OVERLAY-03 | overlay | 添加常备食材 Sheet | REAL | REAL |
 
+### history
+
+| ID | Kind | Handler/Label | Status | Final |
+|---|---|---|---|---|
+| HISTORY-01 | wxml-handler | retryLoad | REAL | REAL |
+| HISTORY-02 | wxml-handler | goMeal | REAL | REAL |
+
 ### index
 
 | ID | Kind | Handler/Label | Status | Final |
@@ -127,6 +134,10 @@
 | MEAL-08 | wxml-handler | startCooking | REAL | REAL |
 | MEAL-09 | wxml-handler | exitCooking | REAL | REAL |
 | MEAL-10 | wxml-handler | resumeCooking | REAL | REAL |
+| MEAL-11 | wxml-handler | showCompletionSheet | REAL | REAL |
+| MEAL-12 | wxml-handler | confirmComplete | REAL | REAL |
+| MEAL-13 | wxml-handler | hideCompletionSheet | REAL | REAL |
+| MEAL-14 | wxml-handler | onConsumptionInput | REAL | REAL |
 | MEAL-NAV-01 | navigation | switchTab | REAL | REAL |
 | MEAL-NAV-02 | navigation | switchTab | REAL | REAL |
 
@@ -195,7 +206,7 @@
 | MINE-MENU-02 | menu-action | 厨房设置 | REAL | REAL |
 | MINE-MENU-03 | menu-action | goPantry | REAL | REAL |
 | MINE-MENU-04 | menu-action | 么么哒 | BROKEN | REAL |
-| MINE-MENU-05 | menu-action | 本餐菜单 / 历史 | BROKEN | REAL |
+| MINE-MENU-05 | menu-action | 本餐菜单 / 历史 | REAL | REAL |
 | MINE-MENU-06 | menu-action | 我的收藏 | BROKEN | REAL |
 | MINE-MENU-07 | menu-action | 我的评分 | BROKEN | REAL |
 | MINE-MENU-08 | menu-action | 我的菜谱 | BROKEN | REAL |

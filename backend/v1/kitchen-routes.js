@@ -135,6 +135,14 @@ function installKitchenRoutes(app, services) {
   app.post('/api/v1/families/:family_id/meals/:meal_id/cooking-sessions', asyncRoute(async (req, res) => {
     res.status(201).json({ data: await cooking.startCooking(familyId(req), req.user.id, req.params.meal_id), meta: {} });
   }));
+  // GET active session by meal — must be BEFORE /cooking-sessions/:session_id to avoid UUID parse
+  app.get('/api/v1/families/:family_id/meals/:meal_id/cooking-session', asyncRoute(async (req, res) => {
+    const data = await cooking.getActiveCookingSessionByMeal(familyId(req), req.user.id, req.params.meal_id);
+    res.json({ data, meta: {} });
+  }));
+  app.get('/api/v1/families/:family_id/cooking-sessions/:session_id', asyncRoute(async (req, res) => {
+    res.json({ data: await cooking.getCookingSession(familyId(req), req.user.id, req.params.session_id), meta: {} });
+  }));
   app.post('/api/v1/families/:family_id/cooking-sessions/:session_id/complete', asyncRoute(async (req, res) => {
     res.json({ data: await cooking.completeCooking(familyId(req), req.user.id, req.params.session_id, req.body.consumption), meta: {} });
   }));

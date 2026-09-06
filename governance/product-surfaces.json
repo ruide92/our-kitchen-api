@@ -1169,8 +1169,8 @@
       "page": "mine",
       "kind": "menu-action",
       "label": "本餐菜单 / 历史",
-      "action": "placeholderToast",
-      "status": "BROKEN",
+      "action": "goHistory",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -1612,6 +1612,60 @@
       "kind": "wxml-handler",
       "handler": "resumeCooking",
       "label": "继续做饭",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MEAL-11",
+      "page": "meal",
+      "kind": "wxml-handler",
+      "handler": "showCompletionSheet",
+      "label": "完成做饭入口",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MEAL-12",
+      "page": "meal",
+      "kind": "wxml-handler",
+      "handler": "confirmComplete",
+      "label": "确认用量并完成做饭",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MEAL-13",
+      "page": "meal",
+      "kind": "wxml-handler",
+      "handler": "hideCompletionSheet",
+      "label": "取消完成做饭",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MEAL-14",
+      "page": "meal",
+      "kind": "wxml-handler",
+      "handler": "onConsumptionInput",
+      "label": "编辑实际用量",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "HISTORY-01",
+      "page": "history",
+      "kind": "wxml-handler",
+      "handler": "retryLoad",
+      "label": "历史重试加载",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "HISTORY-02",
+      "page": "history",
+      "kind": "wxml-handler",
+      "handler": "goMeal",
+      "label": "历史查看本餐",
       "status": "REAL",
       "final": "REAL"
     }

@@ -188,3 +188,80 @@
 .cooking-footer .action-btn { text-align: center; }
 
 .btn-busy { opacity: 0.5; pointer-events: none; }
+
+/* Completed banner */
+.completed-banner {
+  margin: 24rpx;
+  padding: 32rpx;
+  background: linear-gradient(135deg, #E8F5E9, #C8E6C9);
+  border-radius: 16rpx;
+  text-align: center;
+}
+.completed-icon { font-size: 60rpx; display: block; }
+.completed-title { font-size: 32rpx; color: #2E7D32; font-weight: 700; display: block; margin-top: 8rpx; }
+.completed-sub { font-size: 24rpx; color: #558B2F; margin-top: 4rpx; display: block; }
+
+/* Cooking unavailable */
+.cooking-unavailable {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60rpx 40rpx;
+}
+
+/* Completion overlay */
+.completion-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+}
+.completion-sheet {
+  width: 100%;
+  background: #FFF;
+  border-radius: 24rpx 24rpx 0 0;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+.completion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 32rpx 12rpx;
+}
+.completion-title { font-size: 32rpx; font-weight: 700; color: #3E2723; }
+.completion-close { font-size: 32rpx; color: #A1887F; padding: 8rpx; }
+.completion-subtitle { font-size: 24rpx; color: #8D6E63; padding: 0 32rpx 16rpx; }
+.completion-list { flex: 1; padding: 0 32rpx; max-height: 50vh; }
+.completion-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #F0EBE3;
+}
+.completion-item-info { flex: 1; }
+.completion-item-name { font-size: 28rpx; color: #3E2723; font-weight: 600; display: block; }
+.completion-item-meta { font-size: 22rpx; color: #A1887F; margin-top: 4rpx; display: block; }
+.completion-item-input { display: flex; align-items: center; gap: 8rpx; }
+.completion-input {
+  width: 120rpx;
+  text-align: center;
+  background: #F5F0E8;
+  border-radius: 12rpx;
+  padding: 12rpx 8rpx;
+  font-size: 28rpx;
+  color: #3E2723;
+}
+.completion-unit { font-size: 24rpx; color: #8D6E63; min-width: 40rpx; }
+.completion-footer {
+  display: flex;
+  gap: 16rpx;
+  padding: 20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom));
+  border-top: 1rpx solid #F0EBE3;
+}
+.completion-footer .action-btn { flex: 1; text-align: center; }
+.action-secondary { background: #F5F0E8; color: #5D4037; }

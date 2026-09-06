@@ -470,11 +470,42 @@ PLANNING → CONFIRMED，并冻结用于该餐的菜谱版本/snapshot。
 
 ### POST `/api/v1/families/:family_id/meals/:meal_id/cooking-sessions`
 
-要求 meal CONFIRMED；创建 ACTIVE session，并将 meal → COOKING。
+要求 meal CONFIRMED；创建 ACTIVE session，并将 meal → COOKING。返回 `{session_id, meal, steps}`，steps 来自 frozen recipe_snapshot。
+
+### GET `/api/v1/families/:family_id/meals/:meal_id/cooking-session`
+
+查找该 meal 当前 ACTIVE 的 cooking session，用于新设备/无 local session_id 时恢复。返回与下方 GET session 相同结构，无 ACTIVE session 时返回 `{data: null}`。
 
 ### GET `/api/v1/families/:family_id/cooking-sessions/:session_id`
 
-返回当前餐冻结后的步骤，供普通/大字模式。
+返回当前餐冻结后的步骤及完成用量预览。steps 唯一来源是 frozen recipe_snapshot，不 JOIN live recipe steps。
+
+响应：
+
+```json
+{
+  "session_id": "...",
+  "status": "ACTIVE",
+  "started_at": "ISO",
+  "completed_at": null,
+  "started_by_user_id": "...",
+  "meal": {"id":"...","meal_date":"YYYY-MM-DD","meal_type":"DINNER","diners_count":2,"status":"COOKING"},
+  "steps": [{"step_no":1,"title":"...","operation":"...","sort_order":0}],
+  "consumption_candidates": [
+    {
+      "ingredient_id": "...",
+      "name": "五花肉",
+      "suggested_quantity": 500,
+      "unit_code": "g",
+      "available_quantity": 1000,
+      "available_unit_code": "g",
+      "auto_deductable": true
+    }
+  ]
+}
+```
+
+consumption_candidates 从 frozen snapshot 按 `meal_item.servings / snapshot.recipe.base_servings` 计算，不读取 live recipe。
 
 ### POST `/api/v1/families/:family_id/cooking-sessions/:session_id/complete`
 
@@ -486,7 +517,14 @@ PLANNING → CONFIRMED，并冻结用于该餐的菜谱版本/snapshot。
 }
 ```
 
-服务端校验、事务扣库存、写 movements、session → COMPLETED、meal → COMPLETED。库存不足时返回 422 并给出可调整项，不静默变负数。
+quantity <= 0 的项跳过（用户选择不扣库存）。服务端校验：
+- ingredient_id 必须在 frozen snapshot 中，否则 422 `INGREDIENT_NOT_IN_SNAPSHOT`
+- 单位转换仅限同维度（MASS: g↔kg↔jin, VOLUME: ml↔l），禁止 COUNT↔MASS↔VOLUME
+- 按 expiry_date NULLS LAST 优先扣临期 batch，每个 batch 用自身单位更新，movement 与 batch mutation 同单位
+- 库存不足时 422 `INVENTORY_INSUFFICIENT`，整事务回滚（fridge 不部分扣、movements 不写一半、session 仍 ACTIVE、meal 仍 COOKING）
+- session 非 ACTIVE 时 409 `SESSION_NOT_ACTIVE`，不重复扣库存
+
+成功后 session → COMPLETED、meal → COMPLETED，返回 `{ok, consumed, session_id, movements}`。
 
 ## 17. Kiss
 

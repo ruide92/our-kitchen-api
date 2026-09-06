@@ -22,12 +22,17 @@ Page({
     pageTitle: '',
     dateLabel: '',
     busy: false,
-    // Cooking state — separated persistent data vs view visibility
-    cookingData: null,    // { session_id, meal_id, family_id, steps } persisted locally
-    cookingSteps: [],     // normalized steps for display
-    showCooking: false,   // whether cooking view is visible
-    cookingUnavailable: false, // server COOKING but no local state
+    // Cooking state
+    cookingData: null,
+    cookingSteps: [],
+    showCooking: false,
+    cookingUnavailable: false,
     autoStart: false,
+    // Completion sheet
+    showCompletionSheet: false,
+    consumptionCandidates: [],
+    completing: false,
+    confirmZeroConsumption: false,
   },
 
   onLoad(options) {
@@ -45,6 +50,14 @@ Page({
   onShow() {
     if (this.getTabBar()) this.getTabBar().setData({ selected: 1, hidden: false });
     this.loadMeal();
+  },
+
+  onHide() {
+    this.setData({ showCompletionSheet: false });
+  },
+
+  onUnload() {
+    this.setData({ showCompletionSheet: false });
   },
 
   _today() {
@@ -99,6 +112,13 @@ Page({
     } catch (_) {}
   },
 
+  _clearLocalCooking(mealId) {
+    try {
+      const key = cookingStorageKey(this.data.familyId, mealId);
+      wx.removeStorageSync(key);
+    } catch (_) {}
+  },
+
   async loadMeal() {
     this.setData({ loading: true });
     try {
@@ -110,18 +130,11 @@ Page({
       }));
       this.setData({ meal, items, loading: false, dinersCount: meal?.diners_count || 2 });
 
-      // Handle COOKING state — check local resume
+      // Handle COOKING state — server-side resume is authoritative
       if (meal?.status === 'COOKING') {
-        const local = this._loadLocalCooking(meal.id);
-        if (local) {
-          this.setData({
-            cookingData: local,
-            cookingSteps: this._normalizeSteps(local.steps),
-            cookingUnavailable: false,
-          });
-        } else {
-          this.setData({ cookingUnavailable: true, cookingData: null, cookingSteps: [] });
-        }
+        await this._resumeCookingFromServer(meal.id);
+      } else if (meal?.status === 'COMPLETED') {
+        this.setData({ cookingData: null, cookingSteps: [], showCooking: false, cookingUnavailable: false });
       } else {
         this.setData({ cookingUnavailable: false });
       }
@@ -133,6 +146,65 @@ Page({
       }
     } catch (e) {
       this.setData({ meal: null, items: [], loading: false, mealError: e.message || '加载失败，请重试' });
+    }
+  },
+
+  // Server-side resume: authoritative source for COOKING state
+  async _resumeCookingFromServer(mealId) {
+    try {
+      // Try local cache first for session_id, then fetch from server
+      const local = this._loadLocalCooking(mealId);
+      let sessionData = null;
+
+      if (local && local.session_id) {
+        try {
+          sessionData = await this._api.getCookingSession(this.data.familyId, local.session_id);
+        } catch (_) {
+          // If session not found by local id, try active session by meal
+          sessionData = await this._api.getActiveCookingSession(this.data.familyId, mealId);
+        }
+      } else {
+        // No local session_id — use active session by meal (new device resume)
+        sessionData = await this._api.getActiveCookingSession(this.data.familyId, mealId);
+      }
+
+      if (sessionData && sessionData.status === 'ACTIVE') {
+        const cookingData = {
+          session_id: sessionData.session_id,
+          meal_id: mealId,
+          family_id: this.data.familyId,
+          meal_date: this.data.mealDate,
+          meal_type: this.data.mealType,
+          steps: sessionData.steps || [],
+          saved_at: new Date().toISOString(),
+        };
+        // Update local cache with server data
+        this._saveLocalCooking(mealId, cookingData);
+        this.setData({
+          cookingData,
+          cookingSteps: this._normalizeSteps(sessionData.steps),
+          consumptionCandidates: sessionData.consumption_candidates || [],
+          cookingUnavailable: false,
+        });
+      } else if (sessionData && sessionData.status === 'COMPLETED') {
+        // Session already completed — meal should be COMPLETED, reload
+        this._clearLocalCooking(mealId);
+        this.setData({ cookingData: null, cookingSteps: [], cookingUnavailable: false });
+      } else {
+        this.setData({ cookingUnavailable: true, cookingData: null, cookingSteps: [] });
+      }
+    } catch (_) {
+      // Server resume failed — fall back to local if available
+      const local = this._loadLocalCooking(mealId);
+      if (local) {
+        this.setData({
+          cookingData: local,
+          cookingSteps: this._normalizeSteps(local.steps),
+          cookingUnavailable: false,
+        });
+      } else {
+        this.setData({ cookingUnavailable: true, cookingData: null, cookingSteps: [] });
+      }
     }
   },
 
@@ -203,7 +275,7 @@ Page({
     });
   },
 
-  // ===== MEAL-07: Confirm menu (PLANNING -> CONFIRMED, creates snapshot) =====
+  // ===== MEAL-07: Confirm menu =====
   async confirmMenu() {
     if (this.data.busy) return;
     if (!this.data.meal || this.data.items.length === 0) {
@@ -216,10 +288,8 @@ Page({
     }
     this.setData({ busy: true });
     try {
-      // Preserve existing items — backend confirm response does NOT include items
       const existingItems = this.data.items;
       const confirmed = await this._api.confirmMeal(this.data.familyId, this.data.meal.id);
-      // Verify snapshot exists
       const snapshot = confirmed?.recipe_snapshot;
       if (!snapshot || snapshot.schema_version !== 1) {
         throw new Error('MEAL_SNAPSHOT_MISSING');
@@ -229,18 +299,14 @@ Page({
     } catch (err) {
       this.setData({ busy: false });
       if (err.code === 'MEAL_SNAPSHOT_MISSING' || err.code === 'MEAL_SNAPSHOT_UNSUPPORTED' || err.message === 'MEAL_SNAPSHOT_MISSING') {
-        wx.showModal({
-          title: '确认失败',
-          content: '菜单快照创建失败，请重试。',
-          showCancel: false,
-        });
+        wx.showModal({ title: '确认失败', content: '菜单快照创建失败，请重试。', showCancel: false });
       } else {
         wx.showToast({ title: err.message || '确认失败', icon: 'none' });
       }
     }
   },
 
-  // ===== MEAL-08: Start cooking (CONFIRMED -> COOKING, steps from snapshot) =====
+  // ===== MEAL-08: Start cooking =====
   async startCooking() {
     if (this.data.busy) return;
     if (!this.data.meal || this.data.meal.status !== 'CONFIRMED') {
@@ -250,8 +316,6 @@ Page({
     this.setData({ busy: true });
     try {
       const result = await this._api.startCooking(this.data.familyId, this.data.meal.id);
-      // result = { session_id, meal, steps } — backend returns meal as UPDATE-before (status CONFIRMED)
-      // Server transaction has set status=COOKING; frontend must reflect that.
       const cookingData = {
         session_id: result.session_id,
         meal_id: this.data.meal.id,
@@ -261,14 +325,19 @@ Page({
         steps: result.steps || [],
         saved_at: new Date().toISOString(),
       };
-      // Persist local ephemeral resume state
       this._saveLocalCooking(this.data.meal.id, cookingData);
+      // Fetch full session with consumption candidates
+      let candidates = [];
+      try {
+        const fullSession = await this._api.getCookingSession(this.data.familyId, result.session_id);
+        candidates = fullSession.consumption_candidates || [];
+      } catch (_) {}
       this.setData({
         cookingData,
         cookingSteps: this._normalizeSteps(result.steps),
+        consumptionCandidates: candidates,
         showCooking: true,
         cookingUnavailable: false,
-        // Backend returns meal with status CONFIRMED (pre-update), but server state is COOKING
         meal: { ...this.data.meal, status: 'COOKING' },
         busy: false,
       });
@@ -277,13 +346,16 @@ Page({
       this.setData({ busy: false });
       if (err.code === 'MEAL_NOT_CONFIRMED') {
         wx.showToast({ title: '请先确认菜单', icon: 'none' });
+      } else if (err.code === 'SESSION_ALREADY_ACTIVE') {
+        wx.showToast({ title: '已有进行中的做饭会话', icon: 'none' });
+        this.loadMeal();
       } else {
         wx.showToast({ title: err.message || '开始做饭失败', icon: 'none' });
       }
     }
   },
 
-  // ===== MEAL-10: Resume cooking from local state (no POST) =====
+  // ===== MEAL-10: Resume cooking =====
   resumeCooking() {
     if (!this.data.cookingData) {
       wx.showToast({ title: '没有可恢复的做饭步骤', icon: 'none' });
@@ -292,9 +364,107 @@ Page({
     this.setData({ showCooking: true });
   },
 
-  // Exit cooking view — does NOT delete frozen steps (local resume preserved)
   exitCooking() {
     this.setData({ showCooking: false });
+  },
+
+  // ===== MEAL-11: Show completion sheet =====
+  showCompletionSheet() {
+    if (!this.data.cookingData) return;
+    // Reset quantities to suggested
+    const candidates = (this.data.consumptionCandidates || []).map(c => ({
+      ...c,
+      actual_quantity: c.suggested_quantity != null ? c.suggested_quantity : 0,
+    }));
+    this.setData({ showCompletionSheet: true, consumptionCandidates: candidates, confirmZeroConsumption: false });
+  },
+
+  hideCompletionSheet() {
+    this.setData({ showCompletionSheet: false, confirmZeroConsumption: false });
+  },
+
+  onConsumptionInput(e) {
+    const idx = e.currentTarget.dataset.index;
+    const value = e.detail.value;
+    const candidates = this.data.consumptionCandidates.slice();
+    candidates[idx] = { ...candidates[idx], actual_quantity: value === '' ? 0 : Number(value) };
+    this.setData({ consumptionCandidates: candidates });
+  },
+
+  // ===== MEAL-12: Confirm complete cooking =====
+  async confirmComplete() {
+    if (this.data.completing) return;
+    if (!this.data.cookingData?.session_id) return;
+
+    const candidates = this.data.consumptionCandidates || [];
+    const hasPositive = candidates.some(c => Number(c.actual_quantity) > 0);
+
+    // If all zero, require explicit confirmation
+    if (!hasPositive && !this.data.confirmZeroConsumption) {
+      this.setData({ confirmZeroConsumption: true });
+      wx.showModal({
+        title: '不扣库存',
+        content: '本次所有食材用量为 0，不会扣减冰箱库存。仍要完成做饭吗？',
+        confirmText: '完成',
+        success: (res) => {
+          if (res.confirm) {
+            this._doComplete([]);
+          } else {
+            this.setData({ confirmZeroConsumption: false });
+          }
+        },
+      });
+      return;
+    }
+
+    // Build consumption payload (only positive quantities)
+    const consumption = candidates
+      .filter(c => Number(c.actual_quantity) > 0)
+      .map(c => ({
+        ingredient_id: c.ingredient_id,
+        quantity: Number(c.actual_quantity),
+        unit_code: c.unit_code,
+      }));
+
+    this._doComplete(consumption);
+  },
+
+  async _doComplete(consumption) {
+    this.setData({ completing: true });
+    try {
+      await this._api.completeCooking(this.data.familyId, this.data.cookingData.session_id, { consumption });
+      // Clear local cooking cache
+      this._clearLocalCooking(this.data.meal.id);
+      this.setData({
+        showCompletionSheet: false,
+        showCooking: false,
+        cookingData: null,
+        cookingSteps: [],
+        consumptionCandidates: [],
+        completing: false,
+        confirmZeroConsumption: false,
+      });
+      wx.showToast({ title: '这顿饭完成啦', icon: 'success' });
+      // Reload meal to show COMPLETED state
+      await this.loadMeal();
+    } catch (err) {
+      this.setData({ completing: false });
+      if (err.code === 'INVENTORY_INSUFFICIENT') {
+        const details = err.details || {};
+        wx.showModal({
+          title: '库存不足',
+          content: `食材库存不足，还缺 ${details.remaining || ''}${details.remaining_unit || ''}。请调整用量后重试。`,
+          showCancel: false,
+        });
+      } else if (err.code === 'INGREDIENT_NOT_IN_SNAPSHOT') {
+        wx.showToast({ title: '食材不在本餐菜谱中', icon: 'none' });
+      } else if (err.code === 'SESSION_NOT_ACTIVE') {
+        wx.showToast({ title: '会话已完成', icon: 'none' });
+        this.loadMeal();
+      } else {
+        wx.showToast({ title: err.message || '完成失败', icon: 'none' });
+      }
+    }
   },
 
   async generateShopping() {

@@ -93,6 +93,8 @@ function createV1Api({ wxAdapter, baseUrl = config.baseUrl, timeoutMs = config.t
     getFridgeCooking: id => dataRequest(familyPath(id) + '/recommendations/fridge-cooking'),
     // Cooking
     startCooking: (id, mealId) => dataRequest(familyPath(id) + '/meals/' + mealId + '/cooking-sessions', { method: 'POST' }),
+    getCookingSession: (id, sessionId) => dataRequest(familyPath(id) + '/cooking-sessions/' + sessionId),
+    getActiveCookingSession: (id, mealId) => dataRequest(familyPath(id) + '/meals/' + mealId + '/cooking-session'),
     completeCooking: (id, sessionId, data) => dataRequest(familyPath(id) + '/cooking-sessions/' + sessionId + '/complete', { method: 'POST', data }),
     getMealHistory: (id, limit) => dataRequest(familyPath(id) + '/meals/history' + (limit ? '?limit=' + limit : '')),
     // Kiss

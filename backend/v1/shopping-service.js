@@ -3,6 +3,7 @@ const { withTransaction } = require('./db');
 const { ApiError } = require('./errors');
 const { authorize, forbidden } = require('./family-access');
 const { requireSnapshot, getIngredientsFromSnapshot } = require('./meal-snapshot');
+const { toBaseQuantity, loadUnitsMap } = require('./unit-conversion');
 
 function createShoppingService(pool) {
   async function access(familyId, userId, roles, write, work) {
@@ -12,14 +13,6 @@ function createShoppingService(pool) {
       await authorize(tx, familyId, userId, roles);
       return work(tx);
     });
-  }
-
-  // Safe unit conversion: only same dimension with known factor
-  function toBaseQuantity(quantity, unitCode, unitsMap) {
-    if (quantity == null || !unitCode) return { quantity, unitCode, converted: false };
-    const unit = unitsMap.get(unitCode);
-    if (!unit || !unit.to_base_factor) return { quantity, unitCode, converted: false };
-    return { quantity: quantity * unit.to_base_factor, unitCode: unit.dimension === 'MASS' ? 'g' : unit.dimension === 'VOLUME' ? 'ml' : unitCode, converted: true };
   }
 
   // Calculate required ingredients from meal.

@@ -19,7 +19,7 @@ function createMinePage({ app, wxAdapter }) {
           { icon: '💋', name: '么么哒', action: 'placeholderToast', badge: '待接入' }
         ] },
         { title: '我的吃饭记录', items: [
-          { icon: '📋', name: '本餐菜单 / 历史', action: 'placeholderToast', badge: '待接入' },
+          { icon: '📋', name: '本餐菜单 / 历史', action: 'goHistory' },
           { icon: '⭐', name: '我的收藏', action: 'placeholderToast', badge: '待接入' },
           { icon: '❤️', name: '我的评分', action: 'placeholderToast', badge: '待接入' },
           { icon: '📖', name: '我的菜谱', action: 'placeholderToast', badge: '待接入' }
@@ -154,6 +154,10 @@ function createMinePage({ app, wxAdapter }) {
       wxAdapter.setStorageSync('v1_fridge_target_tab', 'pantry')
       wxAdapter.switchTab({ url: '/pages/fridge/fridge' })
     },
+    goHistory() {
+      if (!this.familyReady()) return
+      wxAdapter.navigateTo({ url: '/pages/history/history' })
+    },
     openKitchenSettingsSheet() {
       if (!this.familyReady()) return
       const s = this.data.settings
@@ -246,7 +250,7 @@ function createMinePage({ app, wxAdapter }) {
     onMenuTap(e) {
       const action = e.currentTarget.dataset.action
       if (!action) return
-      if (['openFamilySheet','openKitchenSettingsSheet','openSettingsSheet','placeholderToast','goPantry'].includes(action)) this[action]()
+      if (['openFamilySheet','openKitchenSettingsSheet','openSettingsSheet','placeholderToast','goPantry','goHistory'].includes(action)) this[action]()
     },
     noop() {},
   }

@@ -1,0 +1,38 @@
+<view class="page">
+  <view class="header">
+    <text class="header-title">本餐历史</text>
+    <text class="header-sub">已确认和完成的饭菜记录</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading">加载中...</view>
+
+  <view wx:elif="{{historyError}}" class="empty">
+    <text class="empty-icon">⚠️</text>
+    <text class="empty-title">加载失败</text>
+    <text class="empty-sub">{{historyError}}</text>
+    <view class="empty-btn" bindtap="retryLoad">重新加载</view>
+  </view>
+
+  <view wx:elif="{{meals.length === 0}}" class="empty">
+    <text class="empty-icon">📋</text>
+    <text class="empty-title">还没有历史记录</text>
+    <text class="empty-sub">确认一顿饭后会出现在这里</text>
+  </view>
+
+  <scroll-view wx:else class="history-list" scroll-y>
+    <view wx:for="{{meals}}" wx:key="id" class="history-card" bindtap="goMeal" data-date="{{item.meal_date}}" data-type="{{item.meal_type}}">
+      <view class="history-card-header">
+        <text class="history-date">{{item.date_label}}</text>
+        <text class="history-meal-type">{{item.meal_label}}</text>
+        <text class="history-status status-{{item.status}}">{{item.status_label}}</text>
+      </view>
+      <view class="history-dishes">
+        <view wx:for="{{item.items}}" wx:for-item="dish" wx:key="id" class="history-dish">
+          <text class="history-dish-name">{{dish.recipe_name}}</text>
+          <text class="history-dish-meta">{{dish.servings}}人份 · {{dish.selectedByLabel}}</text>
+        </view>
+      </view>
+    </view>
+    <view class="list-bottom-space"></view>
+  </scroll-view>
+</view>
