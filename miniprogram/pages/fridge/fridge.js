@@ -47,6 +47,12 @@ Page({
     editingItem: null,
     showAddStapleSheet: false,
     newStapleName: '',
+    // Cook recommendation overlay
+    showCookSheet: false,
+    cookLoading: false,
+    cookError: null,
+    cookRecipes: [],
+    cookRequestEpoch: 0,
     // Forms
     addForm: { name: '', quantity: '', unit_code: 'g', custom_unit: '', storage_location: '冷藏', expiry_date: '', note: '' },
     editForm: { quantity: '', unit_code: 'g', custom_unit: '', storage_location: '冷藏', purchase_date: '', expiry_date: '', note: '' },
@@ -68,11 +74,16 @@ Page({
       wx.removeStorageSync('v1_fridge_target_tab')
       this.setData({ activeTab: targetTab })
     }
+    const cookIntent = wx.getStorageSync('v1_fridge_intent')
+    if (cookIntent === 'COOK') {
+      wx.removeStorageSync('v1_fridge_intent')
+      this.cookWithFridge()
+    }
     this._loadAll()
   },
 
-  onHide() { this._unlockTabBar(); this.setData({ showAddSheet: false, showEditSheet: false, editingItem: null, showAddStapleSheet: false }) },
-  onUnload() { this._unlockTabBar(); this.setData({ showAddSheet: false, showEditSheet: false, editingItem: null, showAddStapleSheet: false }) },
+  onHide() { this._unlockTabBar(); this.setData({ showAddSheet: false, showEditSheet: false, editingItem: null, showAddStapleSheet: false, showCookSheet: false }) },
+  onUnload() { this._unlockTabBar(); this.setData({ showAddSheet: false, showEditSheet: false, editingItem: null, showAddStapleSheet: false, showCookSheet: false }) },
 
   _lockTabBar() { try { const bar = this.getTabBar(); if (bar && bar.lockTabBar) bar.lockTabBar() } catch (e) {} },
   _unlockTabBar() { try { const bar = this.getTabBar(); if (bar && bar.unlockTabBar) bar.unlockTabBar() } catch (e) {} },
@@ -351,8 +362,59 @@ Page({
     }
   },
 
-  // ===== Cook with fridge (placeholder) =====
-  cookWithFridge() { wx.showToast({ title: '看冰箱做菜将在推荐引擎接入后启用', icon: 'none' }) },
+  // ===== Cook with fridge =====
+  async cookWithFridge() {
+    if (!this._familyId) return;
+    const epoch = ++this.data.cookRequestEpoch;
+    this.setData({ showCookSheet: true, cookLoading: true, cookError: null, cookRecipes: [] });
+    this._lockTabBar();
+    try {
+      const recipes = await this._api.getFridgeCooking(this._familyId);
+      if (epoch !== this.data.cookRequestEpoch) return;
+      this.setData({ cookRecipes: recipes || [], cookLoading: false });
+    } catch (e) {
+      if (epoch !== this.data.cookRequestEpoch) return;
+      this.setData({ cookError: e.message || '加载失败', cookLoading: false });
+    }
+  },
+
+  closeCookSheet() {
+    this.setData({ showCookSheet: false });
+    this._unlockTabBar();
+  },
+
+  cookGoDetail(e) {
+    const id = e.currentTarget.dataset.id;
+    this.closeCookSheet();
+    wx.navigateTo({ url: `/pages/detail/detail?id=${id}` });
+  },
+
+  async cookAddToMeal(e) {
+    const id = e.currentTarget.dataset.id;
+    const recipe = this.data.cookRecipes.find(r => r.id === id);
+    if (!recipe) return;
+    try {
+      const mealTarget = wx.getStorageSync('v1_meal_target') || { meal_date: '', meal_type: 'DINNER', diners_count: 2 };
+      const meal = await this._api.ensureCurrentMeal(this._familyId, {
+        meal_date: mealTarget.meal_date,
+        meal_type: mealTarget.meal_type,
+        diners_count: mealTarget.diners_count
+      });
+      const mealId = meal.id || meal.meal?.id;
+      await this._api.addMealItem(this._familyId, mealId, {
+        recipe_id: id,
+        servings: mealTarget.diners_count || 2,
+        source: 'MANUAL'
+      });
+      wx.showToast({ title: '已加入本餐', icon: 'success' });
+    } catch (err) {
+      if (err.code === 'ALREADY_IN_MEAL' || err.status === 409) {
+        wx.showToast({ title: '已在本餐中', icon: 'none' });
+      } else {
+        wx.showToast({ title: err.message || '加入失败', icon: 'none' });
+      }
+    }
+  },
 
   // ===== Missing handlers for WXML contract =====
   noop() {},

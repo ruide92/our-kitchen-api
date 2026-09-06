@@ -9,11 +9,11 @@
 
 | Status | Count |
 |---|---|
-| REAL | 151 |
-| BROKEN | 19 |
+| REAL | 166 |
+| BROKEN | 15 |
 | PLANNED_DISABLED | 2 |
-| HIDDEN | 20 |
-| **Total** | **192** |
+| HIDDEN | 19 |
+| **Total** | **202** |
 
 ## Surfaces
 
@@ -72,7 +72,7 @@
 | FRIDGE-05 | wxml-handler | onSearchInput | REAL | REAL |
 | FRIDGE-06 | wxml-handler | selectCategory | REAL | REAL |
 | FRIDGE-07 | wxml-handler | openEditSheet | REAL | REAL |
-| FRIDGE-08 | wxml-handler | cookWithFridge | BROKEN | REAL |
+| FRIDGE-08 | wxml-handler | cookWithFridge | REAL | REAL |
 | FRIDGE-09 | wxml-handler | retryPantry | REAL | REAL |
 | FRIDGE-10 | wxml-handler | removeStaple | REAL | REAL |
 | FRIDGE-11 | wxml-handler | openAddStapleSheet | REAL | REAL |
@@ -94,9 +94,13 @@
 | FRIDGE-27 | wxml-handler | closeAddStapleSheet | REAL | REAL |
 | FRIDGE-28 | wxml-handler | onStapleNameInput | REAL | REAL |
 | FRIDGE-29 | wxml-handler | saveAddStaple | REAL | REAL |
+| FRIDGE-COOK-01 | wxml-handler | closeCookSheet | REAL | REAL |
+| FRIDGE-COOK-02 | wxml-handler | cookGoDetail | REAL | REAL |
+| FRIDGE-COOK-03 | wxml-handler | cookAddToMeal | REAL | REAL |
 | FRIDGE-OVERLAY-01 | overlay | 添加食材 Sheet | REAL | REAL |
 | FRIDGE-OVERLAY-02 | overlay | 编辑食材 Sheet | REAL | REAL |
 | FRIDGE-OVERLAY-03 | overlay | 添加常备食材 Sheet | REAL | REAL |
+| FRIDGE-OVERLAY-04 | overlay | 看冰箱做菜推荐 | REAL | REAL |
 
 ### history
 
@@ -111,10 +115,10 @@
 |---|---|---|---|---|
 | HOME-01 | wxml-handler | retryLoad | REAL | REAL |
 | HOME-02 | wxml-handler | goMine | REAL | REAL |
-| HOME-03 | wxml-handler | goRandom | BROKEN | REAL |
-| HOME-04 | wxml-handler | goFridgeCook | BROKEN | REAL |
+| HOME-03 | wxml-handler | goRandom | REAL | REAL |
+| HOME-04 | wxml-handler | goFridgeCook | REAL | REAL |
 | HOME-05 | wxml-handler | goFavorites | BROKEN | REAL |
-| HOME-06 | wxml-handler | goOnePerson | BROKEN | REAL |
+| HOME-06 | wxml-handler | goOnePerson | REAL | REAL |
 | HOME-07 | wxml-handler | goWeeklyPlan | REAL | REAL |
 | HOME-08 | wxml-handler | selectDay | REAL | REAL |
 | HOME-09 | wxml-handler | addMealToCurrent | REAL | REAL |
@@ -232,7 +236,13 @@
 
 | ID | Kind | Handler/Label | Status | Final |
 |---|---|---|---|---|
-| PAGE-06 | page | 随机菜谱页 | HIDDEN | REAL |
+| PAGE-06 | page | 随机菜谱页 | REAL | REAL |
+| RANDOM-01 | wxml-handler | setMode | REAL | REAL |
+| RANDOM-02 | wxml-handler | setCount | REAL | REAL |
+| RANDOM-03 | wxml-handler | toggleLock | REAL | REAL |
+| RANDOM-04 | wxml-handler | generate | REAL | REAL |
+| RANDOM-05 | wxml-handler | eatThese | REAL | REAL |
+| RANDOM-06 | wxml-handler | goDetail | REAL | REAL |
 
 ### ratings
 

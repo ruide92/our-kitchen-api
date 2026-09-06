@@ -1,27 +1,55 @@
 <view class="page">
-  <view class="header"><text class="title">🎲 今天吃什么</text></view>
+  <view class="header">
+    <text class="title">今天吃什么</text>
+    <text class="subtitle">{{mealDate}} · {{mealType === 'BREAKFAST' ? '早餐' : mealType === 'LUNCH' ? '午餐' : '晚餐'}} · {{dinersCount}}人</text>
+  </view>
+
   <view class="mode-tabs">
-    <view class="mode-tab {{mode === 'double' ? 'active' : ''}}" data-mode="double" bindtap="setMode">双人晚餐</view>
-    <view class="mode-tab {{mode === 'one' ? 'active' : ''}}" data-mode="one" bindtap="setMode">一人食</view>
-    <view class="mode-tab {{mode === 'lazy' ? 'active' : ''}}" data-mode="lazy" bindtap="setMode">懒人模式</view>
-    <view class="mode-tab {{mode === 'fridge' ? 'active' : ''}}" data-mode="fridge" bindtap="setMode">冰箱优先</view>
+    <view wx:for="{{['BALANCED','USE_INVENTORY','TRY_DIFFERENT']}}" wx:key="*this"
+          class="mode-tab {{mode === item ? 'active' : ''}}"
+          data-mode="{{item}}" bindtap="setMode">{{modeLabels[item]}}</view>
   </view>
+
   <view class="count-tabs">
-    <view wx:for="{{[1,2,3]}}" wx:key="*this" class="count-tab {{dishCount === item ? 'active' : ''}}" data-count="{{item}}" bindtap="setCount">{{item}}道菜</view>
+    <view wx:for="{{[1,2,3,4]}}" wx:key="*this"
+          class="count-tab {{targetCount === item ? 'active' : ''}}"
+          data-count="{{item}}" bindtap="setCount">{{item}}道菜</view>
   </view>
-  <view class="dish-list">
-    <view wx:for="{{dishes}}" wx:key="id" class="dish-card" data-id="{{item.id}}" bindtap="goDetail">
-      <image class="dish-img" src="{{item.image}}" mode="aspectFill"></image>
+
+  <view wx:if="{{loading}}" class="state-view">
+    <text class="loading-text">推荐中...</text>
+  </view>
+
+  <view wx:elif="{{error}}" class="state-view">
+    <text class="error-text">{{error}}</text>
+    <view class="retry-btn" bindtap="generate">重试</view>
+  </view>
+
+  <view wx:elif="{{isEmpty}}" class="state-view">
+    <text class="empty-text">暂无推荐菜谱</text>
+  </view>
+
+  <view wx:else class="dish-list">
+    <view wx:for="{{recipes}}" wx:key="id" class="dish-card" data-id="{{item.id}}" bindtap="goDetail">
       <view class="dish-info">
         <text class="dish-name">{{item.name}}</text>
-        <text class="dish-meta">{{item.category}} · {{item.cook_time}}分钟</text>
+        <text class="dish-meta" wx:if="{{item.cook_time_minutes}}">{{item.cook_time_minutes}}分钟</text>
+        <view class="reason-tags" wx:if="{{item.reasonLabels.length > 0}}">
+          <text wx:for="{{item.reasonLabels}}" wx:key="*this" wx:for-item="reason" class="reason-tag">{{reason}}</text>
+        </view>
       </view>
-      <view class="lock-btn {{locked.includes(item.id) ? 'locked' : ''}}" data-id="{{item.id}}" catchtap="toggleLock">{{locked.includes(item.id) ? '🔒' : '🔓'}}</view>
+      <view class="lock-btn {{item.locked ? 'locked' : ''}}" data-id="{{item.id}}" catchtap="toggleLock">
+        {{item.locked ? '已锁定' : '锁定'}}
+      </view>
     </view>
-    <view wx:if="{{loading}}" class="loading">摇一摇中...</view>
   </view>
+
+  <view wx:if="{{warnings.length > 0}}" class="warnings">
+    <text wx:for="{{warnings}}" wx:key="code" class="warning-text">{{item.detail || item.code}}</text>
+  </view>
+
   <view class="bottom-actions safe-bottom">
-    <view class="action-btn" bindtap="generate">🎲 换一批</view>
-    <view class="action-btn primary" bindtap="addAllToMenu">加入今日菜单</view>
+    <view class="action-btn {{busy ? 'disabled' : ''}}" bindtap="generate">换一批</view>
+    <view class="action-btn primary {{busy || recipes.length === 0 ? 'disabled' : ''}}" bindtap="eatThese">就吃这些</view>
   </view>
 </view>

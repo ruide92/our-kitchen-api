@@ -332,6 +332,20 @@
   border-radius: 20rpx;
 }
 
+
+.cook-list { max-height: 60vh; }
+.cook-item { display: flex; align-items: center; padding: 20rpx 0; border-bottom: 1rpx solid #f0f0f0; }
+.cook-item-info { flex: 1; }
+.cook-item-name { font-size: 28rpx; font-weight: 500; color: #333; display: block; }
+.cook-item-meta { display: flex; align-items: center; gap: 16rpx; margin-top: 8rpx; }
+.cook-status { font-size: 22rpx; padding: 4rpx 12rpx; border-radius: 8rpx; }
+.cook-status-CAN_COOK_NOW { background: #E8F5E9; color: #2E7D32; }
+.cook-status-MISSING_FEW { background: #FFF3E0; color: #E65100; }
+.cook-status-NEEDS_SHOPPING { background: #FFEBEE; color: #C62828; }
+.cook-count { font-size: 22rpx; color: #999; }
+.cook-missing { font-size: 22rpx; color: #E65100; margin-top: 4rpx; }
+.cook-item-action { font-size: 24rpx; color: #1976D2; padding: 12rpx 20rpx; border: 1rpx solid #1976D2; border-radius: 16rpx; }
+
 /* ===== 常备食材视图 ===== */
 .pantry-desc {
   padding: 20rpx 24rpx;

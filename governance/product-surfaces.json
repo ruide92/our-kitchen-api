@@ -27,7 +27,7 @@
       "kind": "wxml-handler",
       "handler": "goRandom",
       "label": "随机菜谱",
-      "status": "BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -36,7 +36,7 @@
       "kind": "wxml-handler",
       "handler": "goFridgeCook",
       "label": "看冰箱做菜",
-      "status": "BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -54,7 +54,7 @@
       "kind": "wxml-handler",
       "handler": "goOnePerson",
       "label": "一人菜",
-      "status": "BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -520,7 +520,7 @@
       "kind": "wxml-handler",
       "handler": "cookWithFridge",
       "label": "用冰箱做菜",
-      "status": "BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -1418,7 +1418,7 @@
       "page": "random",
       "kind": "page",
       "label": "随机菜谱页",
-      "status": "HIDDEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -1729,6 +1729,96 @@
       "kind": "wxml-handler",
       "handler": "goMeal",
       "label": "历史查看本餐",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-OVERLAY-04",
+      "page": "fridge",
+      "kind": "overlay",
+      "surface_id": "FRIDGE-OVERLAY-04",
+      "label": "看冰箱做菜推荐",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "RANDOM-01",
+      "page": "random",
+      "kind": "wxml-handler",
+      "handler": "setMode",
+      "label": "随机模式切换",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "RANDOM-02",
+      "page": "random",
+      "kind": "wxml-handler",
+      "handler": "setCount",
+      "label": "随机菜数切换",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "RANDOM-03",
+      "page": "random",
+      "kind": "wxml-handler",
+      "handler": "toggleLock",
+      "label": "随机锁定菜谱",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "RANDOM-04",
+      "page": "random",
+      "kind": "wxml-handler",
+      "handler": "generate",
+      "label": "随机换一批",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "RANDOM-05",
+      "page": "random",
+      "kind": "wxml-handler",
+      "handler": "eatThese",
+      "label": "随机就吃这些",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "RANDOM-06",
+      "page": "random",
+      "kind": "wxml-handler",
+      "handler": "goDetail",
+      "label": "随机结果详情",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-COOK-01",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "closeCookSheet",
+      "label": "关闭冰箱做菜推荐",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-COOK-02",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "cookGoDetail",
+      "label": "冰箱推荐详情",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-COOK-03",
+      "page": "fridge",
+      "kind": "wxml-handler",
+      "handler": "cookAddToMeal",
+      "label": "冰箱推荐加入本餐",
       "status": "REAL",
       "final": "REAL"
     }

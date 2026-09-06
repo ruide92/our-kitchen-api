@@ -248,10 +248,28 @@ Page({
   },
 
   // ===== 快捷入口 =====
-  goRandom() { wx.showToast({ title: '随机菜谱将在推荐引擎接入后启用', icon: 'none', duration: 1500 }) },
-  goFridgeCook() { wx.switchTab({ url: '/pages/fridge/fridge' }) },
-  goFavorites() { wx.showToast({ title: '家庭收藏真实数据接入后启用', icon: 'none', duration: 1500 }) },
-  goOnePerson() { wx.showToast({ title: '一人菜将在推荐引擎接入后启用', icon: 'none', duration: 1500 }) },
+  goRandom() {
+    const mealTarget = wx.getStorageSync('v1_meal_target');
+    const target = mealTarget || Object.create(null);
+    const date = target.meal_date || this.data.currentMealDate;
+    const mealType = target.meal_type || 'DINNER';
+    const diners = target.diners_count || 2;
+    const url = '/pages/random/random?meal_date=' + date + '&meal_type=' + mealType + '&diners_count=' + diners + '&mode=BALANCED';
+    wx.navigateTo({ url: url });
+  },
+  goFridgeCook() {
+    wx.setStorageSync('v1_fridge_intent', 'COOK');
+    wx.switchTab({ url: '/pages/fridge/fridge' });
+  },
+  goFavorites() { wx.showToast({ title: '家人喜欢功能开发中', icon: 'none', duration: 1500 }) },
+  goOnePerson() {
+    const mealTarget = wx.getStorageSync('v1_meal_target');
+    const target = mealTarget || Object.create(null);
+    const date = target.meal_date || this.data.currentMealDate;
+    const mealType = target.meal_type || 'DINNER';
+    const url = '/pages/random/random?meal_date=' + date + '&meal_type=' + mealType + '&diners_count=1&mode=BALANCED';
+    wx.navigateTo({ url: url });
+  },
   goWeeklyPlan() { wx.switchTab({ url: '/pages/menu/menu' }) },
 
   goTodayMenu() {

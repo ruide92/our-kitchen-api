@@ -282,4 +282,28 @@
     </view>
   </view>
 
+  <!-- ===== 看冰箱做菜推荐 bottom sheet ===== -->
+  <view wx:if="{{showCookSheet}}" class="tab-safe-sheet-mask" data-surface-id="FRIDGE-OVERLAY-04" bindtap="closeCookSheet">
+    <view class="tab-safe-sheet-panel" data-surface-id="FRIDGE-OVERLAY-04" catchtap="noop">
+      <view class="sheet-handle"></view>
+      <text class="sheet-title">看冰箱做菜</text>
+      <view wx:if="{{cookLoading}}" class="state-loading"><text class="state-text">推荐中...</text></view>
+      <view wx:elif="{{cookError}}" class="state-error"><text class="state-text">{{cookError}}</text><view class="state-retry" bindtap="cookWithFridge"><text>重试</text></view></view>
+      <view wx:elif="{{cookRecipes.length === 0}}" class="empty-state"><text class="empty-text">暂无推荐菜谱</text></view>
+      <scroll-view wx:else scroll-y class="cook-list">
+        <view wx:for="{{cookRecipes}}" wx:key="id" class="cook-item">
+          <view class="cook-item-info" data-id="{{item.id}}" bindtap="cookGoDetail">
+            <text class="cook-item-name">{{item.name}}</text>
+            <view class="cook-item-meta">
+              <text class="cook-status cook-status-{{item.status}}">{{item.status === 'CAN_COOK_NOW' ? '可直接做' : item.status === 'MISSING_FEW' ? '差少量食材' : '需采购'}}</text>
+              <text class="cook-count">{{item.available_count}}/{{item.required_count}} 食材已有</text>
+            </view>
+            <view wx:if="{{item.missing_count > 0}}" class="cook-missing">缺 {{item.missing_count}} 样</view>
+          </view>
+          <view class="cook-item-action" data-id="{{item.id}}" catchtap="cookAddToMeal">加入本餐</view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
 </view>
