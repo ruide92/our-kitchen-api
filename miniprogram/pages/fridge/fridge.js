@@ -425,7 +425,6 @@ Page({
 
   // ===== Missing handlers for WXML contract =====
   noop() {},
-  prioritizeExpiring() { wx.showToast({ title: '优先做掉将在推荐引擎接入后启用', icon: 'none' }) },
   removeItem(e) { this.deleteItem(e) },
   toggleStaple(e) { this.removeStaple(e) },
   onEditPurchaseChange(e) { this.setData({ 'editForm.purchase_date': e.detail.value }) },

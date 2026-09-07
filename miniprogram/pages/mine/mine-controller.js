@@ -29,22 +29,22 @@ function createMinePage({ app, wxAdapter }) {
           { icon: '👨‍👩‍👧', name: '家庭管理', action: 'openFamilySheet' },
           { icon: '🍳', name: '厨房设置', action: 'openKitchenSettingsSheet' },
           { icon: '🧂', name: '调味品 / 常备品', action: 'goPantry' },
-          { icon: '💋', name: '么么哒', action: 'placeholderToast', badge: '待接入' }
+          { icon: '💋', name: '么么哒', action: 'disabled', disabled: true, badge: '待接入' }
         ] },
         { title: '我的吃饭记录', items: [
           { icon: '📋', name: '本餐菜单 / 历史', action: 'goHistory' },
           { icon: '⭐', name: '我的收藏', action: 'goFavorites' },
           { icon: '❤️', name: '我的评分', action: 'goRatings' },
           { icon: '🥢', name: '个人偏好', action: 'openPreferenceSheet' },
-          { icon: '📖', name: '我的菜谱', action: 'placeholderToast', badge: '待接入' }
+          { icon: '📖', name: '我的菜谱', action: 'disabled', disabled: true, badge: '待接入' }
         ] },
         { title: '创作与分享', items: [
-          { icon: '🤖', name: 'AI 导入菜谱', action: 'placeholderToast', badge: '规划中' },
+          { icon: '🤖', name: 'AI 导入菜谱', action: 'disabled', disabled: true, badge: '规划中' },
           { icon: '🌐', name: '分享广场', action: '', disabled: true, badge: '规划中' },
           { icon: '📤', name: '我的分享', action: '', disabled: true, badge: '规划中' },
-          { icon: '🗑️', name: '回收站', action: 'placeholderToast', badge: '待接入' }
+          { icon: '🗑️', name: '回收站', action: 'disabled', disabled: true, badge: '待接入' }
         ] },
-        { title: '其他', items: [{ icon: '⚙️', name: '设置', action: 'openSettingsSheet' }, { icon: 'ℹ️', name: '关于我们', action: 'placeholderToast' }] }
+        { title: '其他', items: [{ icon: '⚙️', name: '设置', action: 'openSettingsSheet' }, { icon: 'ℹ️', name: '关于我们', action: 'disabled', disabled: true }] }
       ],
       kitchenForm: null,
       canEditKitchenSettings: false,
@@ -168,7 +168,6 @@ function createMinePage({ app, wxAdapter }) {
       if (this.data.familyStatus !== 'ready' || !code) { toast('暂无邀请码，请刷新家庭数据'); return }
       wxAdapter.setClipboardData({ data: code, success: () => toast('邀请码已复制'), fail: () => toast('复制失败，请重试') })
     },
-    placeholderToast() { toast('此功能待接入真实数据') },
     goPantry() {
       if (!this.familyReady()) return
       wxAdapter.setStorageSync('v1_fridge_target_tab', 'pantry')
@@ -278,7 +277,7 @@ function createMinePage({ app, wxAdapter }) {
     onMenuTap(e) {
       const action = e.currentTarget.dataset.action
       if (!action) return
-      if (['openFamilySheet','openKitchenSettingsSheet','openSettingsSheet','placeholderToast','goPantry','goHistory','goFavorites','goRatings','openPreferenceSheet'].includes(action)) this[action]()
+      if (['openFamilySheet','openKitchenSettingsSheet','openSettingsSheet','goPantry','goHistory','goFavorites','goRatings','openPreferenceSheet'].includes(action)) this[action]()
     },
     async openPreferenceSheet() {
       if (!this.familyReady() || this.data.busy) return

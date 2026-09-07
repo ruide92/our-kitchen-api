@@ -129,6 +129,16 @@
   font-weight: 500;
 }
 
+.expiring-action-disabled {
+  text-align: right;
+  opacity: 0.5;
+}
+
+.expiring-action-disabled text {
+  font-size: 22rpx;
+  color: #999;
+}
+
 /* ===== 搜索 ===== */
 .search-row {
   padding: 0 24rpx;

@@ -44,8 +44,8 @@
           {{item.name}} {{item.expiry_label}}
         </text>
       </view>
-      <view class="expiring-action" bindtap="prioritizeExpiring">
-        <text>优先做掉 ›</text>
+      <view class="expiring-action expiring-action-disabled">
+        <text>优先做掉 · 即将上线</text>
       </view>
     </view>
 
