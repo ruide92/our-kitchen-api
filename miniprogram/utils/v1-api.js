@@ -55,6 +55,9 @@ function createV1Api({ wxAdapter, baseUrl = config.baseUrl, timeoutMs = config.t
     getRecipe: (id, recipeId) => dataRequest(familyPath(id) + '/recipes/' + recipeId),
     createRecipe: (id, data) => dataRequest(familyPath(id) + '/recipes', { method: 'POST', data }),
     setFavorite: (id, recipeId, fav) => dataRequest(familyPath(id) + '/recipes/' + recipeId + '/favorite', { method: fav ? 'PUT' : 'DELETE' }),
+    setWish: (id, recipeId, wish) => dataRequest(familyPath(id) + '/recipes/' + recipeId + '/wish', { method: wish ? 'PUT' : 'DELETE' }),
+    getPreferences: id => dataRequest(familyPath(id) + '/me/preferences'),
+    updatePreferences: (id, data) => dataRequest(familyPath(id) + '/me/preferences', { method: 'PATCH', data }),
     // Meals
     getCurrentMeal: (id, date, mealType) => dataRequest(familyPath(id) + '/meals/current?date=' + date + '&meal_type=' + mealType),
     ensureCurrentMeal: (id, data) => dataRequest(familyPath(id) + '/meals/current', { method: 'PUT', data }),

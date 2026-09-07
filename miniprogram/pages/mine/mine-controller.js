@@ -1,7 +1,20 @@
 const config = require('../../config/v1')
+const { createV1Api } = require('../../utils/v1-api')
 const roleLabels = { OWNER: '家庭主人', ADMIN: '管理员', MEMBER: '家庭成员' }
 const modeLabels = { BALANCED: '均衡推荐', USE_INVENTORY: '优先吃库存', TRY_DIFFERENT: '换换口味' }
 const toolLabels = { WOK: '炒锅', RICE_COOKER: '电饭锅', AIR_FRYER: '空气炸锅', PRESSURE_COOKER: '高压锅' }
+const ALLERGEN_OPTIONS = [
+  { code: 'SOY', label: '大豆' }, { code: 'PEANUT', label: '花生' }, { code: 'TREE_NUT', label: '坚果' },
+  { code: 'MILK', label: '牛奶' }, { code: 'EGG', label: '鸡蛋' }, { code: 'WHEAT', label: '小麦' },
+  { code: 'FISH', label: '鱼类' }, { code: 'SHELLFISH', label: '贝类' }, { code: 'SESAME', label: '芝麻' },
+  { code: 'PORK', label: '猪肉' }, { code: 'BEEF', label: '牛肉' }, { code: 'CHICKEN', label: '鸡肉' }
+]
+const DIET_TAG_OPTIONS = [
+  { code: 'VEGETARIAN', label: '素食' }, { code: 'VEGAN', label: '纯素' }, { code: 'HALAL', label: '清真' },
+  { code: 'LOW_CARB', label: '低碳水' }, { code: 'HIGH_PROTEIN', label: '高蛋白' },
+  { code: 'GLUTEN_FREE', label: '无麸质' }, { code: 'DAIRY_FREE', label: '无乳制品' }
+]
+const SPICINESS_LABELS = ['不辣', '微辣', '中辣', '较辣', '很辣', '爆辣']
 const avatar = value => typeof value === 'string' && /^https:\/\//.test(value) ? value : ''
 function createMinePage({ app, wxAdapter }) {
   const toast = message => wxAdapter.showToast({ title: message, icon: 'none' })
@@ -22,6 +35,7 @@ function createMinePage({ app, wxAdapter }) {
           { icon: '📋', name: '本餐菜单 / 历史', action: 'goHistory' },
           { icon: '⭐', name: '我的收藏', action: 'goFavorites' },
           { icon: '❤️', name: '我的评分', action: 'goRatings' },
+          { icon: '🥢', name: '个人偏好', action: 'openPreferenceSheet' },
           { icon: '📖', name: '我的菜谱', action: 'placeholderToast', badge: '待接入' }
         ] },
         { title: '创作与分享', items: [
@@ -33,11 +47,17 @@ function createMinePage({ app, wxAdapter }) {
         { title: '其他', items: [{ icon: '⚙️', name: '设置', action: 'openSettingsSheet' }, { icon: 'ℹ️', name: '关于我们', action: 'placeholderToast' }] }
       ],
       kitchenForm: null,
-      canEditKitchenSettings: false
+      canEditKitchenSettings: false,
+      preferenceForm: null,
+      preferenceStatus: 'idle',
+      allergenOptions: ALLERGEN_OPTIONS,
+      dietTagOptions: DIET_TAG_OPTIONS,
+      spicinessLabels: SPICINESS_LABELS
     },
     onLoad() {
       this._session = app.getV1Session()
       this._unsubscribe = this._session.subscribe(state => this.applySession(state))
+      this._api = createV1Api({ wxAdapter })
     },
     onShow() {
       if (typeof this.getTabBar === 'function') { const bar = this.getTabBar(); if (bar) bar.setData({ selected: 4, hidden: false }) }
@@ -258,7 +278,97 @@ function createMinePage({ app, wxAdapter }) {
     onMenuTap(e) {
       const action = e.currentTarget.dataset.action
       if (!action) return
-      if (['openFamilySheet','openKitchenSettingsSheet','openSettingsSheet','placeholderToast','goPantry','goHistory','goFavorites','goRatings'].includes(action)) this[action]()
+      if (['openFamilySheet','openKitchenSettingsSheet','openSettingsSheet','placeholderToast','goPantry','goHistory','goFavorites','goRatings','openPreferenceSheet'].includes(action)) this[action]()
+    },
+    async openPreferenceSheet() {
+      if (!this.familyReady() || this.data.busy) return
+      this.setData({ busy: true, preferenceStatus: 'loading', preferenceError: '' })
+      try {
+        const prefs = await this._api.getPreferences(this.data.active_family_id)
+        this.setData({
+          preferenceForm: {
+            spiciness_preference: prefs.spiciness_preference != null ? prefs.spiciness_preference : null,
+            allergens: Array.isArray(prefs.allergens) ? [...prefs.allergens] : [],
+            disliked_ingredients: Array.isArray(prefs.disliked_ingredients) ? prefs.disliked_ingredients.map(i => ({ ingredient_id: i.ingredient_id, name: i.name })) : [],
+            diet_tags: Array.isArray(prefs.diet_tags) ? [...prefs.diet_tags] : [],
+            ingredientSearch: '',
+            ingredientResults: []
+          },
+          preferenceStatus: 'ready'
+        })
+        this._openSheet('preference')
+      } catch (error) {
+        this.setData({ preferenceStatus: 'error', preferenceError: error.message || '加载偏好失败' })
+        toast(error.message || '加载偏好失败')
+      } finally {
+        this.setData({ busy: false })
+      }
+    },
+    onPreferenceSpiciness(e) {
+      if (this.data.busy) return
+      const val = e.currentTarget.dataset.value
+      const num = val === null || val === '' || val === undefined ? null : Number(val)
+      this.setData({ 'preferenceForm.spiciness_preference': num })
+    },
+    onPreferenceAllergen(e) {
+      if (this.data.busy) return
+      const code = e.currentTarget.dataset.code
+      const current = this.data.preferenceForm.allergens || []
+      const next = current.includes(code) ? current.filter(c => c !== code) : [...current, code]
+      this.setData({ 'preferenceForm.allergens': next })
+    },
+    onPreferenceDietTag(e) {
+      if (this.data.busy) return
+      const code = e.currentTarget.dataset.code
+      const current = this.data.preferenceForm.diet_tags || []
+      const next = current.includes(code) ? current.filter(c => c !== code) : [...current, code]
+      this.setData({ 'preferenceForm.diet_tags': next })
+    },
+    onPreferenceIngredientSearch(e) {
+      const keyword = (e.detail.value || '').trim()
+      this.setData({ 'preferenceForm.ingredientSearch': keyword })
+      if (keyword.length < 1) { this.setData({ 'preferenceForm.ingredientResults': [] }); return }
+      this._api.searchIngredients(keyword).then(results => {
+        const list = Array.isArray(results) ? results : (results && Array.isArray(results.data) ? results.data : [])
+        this.setData({ 'preferenceForm.ingredientResults': list.slice(0, 20) })
+      }).catch(() => { this.setData({ 'preferenceForm.ingredientResults': [] }) })
+    },
+    onPreferenceIngredientToggle(e) {
+      if (this.data.busy) return
+      const ing = e.currentTarget.dataset.ingredient
+      if (!ing || !ing.id) return
+      const current = this.data.preferenceForm.disliked_ingredients || []
+      const exists = current.some(i => i.ingredient_id === ing.id)
+      const next = exists
+        ? current.filter(i => i.ingredient_id !== ing.id)
+        : [...current, { ingredient_id: ing.id, name: ing.display_name || ing.name || ing.id }]
+      this.setData({ 'preferenceForm.disliked_ingredients': next, 'preferenceForm.ingredientSearch': '', 'preferenceForm.ingredientResults': [] })
+    },
+    onPreferenceRemoveDisliked(e) {
+      if (this.data.busy) return
+      const id = e.currentTarget.dataset.id
+      const current = this.data.preferenceForm.disliked_ingredients || []
+      this.setData({ 'preferenceForm.disliked_ingredients': current.filter(i => i.ingredient_id !== id) })
+    },
+    async savePreferences() {
+      if (this.data.busy || !this.data.preferenceForm) return
+      const form = this.data.preferenceForm
+      const payload = {
+        spiciness_preference: form.spiciness_preference,
+        allergens: form.allergens || [],
+        disliked_ingredient_ids: (form.disliked_ingredients || []).map(i => i.ingredient_id),
+        diet_tags: form.diet_tags || []
+      }
+      this.setData({ busy: true })
+      try {
+        await this._api.updatePreferences(this.data.active_family_id, payload)
+        this._closeSheet()
+        toast('个人偏好已保存')
+      } catch (error) {
+        toast(error.message || '保存失败，请重试')
+      } finally {
+        this.setData({ busy: false })
+      }
     },
     noop() {},
   }

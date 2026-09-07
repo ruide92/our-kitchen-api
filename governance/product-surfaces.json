@@ -1302,6 +1302,15 @@
       "final": "REAL"
     },
     {
+      "id": "MINE-MENU-15",
+      "page": "mine",
+      "kind": "menu-action",
+      "label": "个人偏好",
+      "action": "openPreferenceSheet",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
       "id": "DETAIL-01",
       "page": "detail",
       "kind": "wxml-handler",
@@ -1343,7 +1352,7 @@
       "kind": "wxml-handler",
       "handler": "wantToEat",
       "label": "想吃",
-      "status": "BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -1684,6 +1693,78 @@
       "kind": "wxml-handler",
       "handler": "goPantry",
       "label": "跳转常备品",
+      "status": "HIDDEN",
+      "final": "HIDDEN"
+    },
+    {
+      "id": "MINE-GUARD-08",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "openPreferenceSheet",
+      "label": "打开个人偏好",
+      "status": "HIDDEN",
+      "final": "HIDDEN"
+    },
+    {
+      "id": "MINE-GUARD-09",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "onPreferenceSpiciness",
+      "label": "偏好辣度选择",
+      "status": "HIDDEN",
+      "final": "HIDDEN"
+    },
+    {
+      "id": "MINE-GUARD-10",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "onPreferenceAllergen",
+      "label": "偏好过敏原选择",
+      "status": "HIDDEN",
+      "final": "HIDDEN"
+    },
+    {
+      "id": "MINE-GUARD-11",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "onPreferenceDietTag",
+      "label": "偏好饮食标签选择",
+      "status": "HIDDEN",
+      "final": "HIDDEN"
+    },
+    {
+      "id": "MINE-GUARD-12",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "onPreferenceIngredientSearch",
+      "label": "偏好忌口食材搜索",
+      "status": "HIDDEN",
+      "final": "HIDDEN"
+    },
+    {
+      "id": "MINE-GUARD-13",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "onPreferenceIngredientToggle",
+      "label": "偏好忌口食材添加",
+      "status": "HIDDEN",
+      "final": "HIDDEN"
+    },
+    {
+      "id": "MINE-GUARD-14",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "onPreferenceRemoveDisliked",
+      "label": "偏好忌口食材移除",
+      "status": "HIDDEN",
+      "final": "HIDDEN"
+    },
+    {
+      "id": "MINE-GUARD-15",
+      "page": "mine",
+      "kind": "wxml-handler",
+      "handler": "savePreferences",
+      "label": "保存个人偏好",
       "status": "HIDDEN",
       "final": "HIDDEN"
     },

@@ -9,11 +9,11 @@
 
 | Status | Count |
 |---|---|
-| REAL | 177 |
-| BROKEN | 9 |
+| REAL | 179 |
+| BROKEN | 8 |
 | PLANNED_DISABLED | 2 |
-| HIDDEN | 19 |
-| **Total** | **207** |
+| HIDDEN | 27 |
+| **Total** | **216** |
 
 ## Surfaces
 
@@ -37,7 +37,7 @@
 | DETAIL-02 | wxml-handler | editDish | BROKEN | REAL |
 | DETAIL-03 | wxml-handler | onOpenRating | REAL | REAL |
 | DETAIL-04 | wxml-handler | switchTab | REAL | REAL |
-| DETAIL-05 | wxml-handler | wantToEat | BROKEN | REAL |
+| DETAIL-05 | wxml-handler | wantToEat | REAL | REAL |
 | DETAIL-06 | wxml-handler | addToMeal | REAL | REAL |
 | DETAIL-07 | wxml-handler | startCooking | REAL | REAL |
 | DETAIL-08 | wxml-handler | onCloseRating | REAL | REAL |
@@ -215,6 +215,14 @@
 | MINE-GUARD-05 | wxml-handler | onKitchenToggle | HIDDEN | HIDDEN |
 | MINE-GUARD-06 | wxml-handler | saveKitchenSettings | HIDDEN | HIDDEN |
 | MINE-GUARD-07 | wxml-handler | goPantry | HIDDEN | HIDDEN |
+| MINE-GUARD-08 | wxml-handler | openPreferenceSheet | HIDDEN | HIDDEN |
+| MINE-GUARD-09 | wxml-handler | onPreferenceSpiciness | HIDDEN | HIDDEN |
+| MINE-GUARD-10 | wxml-handler | onPreferenceAllergen | HIDDEN | HIDDEN |
+| MINE-GUARD-11 | wxml-handler | onPreferenceDietTag | HIDDEN | HIDDEN |
+| MINE-GUARD-12 | wxml-handler | onPreferenceIngredientSearch | HIDDEN | HIDDEN |
+| MINE-GUARD-13 | wxml-handler | onPreferenceIngredientToggle | HIDDEN | HIDDEN |
+| MINE-GUARD-14 | wxml-handler | onPreferenceRemoveDisliked | HIDDEN | HIDDEN |
+| MINE-GUARD-15 | wxml-handler | savePreferences | HIDDEN | HIDDEN |
 | MINE-MENU-01 | menu-action | 家庭管理 | REAL | REAL |
 | MINE-MENU-02 | menu-action | 厨房设置 | REAL | REAL |
 | MINE-MENU-03 | menu-action | goPantry | REAL | REAL |
@@ -229,6 +237,7 @@
 | MINE-MENU-12 | menu-action | 回收站 | BROKEN | REAL |
 | MINE-MENU-13 | menu-action | 设置 | REAL | REAL |
 | MINE-MENU-14 | menu-action | 关于我们 | BROKEN | REAL |
+| MINE-MENU-15 | menu-action | 个人偏好 | REAL | REAL |
 | MINE-OVERLAY-01 | overlay | 我的页面通用 Sheet | REAL | REAL |
 
 ### orders

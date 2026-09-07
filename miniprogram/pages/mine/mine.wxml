@@ -211,6 +211,50 @@
           <button class="sheet-btn sheet-btn-confirm" bindtap="saveKitchenSettings" loading="{{busy}}" disabled="{{busy}}">保存</button>
         </view>
       </block>
+      <block wx:elif="{{sheet === 'preference'}}">
+        <text class="sheet-title">个人偏好</text>
+        <text class="sheet-subtitle">{{displayName}} · 影响推荐排序</text>
+        <view wx:if="{{preferenceStatus === 'loading'}}" class="sheet-note">正在加载偏好…</view>
+        <view wx:elif="{{preferenceStatus === 'error'}}" class="sheet-note">{{preferenceError}}</view>
+        <view wx:elif="{{preferenceForm}}">
+          <view class="form-group">
+            <text class="form-label">辣度偏好</text>
+            <view class="chip-row">
+              <view wx:for="{{spicinessLabels}}" wx:key="*this" class="chip {{preferenceForm.spiciness_preference === index ? 'chip-active' : ''}}" data-value="{{index}}" bindtap="onPreferenceSpiciness">{{item}}</view>
+            </view>
+          </view>
+          <view class="form-group">
+            <text class="form-label">过敏原（硬排除）</text>
+            <view class="chip-row">
+              <view wx:for="{{allergenOptions}}" wx:key="code" class="chip {{preferenceForm.allergens.indexOf(item.code) >= 0 ? 'chip-active' : ''}}" data-code="{{item.code}}" bindtap="onPreferenceAllergen">{{item.label}}</view>
+            </view>
+          </view>
+          <view class="form-group">
+            <text class="form-label">忌口食材（软惩罚）</text>
+            <view wx:if="{{preferenceForm.disliked_ingredients.length > 0}}" class="chip-row">
+              <view wx:for="{{preferenceForm.disliked_ingredients}}" wx:key="ingredient_id" class="chip chip-active" data-id="{{item.ingredient_id}}" bindtap="onPreferenceRemoveDisliked">{{item.name}} ✕</view>
+            </view>
+            <input class="form-input" placeholder="搜索食材添加忌口" value="{{preferenceForm.ingredientSearch}}" bindinput="onPreferenceIngredientSearch" disabled="{{busy}}" />
+            <view wx:if="{{preferenceForm.ingredientResults.length > 0}}" class="ingredient-result-list">
+              <view wx:for="{{preferenceForm.ingredientResults}}" wx:key="id" class="ingredient-result-item" data-ingredient="{{item}}" bindtap="onPreferenceIngredientToggle">
+                <text>{{item.display_name || item.name}}</text>
+                <text class="ingredient-result-add">+</text>
+              </view>
+            </view>
+          </view>
+          <view class="form-group">
+            <text class="form-label">饮食标签</text>
+            <view class="chip-row">
+              <view wx:for="{{dietTagOptions}}" wx:key="code" class="chip {{preferenceForm.diet_tags.indexOf(item.code) >= 0 ? 'chip-active' : ''}}" data-code="{{item.code}}" bindtap="onPreferenceDietTag">{{item.label}}</view>
+            </view>
+            <view class="sheet-note">饮食标签当前仅记录，推荐评分映射待后续完善。</view>
+          </view>
+        </view>
+        <view class="sheet-actions">
+          <button class="sheet-btn sheet-btn-cancel" bindtap="closeSheet" disabled="{{busy}}">取消</button>
+          <button class="sheet-btn sheet-btn-confirm" bindtap="savePreferences" loading="{{busy}}" disabled="{{busy || preferenceStatus !== 'ready'}}">保存</button>
+        </view>
+      </block>
       <block wx:elif="{{sheet === 'settings'}}">
         <text class="sheet-title">设置</text>
         <view class="setting-row" bindtap="openProfileSheet"><text class="setting-label">修改昵称</text><text class="setting-arrow">›</text></view>

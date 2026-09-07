@@ -112,6 +112,10 @@
         <text class="action-icon">⭐</text>
         <text class="action-text">{{currentRating > 0 ? currentRating + '星' : '评分'}}</text>
       </view>
+      <view class="action-btn {{wishStatus === 'ACTIVE' ? 'action-favorited' : 'action-secondary'}} {{wishBusy ? 'btn-busy' : ''}}" data-surface-id="DETAIL-05" bindtap="wantToEat">
+        <text class="action-icon">{{wishStatus === 'ACTIVE' ? '🍽️' : '🤤'}}</text>
+        <text class="action-text">{{wishStatus === 'ACTIVE' ? '已想吃' : '想吃'}}</text>
+      </view>
       <view class="action-btn action-secondary {{busy ? 'btn-busy' : ''}}" bindtap="addToMeal">
         <text class="action-icon">📋</text>
         <text class="action-text">加入本餐</text>

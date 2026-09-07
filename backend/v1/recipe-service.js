@@ -14,7 +14,7 @@ function createRecipeService(pool) {
   }
 
   async function loadRecipeExtras(tx, recipeId, familyId, userId) {
-    const [mealTypes, tags, cookware, allergens, ingredients, steps, media, fav, rating] = await Promise.all([
+    const [mealTypes, tags, cookware, allergens, ingredients, steps, media, fav, rating, wish] = await Promise.all([
       tx.query('SELECT meal_type FROM recipe_meal_types WHERE recipe_id=$1', [recipeId]),
       tx.query('SELECT tag_code FROM recipe_tags WHERE recipe_id=$1', [recipeId]),
       tx.query('SELECT cookware_code FROM recipe_cookware WHERE recipe_id=$1', [recipeId]),
@@ -23,7 +23,8 @@ function createRecipeService(pool) {
       tx.query('SELECT * FROM recipe_steps WHERE recipe_id=$1 ORDER BY step_no', [recipeId]),
       tx.query('SELECT * FROM recipe_media WHERE recipe_id=$1 ORDER BY sort_order', [recipeId]),
       tx.query('SELECT 1 FROM recipe_favorites WHERE user_id=$1 AND recipe_id=$2', [userId, recipeId]),
-      tx.query('SELECT rating FROM recipe_ratings WHERE user_id=$1 AND recipe_id=$2 AND family_id=$3 AND meal_id IS NULL', [userId, recipeId, familyId])
+      tx.query('SELECT rating FROM recipe_ratings WHERE user_id=$1 AND recipe_id=$2 AND family_id=$3 AND meal_id IS NULL', [userId, recipeId, familyId]),
+      tx.query('SELECT status FROM wishes WHERE user_id=$1 AND recipe_id=$2 AND family_id=$3 AND status=$4', [userId, recipeId, familyId, 'ACTIVE'])
     ]);
     return {
       meal_types: mealTypes.rows.map(r => r.meal_type),
@@ -34,7 +35,8 @@ function createRecipeService(pool) {
       steps: steps.rows,
       media: media.rows,
       is_favorite: fav.rows.length > 0,
-      rating: rating.rows.length > 0 ? rating.rows[0].rating : null
+      rating: rating.rows.length > 0 ? rating.rows[0].rating : null,
+      wish_status: wish.rows.length > 0 ? wish.rows[0].status : null
     };
   }
 
@@ -137,7 +139,7 @@ function createRecipeService(pool) {
         viewer: {
           is_favorite: extras.is_favorite,
           rating: extras.rating,
-          wish_status: null
+          wish_status: extras.wish_status
         }
       };
     });
@@ -333,6 +335,44 @@ function createRecipeService(pool) {
     });
   }
 
+  async function setWish(familyId, userId, recipeId, isWish) {
+    return access(familyId, userId, null, true, async tx => {
+      const recipe = (await tx.query('SELECT id, kind, family_id FROM recipes WHERE id=$1 AND deleted_at IS NULL', [recipeId])).rows[0];
+      if (!recipe) throw new ApiError(404, 'NOT_FOUND', '菜谱不存在');
+      if (recipe.kind === 'FAMILY' && recipe.family_id !== familyId) throw forbidden();
+
+      if (isWish) {
+        // Upsert: if a CANCELLED wish exists, reactivate it; otherwise insert ACTIVE
+        const existing = (await tx.query(
+          'SELECT id, status FROM wishes WHERE family_id=$1 AND user_id=$2 AND recipe_id=$3',
+          [familyId, userId, recipeId]
+        )).rows[0];
+        if (existing) {
+          if (existing.status === 'ACTIVE') {
+            return { recipe_id: recipeId, wish_status: 'ACTIVE' };
+          }
+          await tx.query(
+            "UPDATE wishes SET status='ACTIVE', resolved_at=NULL WHERE id=$1",
+            [existing.id]
+          );
+        } else {
+          await tx.query(
+            "INSERT INTO wishes (family_id, user_id, recipe_id, status) VALUES ($1,$2,$3,'ACTIVE')",
+            [familyId, userId, recipeId]
+          );
+        }
+        return { recipe_id: recipeId, wish_status: 'ACTIVE' };
+      } else {
+        // Cancel active wish (soft delete)
+        await tx.query(
+          "UPDATE wishes SET status='CANCELLED', resolved_at=now() WHERE family_id=$1 AND user_id=$2 AND recipe_id=$3 AND status='ACTIVE'",
+          [familyId, userId, recipeId]
+        );
+        return { recipe_id: recipeId, wish_status: 'CANCELLED' };
+      }
+    });
+  }
+
   async function getUserStats(familyId, userId) {
     return access(familyId, userId, null, false, async tx => {
       const favCount = (await tx.query('SELECT COUNT(*) as cnt FROM recipe_favorites WHERE user_id=$1', [userId])).rows[0].cnt;
@@ -351,7 +391,7 @@ function createRecipeService(pool) {
     });
   }
 
-  return { listRecipes, getRecipe, createRecipe, setFavorite, listFavorites, setRating, deleteRating, listRatings, getUserStats };
+  return { listRecipes, getRecipe, createRecipe, setFavorite, listFavorites, setRating, deleteRating, listRatings, setWish, getUserStats };
 }
 
 module.exports = { createRecipeService };

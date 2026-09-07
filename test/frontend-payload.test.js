@@ -43,6 +43,14 @@ function createMockApi() {
     addShoppingItem: async (id, listId, body) => { calls.push({ method: 'addShoppingItem', id, listId, body }); return { id: 'manual-1' } },
     updateShoppingItem: async (id, listId, itemId, body) => { calls.push({ method: 'updateShoppingItem', id, listId, itemId, body }); return {} },
     completeShoppingList: async (id, listId, body) => { calls.push({ method: 'completeShoppingList', id, listId, body }); return {} },
+    getRecipe: async (id, recipeId) => { calls.push({ method: 'getRecipe', id, recipeId }); return { recipe: { id: recipeId, name: '测试菜' }, viewer: { is_favorite: false, rating: null, wish_status: null } } },
+    setFavorite: async (id, recipeId, fav) => { calls.push({ method: 'setFavorite', id, recipeId, fav }); return {} },
+    setWish: async (id, recipeId, wish) => { calls.push({ method: 'setWish', id, recipeId, wish }); return { wish_status: wish ? 'ACTIVE' : 'CANCELLED' } },
+    setRating: async (id, recipeId, rating, mealId) => { calls.push({ method: 'setRating', id, recipeId, rating, mealId }); return {} },
+    deleteRating: async (id, recipeId, mealId) => { calls.push({ method: 'deleteRating', id, recipeId, mealId }); return {} },
+    getPreferences: async (id) => { calls.push({ method: 'getPreferences', id }); return { spiciness_preference: null, allergens: [], disliked_ingredients: [], diet_tags: [], notes: null } },
+    updatePreferences: async (id, data) => { calls.push({ method: 'updatePreferences', id, data }); return { ...data } },
+    searchIngredients: async (keyword) => { calls.push({ method: 'searchIngredients', keyword }); return [{ id: 'ing-1', display_name: '猪肉' }] },
   }
 }
 
@@ -386,4 +394,144 @@ test('Backend fridgeRow returns category_code and canonical_code', () => {
   // Instead, verify the module exports and structure
   assert.ok(service.listFridge, 'service should have listFridge')
   assert.ok(service.addFridgeItem, 'service should have addFridgeItem')
+})
+
+// ===== 12G Preference & Wish Frontend Tests =====
+
+test('Detail wantToEat: calls setWish PUT when not wished', async () => {
+  const wx = createMockWx()
+  const api = createMockApi()
+  const page = createPageInstance('../miniprogram/pages/detail/detail.js', wx, api)
+  page.recipeId = 'recipe-1'
+  page.familyId = 'family-1'
+  page.data.wishStatus = null
+  await page.wantToEat()
+  const call = api._calls.find(c => c.method === 'setWish')
+  assert.ok(call, 'setWish should be called')
+  assert.equal(call.wish, true, 'should PUT wish when not wished')
+  assert.equal(page.data.wishStatus, 'ACTIVE')
+})
+
+test('Detail wantToEat: calls setWish DELETE when already wished', async () => {
+  const wx = createMockWx()
+  const api = createMockApi()
+  const page = createPageInstance('../miniprogram/pages/detail/detail.js', wx, api)
+  page.recipeId = 'recipe-1'
+  page.familyId = 'family-1'
+  page.data.wishStatus = 'ACTIVE'
+  await page.wantToEat()
+  const call = api._calls.find(c => c.method === 'setWish')
+  assert.ok(call, 'setWish should be called')
+  assert.equal(call.wish, false, 'should DELETE wish when already wished')
+  assert.equal(page.data.wishStatus, 'CANCELLED')
+})
+
+test('Detail loadRecipe: reads wish_status from viewer', async () => {
+  const wx = createMockWx()
+  const api = createMockApi()
+  api.getRecipe = async () => ({ recipe: { id: 'r1' }, viewer: { is_favorite: false, rating: null, wish_status: 'ACTIVE' } })
+  const page = createPageInstance('../miniprogram/pages/detail/detail.js', wx, api)
+  page.recipeId = 'r1'
+  page.familyId = 'family-1'
+  await page.loadRecipe()
+  assert.equal(page.data.wishStatus, 'ACTIVE', 'should load wish_status from viewer')
+})
+
+test('Mine openPreferenceSheet: calls getPreferences and opens sheet', async () => {
+  const wx = createMockWx()
+  const api = createMockApi()
+  const { createMinePage } = require('../miniprogram/pages/mine/mine-controller.js')
+  const mockApp = { getV1Session: () => ({ subscribe: () => () => {}, getState: () => ({ active_family_id: 'family-1' }) }) }
+  const pageConfig = createMinePage({ app: mockApp, wxAdapter: wx })
+  const page = Object.create(pageConfig)
+  Object.assign(page, pageConfig)
+  page.data = JSON.parse(JSON.stringify(pageConfig.data))
+  page._api = api
+  page._session = { getState: () => ({ active_family_id: 'family-1' }) }
+  page.setData = function(patch) {
+    for (const [key, value] of Object.entries(patch)) {
+      const parts = key.split('.')
+      let obj = this.data
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (!obj[parts[i]]) obj[parts[i]] = {}
+        obj = obj[parts[i]]
+      }
+      obj[parts[parts.length - 1]] = value
+    }
+  }
+  page.data.active_family_id = 'family-1'
+  page.data.familyStatus = 'ready'
+  page.data.family = { id: 'family-1' }
+  page.data.authenticated = true
+  page._openSheet = (name) => { page.data.sheet = name }
+  await page.openPreferenceSheet()
+  const call = api._calls.find(c => c.method === 'getPreferences')
+  assert.ok(call, 'getPreferences should be called')
+  assert.equal(page.data.sheet, 'preference')
+  assert.ok(page.data.preferenceForm, 'preferenceForm should be populated')
+})
+
+test('Mine savePreferences: calls updatePreferences with correct payload', async () => {
+  const wx = createMockWx()
+  const api = createMockApi()
+  const { createMinePage } = require('../miniprogram/pages/mine/mine-controller.js')
+  const mockApp = { getV1Session: () => ({ subscribe: () => () => {} }) }
+  const pageConfig = createMinePage({ app: mockApp, wxAdapter: wx })
+  const page = Object.create(pageConfig)
+  Object.assign(page, pageConfig)
+  page.data = JSON.parse(JSON.stringify(pageConfig.data))
+  page._api = api
+  page.data.active_family_id = 'family-1'
+  page.data.preferenceForm = {
+    spiciness_preference: 3,
+    allergens: ['SOY'],
+    disliked_ingredients: [{ ingredient_id: 'ing-1', name: '猪肉' }],
+    diet_tags: ['VEGETARIAN']
+  }
+  page._closeSheet = () => { page.data.sheet = '' }
+  page.setData = function(patch) {
+    for (const [key, value] of Object.entries(patch)) {
+      const parts = key.split('.')
+      let obj = this.data
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (!obj[parts[i]]) obj[parts[i]] = {}
+        obj = obj[parts[i]]
+      }
+      obj[parts[parts.length - 1]] = value
+    }
+  }
+  await page.savePreferences()
+  const call = api._calls.find(c => c.method === 'updatePreferences')
+  assert.ok(call, 'updatePreferences should be called')
+  assert.equal(call.data.spiciness_preference, 3)
+  assert.deepEqual(call.data.allergens, ['SOY'])
+  assert.deepEqual(call.data.disliked_ingredient_ids, ['ing-1'])
+  assert.deepEqual(call.data.diet_tags, ['VEGETARIAN'])
+})
+
+test('Mine onPreferenceAllergen: toggles allergen code', () => {
+  const wx = createMockWx()
+  const api = createMockApi()
+  const { createMinePage } = require('../miniprogram/pages/mine/mine-controller.js')
+  const mockApp = { getV1Session: () => ({ subscribe: () => () => {} }) }
+  const pageConfig = createMinePage({ app: mockApp, wxAdapter: wx })
+  const page = Object.create(pageConfig)
+  Object.assign(page, pageConfig)
+  page.data = JSON.parse(JSON.stringify(pageConfig.data))
+  page.data.preferenceForm = { allergens: [] }
+  page.setData = function(patch) {
+    for (const [key, value] of Object.entries(patch)) {
+      const parts = key.split('.')
+      let obj = this.data
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (!obj[parts[i]]) obj[parts[i]] = {}
+        obj = obj[parts[i]]
+      }
+      obj[parts[parts.length - 1]] = value
+    }
+  }
+  page.onPreferenceAllergen({ currentTarget: { dataset: { code: 'SOY' } } })
+  assert.deepEqual(page.data.preferenceForm.allergens, ['SOY'])
+  page.onPreferenceAllergen({ currentTarget: { dataset: { code: 'SOY' } } })
+  assert.deepEqual(page.data.preferenceForm.allergens, [])
 })

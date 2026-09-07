@@ -23,14 +23,15 @@ Page({
     loadError: null,
     currentTab: 'ingredients',
     busy: false,
-    // Favorite / Rating (real this phase)
+    // Favorite / Rating / Wish (real this phase)
     isFavorite: false,
     currentRating: 0,
     showRatingPanel: false,
     favoriteBusy: false,
     ratingBusy: false,
+    wishStatus: null,
+    wishBusy: false,
     // Features not implemented this phase — kept as explicit disabled state
-    wishDisabled: true,
     editDisabled: true,
   },
 
@@ -77,6 +78,7 @@ Page({
         media: data.media || [],
         isFavorite: data.viewer?.is_favorite === true,
         currentRating: data.viewer?.rating || 0,
+        wishStatus: data.viewer?.wish_status || null,
         loading: false,
       });
     } catch (err) {
@@ -214,6 +216,22 @@ Page({
       wx.showToast({ title: err.message || '取消失败', icon: 'none' });
     } finally {
       this.setData({ ratingBusy: false });
+    }
+  },
+
+  // ===== DETAIL-05: Toggle wish (V1) =====
+  async wantToEat() {
+    if (this.data.wishBusy) return;
+    const isWished = this.data.wishStatus === 'ACTIVE';
+    this.setData({ wishBusy: true });
+    try {
+      const result = await this._api.setWish(this.familyId, this.recipeId, !isWished);
+      this.setData({ wishStatus: result.wish_status || null });
+      wx.showToast({ title: isWished ? '已取消想吃' : '已加入想吃', icon: 'success' });
+    } catch (err) {
+      wx.showToast({ title: err.message || '操作失败', icon: 'none' });
+    } finally {
+      this.setData({ wishBusy: false });
     }
   },
 

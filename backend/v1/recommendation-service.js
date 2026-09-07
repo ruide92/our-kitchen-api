@@ -56,6 +56,15 @@ function createRecommendationService(pool, options = {}) {
     return new Set(rows.map(r => r.ingredient_id));
   }
 
+  // Fetch current user's spiciness preference (null if not set)
+  async function fetchUserSpicinessPreference(tx, familyId, userId) {
+    const row = (await tx.query(
+      'SELECT spiciness_preference FROM user_preferences WHERE family_id=$1 AND user_id=$2',
+      [familyId, userId]
+    )).rows[0];
+    return row ? row.spiciness_preference : null;
+  }
+
   // Fetch candidate recipes with enrichment
   async function fetchCandidates(tx, familyId, mealType) {
     return (await tx.query(`
@@ -348,6 +357,15 @@ function createRecommendationService(pool, options = {}) {
       }
     }
 
+    // Spiciness preference match — only if user has set a preference
+    if (context.spicinessPreference != null && recipe.spiciness != null) {
+      const diff = Math.abs(recipe.spiciness - context.spicinessPreference);
+      if (diff === 0) { score += 6; reasons.push('SPICINESS_MATCH'); }
+      else if (diff === 1) { score += 3; }
+      else if (diff === 2) { /* neutral */ }
+      else { score -= 4; reasons.push('SPICINESS_MISMATCH'); }
+    }
+
     // Repeat penalty — uses latest occurrence (combined history)
     const lastMade = context.history.find(h => h.recipe_id === recipe.id);
     if (lastMade) {
@@ -421,6 +439,7 @@ function createRecommendationService(pool, options = {}) {
       const warnings = [];
       const { candidates } = await prepareEligibleCandidates(tx, familyId, meal_type, activeMemberIds, warnings);
       const dislikedSet = await fetchDislikedIngredients(tx, familyId, activeMemberIds);
+      const spicinessPreference = await fetchUserSpicinessPreference(tx, familyId, userId);
 
       const history = await fetchRecentHistory(tx, familyId, settings.repeat_recover_days);
       const inventory = await fetchInventory(tx, familyId);
@@ -446,7 +465,7 @@ function createRecommendationService(pool, options = {}) {
       // Validate locked AFTER serving-valid filtering — invalid locked recipe must 422, not silently disappear
       validateLocked(locked_recipe_ids, candidates, target_count);
 
-      const context = { history, mode, meal_type, settings, diners_count, ingredientMap, randomFn, dislikedSet };
+      const context = { history, mode, meal_type, settings, diners_count, ingredientMap, randomFn, dislikedSet, spicinessPreference };
 
       const selected = [];
       const locked = candidates.filter(c => locked_recipe_ids.includes(c.id));
@@ -570,6 +589,7 @@ function createRecommendationService(pool, options = {}) {
       const pantry = await fetchPantry(tx, familyId);
       const unitsMap = await loadUnitsMap(tx);
       const dislikedSet = await fetchDislikedIngredients(tx, familyId, activeMemberIds);
+      const spicinessPreference = await fetchUserSpicinessPreference(tx, familyId, userId);
 
       const inPlanHistory = [];
       let sortOrder = 0;
@@ -611,7 +631,7 @@ function createRecommendationService(pool, options = {}) {
 
           // Combined history with latest occurrence
           const combinedHistory = combineHistory(realHistory, inPlanHistory);
-          const context = { history: combinedHistory, mode, meal_type: type, settings, diners_count: settings.default_diners, ingredientMap, randomFn, dislikedSet };
+          const context = { history: combinedHistory, mode, meal_type: type, settings, diners_count: settings.default_diners, ingredientMap, randomFn, dislikedSet, spicinessPreference };
 
           const remaining = candidates.filter(c => !lockedIds.includes(c.id));
           const scored = remaining.map(c => {

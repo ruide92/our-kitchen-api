@@ -588,3 +588,21 @@ button[disabled] { opacity: 0.6; }
   justify-content: space-between;
   align-items: center;
 }
+.ingredient-result-list {
+  margin-top: 8rpx;
+  max-height: 320rpx;
+  overflow-y: auto;
+  border: 1rpx solid #E8E0D8;
+  border-radius: 12rpx;
+}
+.ingredient-result-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 20rpx;
+  border-bottom: 1rpx solid #F0EBE5;
+  font-size: 28rpx;
+  color: #4A3F35;
+}
+.ingredient-result-item:last-child { border-bottom: none; }
+.ingredient-result-add { color: #8B5E3C; font-weight: bold; }

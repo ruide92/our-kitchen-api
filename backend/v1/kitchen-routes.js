@@ -2,7 +2,7 @@ const { ApiError } = require('./errors');
 const asyncRoute = handler => (req, res, next) => Promise.resolve(handler(req, res)).catch(next);
 
 function installKitchenRoutes(app, services) {
-  const { recipes, meals, fridge, shopping, ingredients, recommendation, cooking, kiss, recipeImports } = services;
+  const { recipes, meals, fridge, shopping, ingredients, recommendation, cooking, kiss, recipeImports, preferences } = services;
   const familyId = req => req.params.family_id;
 
   // ===== Ingredients =====
@@ -197,8 +197,22 @@ function installKitchenRoutes(app, services) {
   app.get('/api/v1/families/:family_id/ratings', asyncRoute(async (req, res) => {
     res.json({ data: await recipes.listRatings(familyId(req), req.user.id), meta: {} });
   }));
+  app.put('/api/v1/families/:family_id/recipes/:recipe_id/wish', asyncRoute(async (req, res) => {
+    res.json({ data: await recipes.setWish(familyId(req), req.user.id, req.params.recipe_id, true), meta: {} });
+  }));
+  app.delete('/api/v1/families/:family_id/recipes/:recipe_id/wish', asyncRoute(async (req, res) => {
+    res.json({ data: await recipes.setWish(familyId(req), req.user.id, req.params.recipe_id, false), meta: {} });
+  }));
   app.get('/api/v1/families/:family_id/stats', asyncRoute(async (req, res) => {
     res.json({ data: await recipes.getUserStats(familyId(req), req.user.id), meta: {} });
+  }));
+
+  // ===== User Preferences =====
+  app.get('/api/v1/families/:family_id/me/preferences', asyncRoute(async (req, res) => {
+    res.json({ data: await preferences.getPreferences(familyId(req), req.user.id), meta: {} });
+  }));
+  app.patch('/api/v1/families/:family_id/me/preferences', asyncRoute(async (req, res) => {
+    res.json({ data: await preferences.updatePreferences(familyId(req), req.user.id, req.body), meta: {} });
   }));
 }
 
