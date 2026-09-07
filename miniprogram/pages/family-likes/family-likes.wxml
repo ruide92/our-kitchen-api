@@ -1,0 +1,54 @@
+<view class="family-likes-page">
+  <view class="page-header">
+    <text class="page-title">❤️ 家人喜欢</text>
+    <text class="page-subtitle">根据收藏、评分、想吃和做饭记录聚合</text>
+  </view>
+
+  <!-- Loading -->
+  <view wx:if="{{loading}}" class="state-box">
+    <text class="state-text">加载中...</text>
+  </view>
+
+  <!-- Error -->
+  <view wx:elif="{{loadError}}" class="state-box">
+    <text class="state-text error">{{loadError}}</text>
+    <button class="retry-btn" bindtap="retryLoad">重试</button>
+  </view>
+
+  <!-- Empty -->
+  <view wx:elif="{{recipes.length === 0}}" class="state-box">
+    <text class="state-text">还没有家人喜欢的菜</text>
+    <text class="state-hint">收藏、评分或标记想吃后会出现在这里</text>
+  </view>
+
+  <!-- Recipe list -->
+  <view wx:else class="recipe-list">
+    <view
+      wx:for="{{recipes}}"
+      wx:key="recipe_id"
+      class="recipe-card"
+      data-id="{{item.recipe_id}}"
+      bindtap="goDetail"
+    >
+      <view class="recipe-main">
+        <text class="recipe-name">{{item.recipe_name}}</text>
+        <view class="score-row">
+          <text class="score-label">家人喜欢指数</text>
+          <text class="score-value">{{item.family_score}}</text>
+        </view>
+      </view>
+
+      <view class="reasons" wx:if="{{item.reasons.length > 0}}">
+        <text wx:for="{{item.reasons}}" wx:for-item="reason" wx:key="code" class="reason-tag">
+          {{reason.text}}
+        </text>
+      </view>
+
+      <view class="members" wx:if="{{item.members.length > 0}}">
+        <text wx:for="{{item.members}}" wx:for-item="member" wx:key="user_id" class="member-chip">
+          {{member.display_name}}
+        </text>
+      </view>
+    </view>
+  </view>
+</view>

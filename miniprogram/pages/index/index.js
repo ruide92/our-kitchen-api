@@ -263,7 +263,7 @@ Page({
     wx.setStorageSync('v1_fridge_intent', 'COOK');
     wx.switchTab({ url: '/pages/fridge/fridge' });
   },
-  goFavorites() { wx.showToast({ title: '家人喜欢功能开发中', icon: 'none', duration: 1500 }) },
+  goFamilyLikes() { wx.navigateTo({ url: '/pages/family-likes/family-likes' }) },
   goOnePerson() {
     const mealTarget = wx.getStorageSync('v1_meal_target');
     const target = mealTarget || Object.create(null);

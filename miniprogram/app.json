@@ -17,7 +17,8 @@
     "pages/family/family",
     "pages/today-menu/today-menu",
     "pages/meal/meal",
-    "pages/history/history"
+    "pages/history/history",
+    "pages/family-likes/family-likes"
   ],
   "window": {
     "backgroundTextStyle": "light",

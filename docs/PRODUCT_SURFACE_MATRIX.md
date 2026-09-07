@@ -9,11 +9,11 @@
 
 | Status | Count |
 |---|---|
-| REAL | 179 |
-| BROKEN | 8 |
+| REAL | 184 |
+| BROKEN | 7 |
 | PLANNED_DISABLED | 2 |
 | HIDDEN | 27 |
-| **Total** | **216** |
+| **Total** | **220** |
 
 ## Surfaces
 
@@ -51,6 +51,14 @@
 | ID | Kind | Handler/Label | Status | Final |
 |---|---|---|---|---|
 | PAGE-03 | page | 家庭管理页 | HIDDEN | REAL |
+
+### family-likes
+
+| ID | Kind | Handler/Label | Status | Final |
+|---|---|---|---|---|
+| FAMILY-LIKES-01 | wxml-handler | retryLoad | REAL | REAL |
+| FAMILY-LIKES-02 | wxml-handler | goDetail | REAL | REAL |
+| PAGE-FAMILY-LIKES | page | 家人喜欢页 | REAL | REAL |
 
 ### favorites
 
@@ -117,7 +125,7 @@
 | HOME-02 | wxml-handler | goMine | REAL | REAL |
 | HOME-03 | wxml-handler | goRandom | REAL | REAL |
 | HOME-04 | wxml-handler | goFridgeCook | REAL | REAL |
-| HOME-05 | wxml-handler | goFavorites | BROKEN | REAL |
+| HOME-05 | wxml-handler | goFamilyLikes | REAL | REAL |
 | HOME-06 | wxml-handler | goOnePerson | REAL | REAL |
 | HOME-07 | wxml-handler | goWeeklyPlan | REAL | REAL |
 | HOME-08 | wxml-handler | selectDay | REAL | REAL |
@@ -127,6 +135,7 @@
 | HOME-NAV-02 | navigation | switchTab | REAL | REAL |
 | HOME-NAV-03 | navigation | switchTab | REAL | REAL |
 | HOME-NAV-04 | navigation | navigateTo | REAL | REAL |
+| HOME-NAV-05 | navigation | navigateTo | REAL | REAL |
 
 ### meal
 

@@ -117,7 +117,8 @@ function createV1Api({ wxAdapter, baseUrl = config.baseUrl, timeoutMs = config.t
     setRating: (id, recipeId, rating, mealId) => dataRequest(familyPath(id) + '/recipes/' + recipeId + '/rating', { method: 'PUT', data: { rating, meal_id: mealId } }),
     deleteRating: (id, recipeId, mealId) => dataRequest(familyPath(id) + '/recipes/' + recipeId + '/rating' + (mealId ? '?meal_id=' + mealId : ''), { method: 'DELETE' }),
     listRatings: id => dataRequest(familyPath(id) + '/ratings'),
-    getUserStats: id => dataRequest(familyPath(id) + '/stats')
+    getUserStats: id => dataRequest(familyPath(id) + '/stats'),
+    getFamilyPreferences: id => dataRequest(familyPath(id) + '/family-preferences')
   }
 }
 module.exports = { createV1Api, v1Error, SESSION_KEYS }

@@ -43,9 +43,9 @@
       "id": "HOME-05",
       "page": "index",
       "kind": "wxml-handler",
-      "handler": "goFavorites",
+      "handler": "goFamilyLikes",
       "label": "家人喜欢",
-      "status": "BROKEN",
+      "status": "REAL",
       "final": "REAL"
     },
     {
@@ -130,6 +130,16 @@
       "handler": "navigateTo",
       "url": "/pages/meal/meal",
       "label": "本餐菜单页",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "HOME-NAV-05",
+      "page": "index",
+      "kind": "navigation",
+      "handler": "navigateTo",
+      "url": "/pages/family-likes/family-likes",
+      "label": "家人喜欢页",
       "status": "REAL",
       "final": "REAL"
     },
@@ -1532,6 +1542,32 @@
       "kind": "page",
       "label": "今日菜单页",
       "status": "HIDDEN",
+      "final": "REAL"
+    },
+    {
+      "id": "PAGE-FAMILY-LIKES",
+      "page": "family-likes",
+      "kind": "page",
+      "label": "家人喜欢页",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FAMILY-LIKES-01",
+      "page": "family-likes",
+      "kind": "wxml-handler",
+      "handler": "retryLoad",
+      "label": "家人喜欢页重试加载",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FAMILY-LIKES-02",
+      "page": "family-likes",
+      "kind": "wxml-handler",
+      "handler": "goDetail",
+      "label": "家人喜欢页进入菜谱详情",
+      "status": "REAL",
       "final": "REAL"
     },
     {

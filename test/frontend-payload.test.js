@@ -51,6 +51,7 @@ function createMockApi() {
     getPreferences: async (id) => { calls.push({ method: 'getPreferences', id }); return { spiciness_preference: null, allergens: [], disliked_ingredients: [], diet_tags: [], notes: null } },
     updatePreferences: async (id, data) => { calls.push({ method: 'updatePreferences', id, data }); return { ...data } },
     searchIngredients: async (keyword) => { calls.push({ method: 'searchIngredients', keyword }); return [{ id: 'ing-1', display_name: '猪肉' }] },
+    getFamilyPreferences: async (id) => { calls.push({ method: 'getFamilyPreferences', id }); return { recipes: [] } },
   }
 }
 
@@ -534,4 +535,144 @@ test('Mine onPreferenceAllergen: toggles allergen code', () => {
   assert.deepEqual(page.data.preferenceForm.allergens, ['SOY'])
   page.onPreferenceAllergen({ currentTarget: { dataset: { code: 'SOY' } } })
   assert.deepEqual(page.data.preferenceForm.allergens, [])
+})
+
+// ===== 12H Family Likes Page Tests (G1-G10) =====
+
+test('G1 HOME-05 goFamilyLikes navigates to family-likes page', () => {
+  const wx = createMockWx()
+  const api = createMockApi()
+  const page = createPageInstance('../miniprogram/pages/index/index.js', wx, api)
+  page.goFamilyLikes()
+  const nav = wx._calls.find(c => c.type === 'navigateTo')
+  assert.ok(nav, 'navigateTo should be called')
+  assert.equal(nav.opts.url, '/pages/family-likes/family-likes')
+})
+
+test('G2 family-likes loading state on load', async () => {
+  const wx = createMockWx()
+  const api = createMockApi()
+  api.getFamilyPreferences = async () => { await new Promise(r => setTimeout(r, 10)); return { recipes: [] } }
+  const page = createPageInstance('../miniprogram/pages/family-likes/family-likes.js', wx, api)
+  page.onLoad()
+  page._api = api
+  page.onShow()
+  assert.equal(page.data.loading, true)
+  await new Promise(r => setTimeout(r, 20))
+  assert.equal(page.data.loading, false)
+})
+
+test('G3 family-likes empty state shows empty', async () => {
+  const wx = createMockWx()
+  const api = createMockApi()
+  api.getFamilyPreferences = async () => ({ recipes: [] })
+  const page = createPageInstance('../miniprogram/pages/family-likes/family-likes.js', wx, api)
+  page.onLoad()
+  page._api = api // override createV1Api from onLoad
+  page.onShow()
+  await new Promise(r => setTimeout(r, 10))
+  assert.equal(page.data.recipes.length, 0)
+  assert.equal(page.data.loading, false)
+  assert.equal(page.data.loadError, null)
+})
+
+test('G4 family-likes error state distinct from empty', async () => {
+  const wx = createMockWx()
+  const api = createMockApi()
+  api.getFamilyPreferences = async () => { throw new Error('NETWORK_ERROR') }
+  const page = createPageInstance('../miniprogram/pages/family-likes/family-likes.js', wx, api)
+  page.onLoad()
+  page._api = api
+  page.onShow()
+  await new Promise(r => setTimeout(r, 10))
+  assert.equal(page.data.loadError, 'NETWORK_ERROR')
+  assert.equal(page.data.loading, false)
+})
+
+test('G5 family-likes card renders recipe data', async () => {
+  const wx = createMockWx()
+  const api = createMockApi()
+  api.getFamilyPreferences = async () => ({
+    recipes: [{
+      recipe_id: 'r1', recipe_name: '红烧肉', cover_image: null,
+      family_score: 15, reasons: [{ code: 'FAVORITE_COUNT', text: '3位家庭成员收藏' }],
+      members: [{ user_id: 'u1', display_name: '爸爸', signals: ['FAVORITE'] }]
+    }]
+  })
+  const page = createPageInstance('../miniprogram/pages/family-likes/family-likes.js', wx, api)
+  page.onLoad()
+  page._api = api
+  page.onShow()
+  await new Promise(r => setTimeout(r, 10))
+  assert.equal(page.data.recipes.length, 1)
+  assert.equal(page.data.recipes[0].recipe_name, '红烧肉')
+  assert.equal(page.data.recipes[0].family_score, 15)
+})
+
+test('G6 family-likes goDetail navigates to detail page', async () => {
+  const wx = createMockWx()
+  const api = createMockApi()
+  const page = createPageInstance('../miniprogram/pages/family-likes/family-likes.js', wx, api)
+  page.goDetail({ currentTarget: { dataset: { id: 'recipe-123' } } })
+  const nav = wx._calls.find(c => c.type === 'navigateTo')
+  assert.ok(nav)
+  assert.equal(nav.opts.url, '/pages/detail/detail?id=recipe-123')
+})
+
+test('G7 family-likes stale epoch guard ignores old response', async () => {
+  const wx = createMockWx()
+  const api = createMockApi()
+  let resolveFirst
+  api.getFamilyPreferences = async () => {
+    await new Promise(r => { resolveFirst = r })
+    return { recipes: [{ recipe_id: 'old', recipe_name: '旧数据' }] }
+  }
+  const page = createPageInstance('../miniprogram/pages/family-likes/family-likes.js', wx, api)
+  page.onLoad()
+  page._api = api
+  page.onShow() // first request, epoch=1
+  // Trigger second load before first resolves
+  api.getFamilyPreferences = async () => ({ recipes: [{ recipe_id: 'new', recipe_name: '新数据' }] })
+  page.loadFamilyPreferences() // epoch=2
+  resolveFirst() // first request resolves with old data
+  await new Promise(r => setTimeout(r, 10))
+  // Should have new data, not old
+  assert.equal(page.data.recipes[0].recipe_id, 'new')
+})
+
+test('G8 family-likes retryLoad calls getFamilyPreferences again', async () => {
+  const wx = createMockWx()
+  const api = createMockApi()
+  let callCount = 0
+  api.getFamilyPreferences = async () => { callCount++; return { recipes: [] } }
+  const page = createPageInstance('../miniprogram/pages/family-likes/family-likes.js', wx, api)
+  page.onLoad()
+  page._api = api
+  page.onShow()
+  await new Promise(r => setTimeout(r, 10))
+  page.retryLoad()
+  await new Promise(r => setTimeout(r, 10))
+  assert.equal(callCount, 2)
+})
+
+test('G9 family-likes calls getFamilyPreferences with correct familyId', async () => {
+  const wx = createMockWx()
+  wx.setStorageSync('v1_active_family_id', 'family-abc')
+  const api = createMockApi()
+  const page = createPageInstance('../miniprogram/pages/family-likes/family-likes.js', wx, api)
+  page.onLoad()
+  page._api = api
+  page.onShow()
+  await new Promise(r => setTimeout(r, 10))
+  const call = api._calls.find(c => c.method === 'getFamilyPreferences')
+  assert.ok(call)
+  assert.equal(call.id, 'family-abc')
+})
+
+test('G10 index.wxml HOME-05 uses goFamilyLikes not placeholder', () => {
+  const fs = require('fs')
+  const wxml = fs.readFileSync(require('path').join(__dirname, '../miniprogram/pages/index/index.wxml'), 'utf8')
+  assert.ok(wxml.includes('goFamilyLikes'), 'wxml should bind goFamilyLikes')
+  assert.ok(!wxml.includes('goFavorites'), 'wxml should not use old goFavorites')
+  assert.ok(wxml.includes('data-surface-id="HOME-05"'), 'HOME-05 surface id should be registered')
 })

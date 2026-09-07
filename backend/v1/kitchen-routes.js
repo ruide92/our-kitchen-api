@@ -2,7 +2,7 @@ const { ApiError } = require('./errors');
 const asyncRoute = handler => (req, res, next) => Promise.resolve(handler(req, res)).catch(next);
 
 function installKitchenRoutes(app, services) {
-  const { recipes, meals, fridge, shopping, ingredients, recommendation, cooking, kiss, recipeImports, preferences } = services;
+  const { recipes, meals, fridge, shopping, ingredients, recommendation, cooking, kiss, recipeImports, preferences, familyPreferences } = services;
   const familyId = req => req.params.family_id;
 
   // ===== Ingredients =====
@@ -213,6 +213,11 @@ function installKitchenRoutes(app, services) {
   }));
   app.patch('/api/v1/families/:family_id/me/preferences', asyncRoute(async (req, res) => {
     res.json({ data: await preferences.updatePreferences(familyId(req), req.user.id, req.body), meta: {} });
+  }));
+
+  // ===== Family Preference Discovery =====
+  app.get('/api/v1/families/:family_id/family-preferences', asyncRoute(async (req, res) => {
+    res.json({ data: await familyPreferences.getFamilyPreferences(familyId(req), req.user.id), meta: {} });
   }));
 }
 

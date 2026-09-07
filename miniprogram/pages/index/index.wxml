@@ -53,7 +53,7 @@
         <view class="quick-icon quick-icon-green">🧊</view>
         <text class="quick-text">看冰箱做菜</text>
       </view>
-      <view class="quick-item" bindtap="goFavorites">
+      <view class="quick-item" bindtap="goFamilyLikes" data-surface-id="HOME-05">
         <view class="quick-icon quick-icon-pink">❤️</view>
         <text class="quick-text">家人喜欢的菜</text>
       </view>
