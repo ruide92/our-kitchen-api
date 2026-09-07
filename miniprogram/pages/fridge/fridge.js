@@ -408,6 +408,12 @@ Page({
         source: 'MANUAL'
       });
       wx.showToast({ title: '已加入本餐', icon: 'success' });
+      this.closeCookSheet();
+      setTimeout(() => {
+        wx.navigateTo({
+          url: '/pages/meal/meal?date=' + mealTarget.meal_date + '&meal_type=' + mealTarget.meal_type
+        });
+      }, 600);
     } catch (err) {
       if (err.code === 'ALREADY_IN_MEAL' || err.status === 409) {
         wx.showToast({ title: '已在本餐中', icon: 'none' });

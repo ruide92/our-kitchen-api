@@ -46,6 +46,7 @@ Page({
     currentMealDate: '',
     mealTypeLabel: '晚餐',
     currentMealLabel: '',
+    currentMealStatus: '',
   },
 
   onLoad() {
@@ -141,6 +142,7 @@ Page({
               currentMealDate: meal.meal_date,
               mealTypeLabel: mtLabel,
               currentMealLabel: mtLabel + '菜单 · ' + mealItems.length + '道',
+              currentMealStatus: meal.status || '',
             })
           } else {
             this.setData({
@@ -148,6 +150,7 @@ Page({
               currentMealDate: mealTarget.meal_date,
               mealTypeLabel: MEAL_TYPES.find(m => m.key === mealTarget.meal_type)?.label || '晚餐',
               currentMealLabel: '',
+              currentMealStatus: '',
             })
           }
         } catch (mealErr) { if (mealErr.status !== 404 && mealErr.code !== 'NOT_FOUND') throw mealErr; }
@@ -282,7 +285,11 @@ Page({
     wx.navigateTo({ url: '/pages/meal/meal?date=' + date + '&meal_type=' + mealType })
   },
 
-  goDetail() { wx.showToast({ title: '菜品详情真实数据接入后启用', icon: 'none', duration: 1500 }) },
+  goDishDetail(e) {
+    const id = e.currentTarget.dataset.id;
+    if (!id) return;
+    wx.navigateTo({ url: '/pages/detail/detail?id=' + id });
+  },
 
   onPullDownRefresh() {
     this._loadRealData()

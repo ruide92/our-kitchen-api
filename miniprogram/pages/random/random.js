@@ -114,6 +114,13 @@ Page({
 
   goDetail(e) {
     const id = e.currentTarget.dataset.id;
+    if (!id) return;
+    // Update shared mealTarget so detail page's "加入本餐" uses the correct meal
+    this._mealTarget.update({
+      meal_date: this.data.mealDate,
+      meal_type: this.data.mealType,
+      diners_count: this.data.dinersCount
+    });
     wx.navigateTo({ url: `/pages/detail/detail?id=${id}` });
   },
 

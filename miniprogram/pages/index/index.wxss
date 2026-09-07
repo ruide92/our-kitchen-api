@@ -492,6 +492,36 @@
   font-weight: 500;
 }
 
+
+.meal-action-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 16rpx;
+  padding: 0 24rpx;
+}
+
+.meal-action-btn {
+  flex: 1;
+  max-width: 400rpx;
+  height: 72rpx;
+  border-radius: 36rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.meal-action-confirm {
+  background: #FF9800;
+  color: #fff;
+}
+
+.meal-action-start {
+  background: #7CB342;
+  color: #fff;
+}
+
 /* 底部留白：TabBar 高度 + iPhone safe-area，确保已点菜单不被遮挡 */
 .bottom-space {
   height: calc(110rpx + env(safe-area-inset-bottom));

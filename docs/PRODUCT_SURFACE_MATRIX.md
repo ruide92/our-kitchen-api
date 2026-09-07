@@ -9,11 +9,11 @@
 
 | Status | Count |
 |---|---|
-| REAL | 184 |
+| REAL | 187 |
 | BROKEN | 7 |
 | PLANNED_DISABLED | 2 |
 | HIDDEN | 27 |
-| **Total** | **220** |
+| **Total** | **223** |
 
 ## Surfaces
 
@@ -102,6 +102,7 @@
 | FRIDGE-27 | wxml-handler | closeAddStapleSheet | REAL | REAL |
 | FRIDGE-28 | wxml-handler | onStapleNameInput | REAL | REAL |
 | FRIDGE-29 | wxml-handler | saveAddStaple | REAL | REAL |
+| FRIDGE-30 | navigation | navigateTo | REAL | REAL |
 | FRIDGE-COOK-01 | wxml-handler | closeCookSheet | REAL | REAL |
 | FRIDGE-COOK-02 | wxml-handler | cookGoDetail | REAL | REAL |
 | FRIDGE-COOK-03 | wxml-handler | cookAddToMeal | REAL | REAL |
@@ -131,11 +132,13 @@
 | HOME-08 | wxml-handler | selectDay | REAL | REAL |
 | HOME-09 | wxml-handler | addMealToCurrent | REAL | REAL |
 | HOME-10 | wxml-handler | goTodayMenu | REAL | REAL |
+| HOME-11 | wxml-handler | goDishDetail | REAL | REAL |
 | HOME-NAV-01 | navigation | switchTab | REAL | REAL |
 | HOME-NAV-02 | navigation | switchTab | REAL | REAL |
 | HOME-NAV-03 | navigation | switchTab | REAL | REAL |
 | HOME-NAV-04 | navigation | navigateTo | REAL | REAL |
 | HOME-NAV-05 | navigation | navigateTo | REAL | REAL |
+| HOME-NAV-06 | navigation | navigateTo | REAL | REAL |
 
 ### meal
 

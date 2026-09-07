@@ -94,6 +94,15 @@
       "final": "REAL"
     },
     {
+      "id": "HOME-11",
+      "page": "index",
+      "kind": "wxml-handler",
+      "handler": "goDishDetail",
+      "label": "菜品卡片进入详情",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
       "id": "HOME-NAV-01",
       "page": "index",
       "kind": "navigation",
@@ -140,6 +149,16 @@
       "handler": "navigateTo",
       "url": "/pages/family-likes/family-likes",
       "label": "家人喜欢页",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "HOME-NAV-06",
+      "page": "index",
+      "kind": "navigation",
+      "handler": "navigateTo",
+      "url": "/pages/detail/detail",
+      "label": "菜谱详情页",
       "status": "REAL",
       "final": "REAL"
     },
@@ -764,6 +783,16 @@
       "kind": "wxml-handler",
       "handler": "saveAddStaple",
       "label": "保存常备",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "FRIDGE-30",
+      "page": "fridge",
+      "kind": "navigation",
+      "handler": "navigateTo",
+      "url": "/pages/meal/meal",
+      "label": "冰箱推荐加入后跳转本餐",
       "status": "REAL",
       "final": "REAL"
     },

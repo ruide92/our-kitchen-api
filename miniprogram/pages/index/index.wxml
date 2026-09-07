@@ -105,7 +105,7 @@
               <text class="meal-empty-text">暂未安排</text>
             </view>
             <view wx:else class="meal-dishes-row">
-              <view wx:for="{{item.dishes}}" wx:for-item="dish" wx:key="id" class="meal-dish-card">
+              <view wx:for="{{item.dishes}}" wx:for-item="dish" wx:key="id" class="meal-dish-card" data-id="{{dish.recipeId}}" bindtap="goDishDetail">
                 <view class="meal-dish-thumb">
                   <image wx:if="{{dish.coverImageUrl}}" src="{{dish.coverImageUrl}}" mode="aspectFill" class="meal-dish-img"></image>
                   <view wx:else class="meal-dish-ph" style="background:{{dish.color}};">
@@ -137,7 +137,7 @@
         <text class="meal-empty-hint">还没有点菜，从本周菜谱加入吧</text>
       </view>
       <scroll-view wx:else class="ordered-scroll" scroll-x="true" enhanced="true" show-scrollbar="false">
-        <view wx:for="{{currentMeal.items}}" wx:key="id" class="ordered-card">
+        <view wx:for="{{currentMeal.items}}" wx:key="id" class="ordered-card" data-id="{{item.recipeId}}" bindtap="goDishDetail">
           <view class="ordered-card-thumb">
             <image wx:if="{{item.coverImageUrl}}" src="{{item.coverImageUrl}}" mode="aspectFill" class="ordered-card-img"></image>
             <view wx:else class="ordered-card-ph" style="background:{{item.color}};">
@@ -152,6 +152,14 @@
           <text class="ordered-card-add-text">继续添加</text>
         </view>
       </scroll-view>
+      <view wx:if="{{currentMeal.items.length > 0 && currentMealStatus !== 'COMPLETED'}}" class="meal-action-row">
+        <view wx:if="{{currentMealStatus === 'CONFIRMED'}}" class="meal-action-btn meal-action-start" bindtap="goTodayMenu">
+          <text>开始做饭</text>
+        </view>
+        <view wx:else class="meal-action-btn meal-action-confirm" bindtap="goTodayMenu">
+          <text>去确认菜单</text>
+        </view>
+      </view>
     </view>
 
     <view class="bottom-space"></view>

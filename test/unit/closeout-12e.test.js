@@ -174,6 +174,7 @@ test('U9 eatThese success navigates to meal page', async () => {
 test('U10 random result click navigates to detail', () => {
   const env = loadPage(RANDOM_JS);
   const page = makePage(env.captured);
+  page._mealTarget = { update: (d) => d };
   page.goDetail({ currentTarget: { dataset: { id: 'r1' } } });
   assert.ok(env.storage.__navigateTo && env.storage.__navigateTo.includes('/pages/detail/detail?id=r1'));
 });
