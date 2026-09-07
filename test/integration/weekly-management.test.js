@@ -526,4 +526,76 @@ test('Weekly Plan Management integration against real PostgreSQL', async t => {
     assert.equal(newItem.locked, true, 'locked must be preserved');
     assert.equal(newItem.source, 'MANUAL', 'source must be preserved');
   });
+
+  // ===== W29: locked + unlocked count preservation =====
+  await t.test('W29 regenerate preserves total count with locked+unlocked', async () => {
+    const planId = randomUUID();
+    await pool.query(`INSERT INTO weekly_plans(id,family_id,week_start_date,status,generation_mode,created_by_user_id)
+      VALUES ($1,$2,$3,'DRAFT','BALANCED',$4)`, [planId, familyA.id, WEEK_START, userA.id]);
+    const itemA = randomUUID();
+    const itemB = randomUUID();
+    await pool.query(`INSERT INTO weekly_plan_items(id,weekly_plan_id,plan_date,meal_type,recipe_id,sort_order,locked,added_by_user_id,source)
+      VALUES ($1,$2,$3,'DINNER',$4,0,true,$5,'GENERATED')`, [itemA, planId, WEEK_START, r1, userA.id]);
+    await pool.query(`INSERT INTO weekly_plan_items(id,weekly_plan_id,plan_date,meal_type,recipe_id,sort_order,locked,added_by_user_id,source)
+      VALUES ($1,$2,$3,'DINNER',$4,1,false,$5,'GENERATED')`, [itemB, planId, WEEK_START, r2, userA.id]);
+
+    const r = await request('A', 'POST', `/families/${familyA.id}/weekly-plans/${planId}/regenerate`, {
+      scope: 'MEAL', plan_date: WEEK_START, meal_type: 'DINNER'
+    });
+    assert.equal(r.status, 201);
+    const dinner = r.body.data.items.filter(i => i.plan_date === WEEK_START && i.meal_type === 'DINNER');
+    assert.equal(dinner.length, 2, 'must preserve original slot count (locked + 1 replacement)');
+    const aItems = dinner.filter(i => i.recipe_id === r1);
+    assert.equal(aItems.length, 1, 'locked recipe A must appear exactly once');
+    assert.equal(aItems[0].locked, true, 'A must remain locked');
+    const unlocked = dinner.filter(i => !i.locked);
+    assert.equal(unlocked.length, 1, 'exactly one unlocked replacement');
+    const recipeIds = dinner.map(i => i.recipe_id);
+    assert.equal(new Set(recipeIds).size, recipeIds.length, 'no duplicate recipe ids');
+  });
+
+  // ===== W30: all-locked exact preservation, no extra dishes =====
+  await t.test('W30 all-locked regenerate preserves exactly no extra items', async () => {
+    const planId = randomUUID();
+    await pool.query(`INSERT INTO weekly_plans(id,family_id,week_start_date,status,generation_mode,created_by_user_id)
+      VALUES ($1,$2,$3,'DRAFT','BALANCED',$4)`, [planId, familyA.id, WEEK_START, userA.id]);
+    await pool.query(`INSERT INTO weekly_plan_items(id,weekly_plan_id,plan_date,meal_type,recipe_id,sort_order,locked,added_by_user_id,source)
+      VALUES ($1,$2,$3,'DINNER',$4,0,true,$5,'GENERATED')`, [randomUUID(), planId, WEEK_START, r1, userA.id]);
+    await pool.query(`INSERT INTO weekly_plan_items(id,weekly_plan_id,plan_date,meal_type,recipe_id,sort_order,locked,added_by_user_id,source)
+      VALUES ($1,$2,$3,'DINNER',$4,1,true,$5,'GENERATED')`, [randomUUID(), planId, WEEK_START, r2, userA.id]);
+
+    const r = await request('A', 'POST', `/families/${familyA.id}/weekly-plans/${planId}/regenerate`, {
+      scope: 'MEAL', plan_date: WEEK_START, meal_type: 'DINNER'
+    });
+    assert.equal(r.status, 201);
+    const dinner = r.body.data.items.filter(i => i.plan_date === WEEK_START && i.meal_type === 'DINNER');
+    assert.equal(dinner.length, 2, 'all-locked slot must not generate extra items');
+    const ids = dinner.map(i => i.recipe_id).sort();
+    assert.deepEqual(ids, [r1, r2].sort(), 'exactly A + B');
+    assert.ok(dinner.every(i => i.locked === true), 'both must remain locked');
+  });
+
+  // ===== W31: ACTIVE regenerate rejected with zero side effects =====
+  await t.test('W31 regenerate on ACTIVE plan rejected PLAN_NOT_DRAFT', async () => {
+    const activeId = randomUUID();
+    await pool.query(`INSERT INTO weekly_plans(id,family_id,week_start_date,status,generation_mode,created_by_user_id)
+      VALUES ($1,$2,$3,'ACTIVE','BALANCED',$4)`, [activeId, familyA.id, '2026-09-21', userA.id]);
+    await pool.query(`INSERT INTO weekly_plan_items(id,weekly_plan_id,plan_date,meal_type,recipe_id,sort_order,locked,added_by_user_id,source)
+      VALUES ($1,$2,$3,'DINNER',$4,0,false,$5,'GENERATED')`, [randomUUID(), activeId, '2026-09-21', r1, userA.id]);
+
+    const draftBefore = (await pool.query(`SELECT COUNT(*)::int AS c FROM weekly_plans WHERE family_id=$1 AND week_start_date=$2 AND status='DRAFT'`, [familyA.id, '2026-09-21'])).rows[0].c;
+
+    const r = await request('A', 'POST', `/families/${familyA.id}/weekly-plans/${activeId}/regenerate`, {
+      scope: 'MEAL', plan_date: '2026-09-21', meal_type: 'DINNER'
+    });
+    assert.equal(r.status, 409);
+    assert.equal(r.body.error.code, 'PLAN_NOT_DRAFT');
+
+    const activeAfter = (await pool.query(`SELECT status FROM weekly_plans WHERE id=$1`, [activeId])).rows[0];
+    assert.equal(activeAfter.status, 'ACTIVE', 'ACTIVE must remain ACTIVE');
+    const itemsAfter = (await pool.query(`SELECT COUNT(*)::int AS c FROM weekly_plan_items WHERE weekly_plan_id=$1`, [activeId])).rows[0].c;
+    assert.equal(itemsAfter, 1, 'ACTIVE items unchanged');
+    const draftAfter = (await pool.query(`SELECT COUNT(*)::int AS c FROM weekly_plans WHERE family_id=$1 AND week_start_date=$2 AND status='DRAFT'`, [familyA.id, '2026-09-21'])).rows[0].c;
+    assert.equal(draftAfter, draftBefore, 'no DRAFT created as side effect');
+  });
 });

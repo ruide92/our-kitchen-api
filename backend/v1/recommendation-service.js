@@ -753,7 +753,7 @@ function createRecommendationService(pool, options = {}) {
       const { score } = scoreRecipe(c, ctx);
       return { recipe: c, score };
     }).sort((a, b) => b.score - a.score);
-    const selected = scored.slice(0, Math.max(0, targetCount - lockedItems.length));
+    const selected = scored.slice(0, Math.max(0, targetCount));
     return { locked: lockedItems, selected };
   }
 
@@ -828,6 +828,7 @@ function createRecommendationService(pool, options = {}) {
     return access(familyId, userId, ['OWNER', 'ADMIN'], true, async tx => {
       const source = await _fetchPlan(tx, planId, familyId);
       if (!source) throw new ApiError(404, 'PLAN_NOT_FOUND', '周计划不存在');
+      if (source.status !== 'DRAFT') throw new ApiError(409, 'PLAN_NOT_DRAFT', '只能重排 DRAFT 状态的周计划');
       const { scope, plan_date, meal_type, swap_item_id } = body;
       if (!['MEAL', 'DAY', 'WEEK'].includes(scope)) throw new ApiError(400, 'INVALID_REQUEST', 'scope 必须为 MEAL/DAY/WEEK');
       if (scope === 'MEAL') {
@@ -870,7 +871,7 @@ function createRecommendationService(pool, options = {}) {
       };
 
       const toPreserve = [];
-      const mealSlots = new Map(); // key = date|meal -> {lockedItems, totalCount, sortOrders, plan_date, meal_type, preservedRecipeIds}
+      const mealSlots = new Map(); // key = date|meal -> {lockedItems, replacementCount, sortOrders, plan_date, meal_type, preservedRecipeIds}
 
       for (const item of source.items) {
         if (!inScope(item)) {
@@ -878,12 +879,12 @@ function createRecommendationService(pool, options = {}) {
         } else if (item.locked) {
           toPreserve.push(item);
           const key = `${item.plan_date}|${item.meal_type}`;
-          if (!mealSlots.has(key)) mealSlots.set(key, { lockedItems: [], totalCount: 0, sortOrders: [], plan_date: item.plan_date, meal_type: item.meal_type, preservedRecipeIds: [] });
+          if (!mealSlots.has(key)) mealSlots.set(key, { lockedItems: [], replacementCount: 0, sortOrders: [], plan_date: item.plan_date, meal_type: item.meal_type, preservedRecipeIds: [] });
           mealSlots.get(key).lockedItems.push(item);
         } else if (swap_item_id && item.id === swap_item_id) {
           const key = `${item.plan_date}|${item.meal_type}`;
-          if (!mealSlots.has(key)) mealSlots.set(key, { lockedItems: [], totalCount: 0, sortOrders: [], plan_date: item.plan_date, meal_type: item.meal_type, preservedRecipeIds: [] });
-          mealSlots.get(key).totalCount++;
+          if (!mealSlots.has(key)) mealSlots.set(key, { lockedItems: [], replacementCount: 0, sortOrders: [], plan_date: item.plan_date, meal_type: item.meal_type, preservedRecipeIds: [] });
+          mealSlots.get(key).replacementCount++;
           mealSlots.get(key).sortOrders.push(item.sort_order);
         } else if (swap_item_id) {
           toPreserve.push(item);
@@ -891,8 +892,8 @@ function createRecommendationService(pool, options = {}) {
           if (mealSlots.has(key)) mealSlots.get(key).preservedRecipeIds.push(item.recipe_id);
         } else {
           const key = `${item.plan_date}|${item.meal_type}`;
-          if (!mealSlots.has(key)) mealSlots.set(key, { lockedItems: [], totalCount: 0, sortOrders: [], plan_date: item.plan_date, meal_type: item.meal_type, preservedRecipeIds: [] });
-          mealSlots.get(key).totalCount++;
+          if (!mealSlots.has(key)) mealSlots.set(key, { lockedItems: [], replacementCount: 0, sortOrders: [], plan_date: item.plan_date, meal_type: item.meal_type, preservedRecipeIds: [] });
+          mealSlots.get(key).replacementCount++;
           mealSlots.get(key).sortOrders.push(item.sort_order);
         }
       }
@@ -919,18 +920,13 @@ function createRecommendationService(pool, options = {}) {
         }
       }
 
-      // Regenerate each meal slot
-      const breakfastCount = settings.breakfast_target_count || 2;
-      const lunchCount = settings.lunch_target_count || 2;
-      const dinnerCount = settings.dinner_target_count || 3;
-      const defaultCount = { BREAKFAST: breakfastCount, LUNCH: lunchCount, DINNER: dinnerCount };
-
+      // Regenerate each meal slot — only replace unlocked slots; all-locked slots get no new items
       for (const slot of mealSlots.values()) {
-        const count = slot.totalCount > 0 ? slot.totalCount : (defaultCount[slot.meal_type] || 2);
+        if (slot.replacementCount === 0) continue;
         const warnings = [];
         const excludedRecipeIds = swapTarget ? [swapTarget.recipe_id, ...slot.preservedRecipeIds] : [];
         const { selected } = await _pickMealRecipes(
-          tx, familyId, slot.meal_type, count, slot.lockedItems,
+          tx, familyId, slot.meal_type, slot.replacementCount, slot.lockedItems,
           { mode, randomFn }, settings, activeMemberIds, realHistory, inPlanHistory,
           inventory, pantry, unitsMap, dislikedSet, warnings, excludedRecipeIds
         );
