@@ -47,6 +47,7 @@ Page({
     mealTypeLabel: '晚餐',
     currentMealLabel: '',
     currentMealStatus: '',
+    showOnboarding: false,
   },
 
   onLoad() {
@@ -156,6 +157,10 @@ Page({
         } catch (mealErr) { if (mealErr.status !== 404 && mealErr.code !== 'NOT_FOUND') throw mealErr; }
       }
       this.setData({ loading: false, loadError: null })
+      // First-time onboarding: show once, only after data loads successfully
+      if (!wx.getStorageSync('v1_onboarding_shown')) {
+        this.setData({ showOnboarding: true })
+      }
     } catch (e) {
       this.setData({ loading: false, loadError: e.message || '加载失败，请重试' })
     }
@@ -289,6 +294,11 @@ Page({
     const id = e.currentTarget.dataset.id;
     if (!id) return;
     wx.navigateTo({ url: '/pages/detail/detail?id=' + id });
+  },
+
+  dismissOnboarding() {
+    wx.setStorageSync('v1_onboarding_shown', true)
+    this.setData({ showOnboarding: false })
   },
 
   onPullDownRefresh() {

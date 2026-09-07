@@ -81,6 +81,9 @@
       <text class="completed-icon">✅</text>
       <text class="completed-title">这顿饭完成啦</text>
       <text class="completed-sub">{{items.length}} 道菜 · 已记录历史</text>
+      <view class="completed-actions">
+        <view class="completed-action-btn" bindtap="goHistory">📋 查看历史</view>
+      </view>
     </view>
 
     <!-- COOKING but no local state -->
@@ -137,6 +140,27 @@
       <view class="completion-footer">
         <view class="action-btn action-secondary" bindtap="hideCompletionSheet">取消</view>
         <view class="action-btn action-primary {{completing ? 'btn-busy' : ''}}" bindtap="confirmComplete">确认完成</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- Completion success sheet -->
+  <view wx:if="{{showCompleteSuccess}}" class="completion-overlay" bindtap="dismissCompleteSuccess">
+    <view class="success-sheet" catchtap="">
+      <view class="success-icon">🎉</view>
+      <text class="success-title">这顿饭完成啦</text>
+      <text class="success-sub">已记录到家庭历史，冰箱库存已更新</text>
+      <view wx:if="{{completeSummary.length > 0}}" class="success-summary">
+        <text class="success-summary-title">本次消耗</text>
+        <view wx:for="{{completeSummary}}" wx:key="name" class="success-summary-item">
+          <text class="success-summary-name">{{item.name}}</text>
+          <text class="success-summary-qty">{{item.quantity}}{{item.unit_code}}</text>
+        </view>
+      </view>
+      <view wx:else class="success-summary-empty">本次未扣减库存</view>
+      <view class="success-actions">
+        <view class="action-btn action-secondary" bindtap="dismissCompleteSuccess">返回菜单</view>
+        <view class="action-btn action-primary" bindtap="goHistory">查看历史</view>
       </view>
     </view>
   </view>

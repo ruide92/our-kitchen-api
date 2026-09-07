@@ -200,6 +200,16 @@
 .completed-icon { font-size: 60rpx; display: block; }
 .completed-title { font-size: 32rpx; color: #2E7D32; font-weight: 700; display: block; margin-top: 8rpx; }
 .completed-sub { font-size: 24rpx; color: #558B2F; margin-top: 4rpx; display: block; }
+.completed-actions { margin-top: 20rpx; display: flex; justify-content: center; }
+.completed-action-btn {
+  background: #FFF;
+  color: #2E7D32;
+  padding: 12rpx 32rpx;
+  border-radius: 24rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  box-shadow: 0 2rpx 8rpx rgba(46,125,50,0.15);
+}
 
 /* Cooking unavailable */
 .cooking-unavailable {
@@ -265,3 +275,51 @@
 }
 .completion-footer .action-btn { flex: 1; text-align: center; }
 .action-secondary { background: #F5F0E8; color: #5D4037; }
+
+/* Completion success sheet */
+.success-sheet {
+  width: 100%;
+  background: #FFF;
+  border-radius: 24rpx 24rpx 0 0;
+  padding: 48rpx 32rpx calc(32rpx + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.success-icon { font-size: 80rpx; margin-bottom: 16rpx; }
+.success-title { font-size: 36rpx; font-weight: 700; color: #2E7D32; }
+.success-sub { font-size: 26rpx; color: #8D6E63; margin-top: 8rpx; text-align: center; }
+.success-summary {
+  width: 100%;
+  margin-top: 32rpx;
+  background: #F9F6F0;
+  border-radius: 16rpx;
+  padding: 24rpx;
+}
+.success-summary-title { font-size: 26rpx; color: #5D4037; font-weight: 600; display: block; margin-bottom: 12rpx; }
+.success-summary-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 10rpx 0;
+  border-bottom: 1rpx solid #EDE7DC;
+}
+.success-summary-item:last-child { border-bottom: none; }
+.success-summary-name { font-size: 26rpx; color: #3E2723; }
+.success-summary-qty { font-size: 26rpx; color: #7CB342; font-weight: 600; }
+.success-summary-empty {
+  width: 100%;
+  margin-top: 32rpx;
+  text-align: center;
+  font-size: 26rpx;
+  color: #A1887F;
+  padding: 24rpx;
+  background: #F9F6F0;
+  border-radius: 16rpx;
+}
+.success-actions {
+  display: flex;
+  gap: 16rpx;
+  width: 100%;
+  margin-top: 32rpx;
+}
+.success-actions .action-btn { flex: 1; text-align: center; }

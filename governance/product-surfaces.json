@@ -103,6 +103,15 @@
       "final": "REAL"
     },
     {
+      "id": "HOME-12",
+      "page": "index",
+      "kind": "wxml-handler",
+      "handler": "dismissOnboarding",
+      "label": "关闭新用户引导",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
       "id": "HOME-NAV-01",
       "page": "index",
       "kind": "navigation",
@@ -1902,6 +1911,34 @@
       "kind": "wxml-handler",
       "handler": "onConsumptionInput",
       "label": "编辑实际用量",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MEAL-15",
+      "page": "meal",
+      "kind": "wxml-handler",
+      "handler": "goHistory",
+      "label": "完成后查看历史",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MEAL-16",
+      "page": "meal",
+      "kind": "wxml-handler",
+      "handler": "dismissCompleteSuccess",
+      "label": "关闭完成成功页",
+      "status": "REAL",
+      "final": "REAL"
+    },
+    {
+      "id": "MEAL-NAV-03",
+      "page": "meal",
+      "kind": "navigation",
+      "handler": "navigateTo",
+      "url": "/pages/history/history",
+      "label": "完成后跳转历史",
       "status": "REAL",
       "final": "REAL"
     },

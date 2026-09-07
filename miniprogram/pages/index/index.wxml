@@ -43,6 +43,17 @@
       </view>
     </view>
 
+    <!-- ========== 1.5 新用户引导 ========== -->
+    <view wx:if="{{showOnboarding}}" class="onboarding-banner">
+      <view class="onboarding-content">
+        <text class="onboarding-title">👋 欢迎来到我们的小厨房</text>
+        <text class="onboarding-text">不知道吃什么？试试「随机菜谱」，或者看看「冰箱」里有什么可以做。</text>
+      </view>
+      <view class="onboarding-close" bindtap="dismissOnboarding">
+        <text class="onboarding-close-text">知道了</text>
+      </view>
+    </view>
+
     <!-- ========== 2. 四个快捷入口 ========== -->
     <view class="quick-panel">
       <view class="quick-item" bindtap="goRandom">

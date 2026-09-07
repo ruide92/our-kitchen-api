@@ -33,6 +33,9 @@ Page({
     consumptionCandidates: [],
     completing: false,
     confirmZeroConsumption: false,
+    // Completion success
+    showCompleteSuccess: false,
+    completeSummary: [],
   },
 
   onLoad(options) {
@@ -440,9 +443,15 @@ Page({
   async _doComplete(consumption) {
     this.setData({ completing: true });
     try {
-      await this._api.completeCooking(this.data.familyId, this.data.cookingData.session_id, { consumption });
+      const result = await this._api.completeCooking(this.data.familyId, this.data.cookingData.session_id, { consumption });
       // Clear local cooking cache
       this._clearLocalCooking(this.data.meal.id);
+      // Build consumption summary from movements
+      const summary = (result?.movements || []).map(m => ({
+        name: m.ingredient_name || m.name || '食材',
+        quantity: m.quantity || 0,
+        unit_code: m.unit_code || '',
+      }));
       this.setData({
         showCompletionSheet: false,
         showCooking: false,
@@ -451,10 +460,11 @@ Page({
         consumptionCandidates: [],
         completing: false,
         confirmZeroConsumption: false,
+        showCompleteSuccess: true,
+        completeSummary: summary,
       });
-      wx.showToast({ title: '这顿饭完成啦', icon: 'success' });
-      // Reload meal to show COMPLETED state
-      await this.loadMeal();
+      // Reload meal in background to show COMPLETED state after dismiss
+      this.loadMeal();
     } catch (err) {
       this.setData({ completing: false });
       if (err.code === 'INVENTORY_INSUFFICIENT') {
@@ -498,5 +508,15 @@ Page({
     }
     this._mealTarget.update({ meal_date: this.data.mealDate, meal_type: this.data.mealType, diners_count: this.data.dinersCount });
     wx.switchTab({ url: '/pages/menu/menu' });
+  },
+
+  // ===== Completion success sheet =====
+  dismissCompleteSuccess() {
+    this.setData({ showCompleteSuccess: false });
+  },
+
+  goHistory() {
+    this.setData({ showCompleteSuccess: false });
+    wx.navigateTo({ url: '/pages/history/history' });
   },
 });

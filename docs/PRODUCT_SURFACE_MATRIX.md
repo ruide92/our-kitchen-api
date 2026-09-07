@@ -9,11 +9,11 @@
 
 | Status | Count |
 |---|---|
-| REAL | 187 |
+| REAL | 191 |
 | BROKEN | 7 |
 | PLANNED_DISABLED | 2 |
 | HIDDEN | 27 |
-| **Total** | **223** |
+| **Total** | **227** |
 
 ## Surfaces
 
@@ -133,6 +133,7 @@
 | HOME-09 | wxml-handler | addMealToCurrent | REAL | REAL |
 | HOME-10 | wxml-handler | goTodayMenu | REAL | REAL |
 | HOME-11 | wxml-handler | goDishDetail | REAL | REAL |
+| HOME-12 | wxml-handler | dismissOnboarding | REAL | REAL |
 | HOME-NAV-01 | navigation | switchTab | REAL | REAL |
 | HOME-NAV-02 | navigation | switchTab | REAL | REAL |
 | HOME-NAV-03 | navigation | switchTab | REAL | REAL |
@@ -158,8 +159,11 @@
 | MEAL-12 | wxml-handler | confirmComplete | REAL | REAL |
 | MEAL-13 | wxml-handler | hideCompletionSheet | REAL | REAL |
 | MEAL-14 | wxml-handler | onConsumptionInput | REAL | REAL |
+| MEAL-15 | wxml-handler | goHistory | REAL | REAL |
+| MEAL-16 | wxml-handler | dismissCompleteSuccess | REAL | REAL |
 | MEAL-NAV-01 | navigation | switchTab | REAL | REAL |
 | MEAL-NAV-02 | navigation | switchTab | REAL | REAL |
+| MEAL-NAV-03 | navigation | navigateTo | REAL | REAL |
 
 ### menu
 
